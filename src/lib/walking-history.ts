@@ -49,6 +49,8 @@ export interface UserSettings {
   homeLat?: number;
   homeLng?: number;
   prayerPreferences?: string[]; // which prayers user walks to
+  prayerMosques?: Record<string, string>; // prayer name -> mosque id
+  notifyMinutesBefore?: number; // minutes before "leave by" time to notify
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
