@@ -68,6 +68,7 @@ const MosqueFinder = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedMosque, setSelectedMosque] = useState<Mosque | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -84,6 +85,7 @@ const MosqueFinder = () => {
 
   const searchNearbyMosques = async (lat: number, lng: number) => {
     setLoading(true);
+    setSearchError(null);
     try {
       const query = `
         [out:json][timeout:10];
@@ -112,6 +114,7 @@ const MosqueFinder = () => {
       setMosques(results);
     } catch (e) {
       console.error("Failed to fetch mosques:", e);
+      setSearchError("Failed to find mosques. Check your internet connection and try again.");
     } finally {
       setLoading(false);
     }
@@ -152,14 +155,11 @@ const MosqueFinder = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col pb-bottom-nav">
       <header className="bg-card border-b border-border">
-        <div className="container py-4 flex items-center justify-between">
-          <Link to="/dashboard" className="flex items-center gap-2 text-foreground">
-            <ArrowLeft className="w-5 h-5" />
-            <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
-            <span className="font-bold">Find Mosques</span>
-          </Link>
+        <div className="container py-3 flex items-center gap-2">
+          <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
+          <span className="font-bold text-foreground">Find Mosques</span>
         </div>
         <div className="container pb-4">
           <div className="flex gap-2">
@@ -216,6 +216,19 @@ const MosqueFinder = () => {
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
           {loading ? "Searching..." : `${mosques.length} mosques nearby`}
         </h2>
+        {searchError && (
+          <div className="glass-card p-4 text-center">
+            <p className="text-sm text-destructive mb-1">⚠️ {searchError}</p>
+            <p className="text-xs text-muted-foreground">Try searching for a different location.</p>
+          </div>
+        )}
+        {!loading && !searchError && mosques.length === 0 && (
+          <div className="glass-card p-6 text-center">
+            <MapPin className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">No mosques found nearby.</p>
+            <p className="text-xs text-muted-foreground mt-1">Try searching for a different area or zooming out.</p>
+          </div>
+        )}
         {mosques.map((m) => {
           const isSelected = selectedMosque?.id === m.id;
           return (

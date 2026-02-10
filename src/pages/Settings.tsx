@@ -92,13 +92,13 @@ const Settings = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-bottom-nav">
       <header className="bg-card border-b border-border">
-        <div className="container py-4 flex items-center gap-2">
-          <Link to="/dashboard" className="flex items-center gap-2 text-foreground">
-            <ArrowLeft className="w-5 h-5" />
-            <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
+        <div className="container py-3 flex items-center gap-2">
+          <Link to="/dashboard">
+            <ArrowLeft className="w-5 h-5 text-foreground" />
           </Link>
+          <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
           <span className="font-bold text-foreground">Settings</span>
         </div>
       </header>

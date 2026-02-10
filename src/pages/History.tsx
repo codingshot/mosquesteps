@@ -67,16 +67,13 @@ const History = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="bg-card border-b border-border">
-        <div className="container py-4 flex items-center gap-2">
-          <Link to="/dashboard" className="flex items-center gap-2 text-foreground">
-            <ArrowLeft className="w-5 h-5" />
-            <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
-          </Link>
+        <div className="container py-3 flex items-center gap-2">
+          <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
           <span className="font-bold text-foreground">Walking History</span>
         </div>
       </header>
 
-      <div className="container py-6 space-y-6">
+      <div className="container py-6 space-y-6 pb-bottom-nav">
         {/* Stats overview */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="glass-card p-4 text-center">
