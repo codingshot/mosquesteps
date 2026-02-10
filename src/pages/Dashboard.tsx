@@ -170,9 +170,19 @@ const Dashboard = () => {
             {isNextDay ? "Tomorrow · " : ""}{readableDate}
             {settings.cityName && <span> · {settings.cityName}</span>}
           </p>
-          <h1 className="text-xl font-bold mb-4">
-            {isNextDay ? "Tomorrow's Prayers" : "Today's Journey"}
-          </h1>
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-xl font-bold">
+              {isNextDay ? "Tomorrow's Prayers" : "Today's Journey"}
+            </h1>
+            <div className="text-right">
+              <span className="text-2xl font-bold tabular-nums">
+                {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+              <p className="text-[10px] text-primary-foreground/60">
+                {settings.cityName || "Local Time"}
+              </p>
+            </div>
+          </div>
 
           {/* Circular progress */}
           <motion.div
@@ -193,15 +203,9 @@ const Dashboard = () => {
                 </defs>
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-2xl font-bold tabular-nums">
-                  {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-                <span className="text-[10px] text-primary-foreground/60 mb-0.5">
-                  {settings.cityName || "Local Time"}
-                </span>
-                <Footprints className="w-5 h-5 text-gold mb-0.5" />
-                <span className="text-xl font-bold">{steps.toLocaleString()}</span>
-                <span className="text-[10px] text-primary-foreground/70">est. steps (round trip)</span>
+                <Footprints className="w-6 h-6 text-gold mb-1" />
+                <span className="text-3xl font-bold">{steps.toLocaleString()}</span>
+                <span className="text-xs text-primary-foreground/70">est. steps (round trip)</span>
               </div>
             </div>
           </motion.div>
