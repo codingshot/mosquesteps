@@ -52,6 +52,8 @@ export interface UserSettings {
   prayerPreferences?: string[]; // which prayers user walks to
   prayerMosques?: Record<string, string>; // prayer name -> mosque id
   notifyMinutesBefore?: number; // minutes before "leave by" time to notify
+  age?: number;
+  gender?: "male" | "female" | "";
 }
 
 /**
