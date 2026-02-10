@@ -7,6 +7,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { estimateSteps, estimateWalkingTime, fetchPrayerTimes, type PrayerTime } from "@/lib/prayer-times";
 import { fetchWalkingRoute } from "@/lib/routing";
+import { getCachedMosques, setCachedMosques, getCachedRoute, setCachedRoute, isOnline } from "@/lib/offline-cache";
 import {
   saveSettings, getSettings,
   saveMosque, getSavedMosques, removeSavedMosque, setPrimaryMosque,
@@ -124,6 +125,16 @@ const MosqueFinder = () => {
     return () => clearInterval(interval);
   }, [nextPrayer]);
 
+  // Track online status
+  const [online, setOnline] = useState(isOnline());
+  useEffect(() => {
+    const onOn = () => setOnline(true);
+    const onOff = () => setOnline(false);
+    window.addEventListener("online", onOn);
+    window.addEventListener("offline", onOff);
+    return () => { window.removeEventListener("online", onOn); window.removeEventListener("offline", onOff); };
+  }, []);
+
   // Initialize map
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
@@ -197,8 +208,24 @@ const MosqueFinder = () => {
     setSearchError(null);
     setSelectedMosqueId(null);
     clearRoute();
+
+    const origin = getDistanceOrigin();
+
+    // Show cached results immediately (stale-while-revalidate)
+    const cached = getCachedMosques(lat, lng);
+    if (cached && cached.length > 0) {
+      const withDist = cached
+        .map((m) => ({ ...m, distance: haversineDistance(origin.lat, origin.lng, m.lat, m.lon) }))
+        .sort((a, b) => (a.distance || 0) - (b.distance || 0));
+      setMosques(withDist);
+      if (!isOnline()) { setLoading(false); return; }
+    } else if (!isOnline()) {
+      setSearchError("You're offline. Connect to the internet to find mosques.");
+      setLoading(false);
+      return;
+    }
+
     try {
-      // Expanded query: node + way + relation, also building=mosque, wider radius
       const query = `
         [out:json][timeout:15];
         (
@@ -220,9 +247,7 @@ const MosqueFinder = () => {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
       });
       const data = await res.json();
-      const origin = getDistanceOrigin();
 
-      // Deduplicate by id AND by proximity (within 50m with same name)
       const seen = new Set<number>();
       const deduped: Mosque[] = [];
       const allParsed: Mosque[] = data.elements
@@ -236,7 +261,6 @@ const MosqueFinder = () => {
 
       for (const m of allParsed) {
         if (seen.has(m.id)) continue;
-        // Check if a mosque with similar name exists within 50m
         const isDuplicate = deduped.some(
           (existing) =>
             existing.name === m.name &&
@@ -252,9 +276,14 @@ const MosqueFinder = () => {
         .map((m: Mosque) => ({ ...m, distance: haversineDistance(origin.lat, origin.lng, m.lat, m.lon) }))
         .sort((a: Mosque, b: Mosque) => (a.distance || 0) - (b.distance || 0));
       setMosques(results);
+
+      // Cache for offline
+      setCachedMosques(lat, lng, results.map((m) => ({ id: m.id, name: m.name, lat: m.lat, lon: m.lon })));
     } catch (e) {
       console.error("Failed to fetch mosques:", e);
-      setSearchError("Failed to find mosques. Check your internet connection and try again.");
+      if (!cached || cached.length === 0) {
+        setSearchError("Failed to find mosques. Check your internet connection and try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -283,34 +312,47 @@ const MosqueFinder = () => {
       mapRef.current.fitBounds(bounds, { padding: [40, 40] });
     }
 
-    // Fetch walking route
+    // Try cached route first, then fetch
     setRouteLoading(true);
+    const cachedRoute = getCachedRoute(origin.lat, origin.lng, mosque.lat, mosque.lon);
+
+    const applyRoute = (route: { coords: [number, number][]; distanceKm: number; durationMin: number; steps: { instruction: string; distance: number; duration?: number }[] }) => {
+      if (!mapRef.current) return;
+      routeLineRef.current = L.polyline(route.coords, {
+        color: "#0D7377",
+        weight: 4,
+        opacity: 0.7,
+        dashArray: "8, 8",
+      }).addTo(mapRef.current);
+      mapRef.current.fitBounds(routeLineRef.current.getBounds(), { padding: [40, 40] });
+      setRouteInfo({ distanceKm: route.distanceKm, durationMin: route.durationMin, steps: route.steps });
+      setMosques((prev) =>
+        prev.map((m) =>
+          m.id === mosque.id ? { ...m, walkingDistanceKm: route.distanceKm, walkingDurationMin: route.durationMin } : m
+        )
+      );
+    };
+
+    // Show cached immediately
+    if (cachedRoute) {
+      applyRoute(cachedRoute);
+      setRouteLoading(false);
+      // Revalidate in background if online
+      if (isOnline()) {
+        fetchWalkingRoute(origin.lat, origin.lng, mosque.lat, mosque.lon).then((fresh) => {
+          if (fresh) {
+            setCachedRoute(origin.lat, origin.lng, mosque.lat, mosque.lon, fresh);
+          }
+        }).catch(() => {});
+      }
+      return;
+    }
+
     try {
       const route = await fetchWalkingRoute(origin.lat, origin.lng, mosque.lat, mosque.lon);
-      if (route && mapRef.current) {
-        routeLineRef.current = L.polyline(route.coords, {
-          color: "#0D7377",
-          weight: 4,
-          opacity: 0.7,
-          dashArray: "8, 8",
-        }).addTo(mapRef.current);
-
-        mapRef.current.fitBounds(routeLineRef.current.getBounds(), { padding: [40, 40] });
-
-        setRouteInfo({
-          distanceKm: route.distanceKm,
-          durationMin: route.durationMin,
-          steps: route.steps,
-        });
-
-        // Update the mosque's walking distance in the list
-        setMosques((prev) =>
-          prev.map((m) =>
-            m.id === mosque.id
-              ? { ...m, walkingDistanceKm: route.distanceKm, walkingDurationMin: route.durationMin }
-              : m
-          )
-        );
+      if (route) {
+        applyRoute(route);
+        setCachedRoute(origin.lat, origin.lng, mosque.lat, mosque.lon, route);
       }
     } catch (e) {
       console.error("Route fetch failed:", e);
@@ -420,6 +462,14 @@ const MosqueFinder = () => {
             </p>
           )}
         </div>
+
+        {/* Offline banner */}
+        {!online && (
+          <div className="bg-destructive/10 border-b border-destructive/20 px-4 py-2 flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
+            <p className="text-xs text-destructive font-medium">Offline — showing cached mosques</p>
+          </div>
+        )}
       </header>
 
       {/* Map */}
