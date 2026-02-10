@@ -9,17 +9,22 @@
 
     <title>MosqueSteps — Track Your Blessed Walk to the Mosque</title>
     <meta name="description" content="Every step to the mosque is a blessing. Track your walking journey, view prayer times, estimate steps, and discover the spiritual rewards of walking to prayer. Rooted in the Sunnah." />
-    <meta name="keywords" content="mosque, walking, steps, prayer, salah, sunnah, hasanat, Islam, Muslim, fitness, spiritual rewards, prayer times" />
+    <meta name="keywords" content="mosque, walking, steps, prayer, salah, sunnah, hasanat, Islam, Muslim, fitness, spiritual rewards, prayer times, mosque finder, step counter" />
+    <meta name="author" content="ummah.build" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
 
     <meta property="og:type" content="website" />
     <meta property="og:title" content="MosqueSteps — Every Step is a Blessing" />
     <meta property="og:description" content="Track your blessed walk to the mosque. View prayer times, estimate steps and time, and discover the immense spiritual rewards of walking to prayer." />
     <meta property="og:url" content="https://mosquesteps.com" />
     <meta property="og:site_name" content="MosqueSteps" />
+    <meta property="og:locale" content="en_US" />
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="MosqueSteps — Every Step is a Blessing" />
     <meta name="twitter:description" content="Track your blessed walk to the mosque. Rooted in the Sunnah." />
+    <meta name="twitter:site" content="@ummahbuild" />
+    <meta name="twitter:creator" content="@ummahbuild" />
 
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/favicon.png" />
@@ -27,6 +32,41 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "MosqueSteps",
+      "url": "https://mosquesteps.com",
+      "description": "Track your walking journey to the mosque, view prayer times, estimate steps, and discover the spiritual rewards of walking to prayer.",
+      "applicationCategory": "HealthApplication",
+      "operatingSystem": "Web",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "creator": {
+        "@type": "Organization",
+        "name": "ummah.build",
+        "url": "https://ummah.build",
+        "sameAs": [
+          "https://x.com/ummahbuild",
+          "https://www.linkedin.com/company/ummah-build/"
+        ]
+      },
+      "featureList": [
+        "Real-time step counting with accelerometer",
+        "Prayer times based on location",
+        "Mosque finder via OpenStreetMap",
+        "Spiritual rewards (hasanat) calculator",
+        "Walking streaks and badges",
+        "Offline PWA support"
+      ]
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>
