@@ -127,6 +127,15 @@ const Dashboard = () => {
   };
 
   const handleEnableNotifications = async () => {
+    const permission = getNotificationPermission();
+    if (permission === "denied") {
+      toast({
+        title: "Notifications blocked 🔒",
+        description: "Open Settings → Prayer Notifications to see how to unblock them.",
+        variant: "destructive",
+      });
+      return;
+    }
     const granted = await requestNotificationPermission();
     if (granted) {
       toast({ title: "Notifications enabled! 🔔", description: `You'll be reminded ${notifyMinBefore} min before leave time.` });
@@ -139,7 +148,7 @@ const Dashboard = () => {
     } else {
       toast({
         title: "Notifications blocked",
-        description: "Please enable notifications in your browser settings to receive prayer reminders.",
+        description: "Go to Settings to learn how to unblock notifications in your browser.",
         variant: "destructive",
       });
     }

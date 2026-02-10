@@ -1,0 +1,164 @@
+import { useParams, Link, Navigate } from "react-router-dom";
+import { ArrowLeft, ArrowRight, ChevronRight, Download, Smartphone } from "lucide-react";
+import { motion } from "framer-motion";
+import SEOHead from "@/components/SEOHead";
+import { Button } from "@/components/ui/button";
+import { guides, getGuideById } from "@/lib/guides-data";
+import { usePWAInstall } from "@/hooks/use-pwa-install";
+import logo from "@/assets/logo.png";
+
+const GuidePage = () => {
+  const { guideId } = useParams<{ guideId: string }>();
+  const guide = getGuideById(guideId || "");
+  const { canInstall, isInstalled, install } = usePWAInstall();
+
+  if (!guide) return <Navigate to="/guides" replace />;
+
+  const currentIndex = guides.findIndex((g) => g.id === guide.id);
+  const prevGuide = currentIndex > 0 ? guides[currentIndex - 1] : null;
+  const nextGuide = currentIndex < guides.length - 1 ? guides[currentIndex + 1] : null;
+
+  return (
+    <div className="min-h-screen bg-background pb-bottom-nav">
+      <SEOHead
+        title={`${guide.title} — User Guide`}
+        description={guide.description}
+        path={`/guides/${guide.id}`}
+      />
+
+      <header className="bg-gradient-teal text-primary-foreground">
+        <div className="container py-4 flex items-center gap-2">
+          <Link to="/guides" className="flex items-center gap-2 text-primary-foreground">
+            <ArrowLeft className="w-5 h-5" />
+            <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
+          </Link>
+          <span className="font-bold text-sm">Guides</span>
+          <ChevronRight className="w-4 h-4 text-primary-foreground/50" />
+          <span className="font-bold text-sm truncate">{guide.title}</span>
+        </div>
+        <div className="container pb-6 text-center">
+          <span className="text-4xl mb-2 block">{guide.iconEmoji}</span>
+          <h1 className="text-2xl font-bold">{guide.title}</h1>
+          <p className="text-sm text-primary-foreground/70 mt-1 max-w-md mx-auto">{guide.description}</p>
+        </div>
+      </header>
+
+      <div className="container py-6 space-y-6 max-w-2xl">
+        {/* Screenshot */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-card overflow-hidden"
+        >
+          <div className="bg-muted/50 flex justify-center p-4">
+            <img
+              src={guide.screenshot}
+              alt={`${guide.title} screenshot`}
+              className="rounded-xl shadow-lg max-h-80 w-auto object-contain"
+              loading="lazy"
+            />
+          </div>
+        </motion.div>
+
+        {/* Steps */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="glass-card p-5 space-y-4"
+        >
+          <h2 className="font-semibold text-foreground text-lg">Step-by-Step</h2>
+          <ol className="space-y-3">
+            {guide.steps.map((step, j) => (
+              <li key={j} className="flex gap-3 text-sm">
+                <span className="w-7 h-7 rounded-full bg-gradient-gold text-foreground text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+                  {j + 1}
+                </span>
+                <span className="text-muted-foreground leading-relaxed pt-1">{step}</span>
+              </li>
+            ))}
+          </ol>
+        </motion.div>
+
+        {/* Tip */}
+        {guide.tip && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="bg-secondary rounded-xl p-4 text-sm text-secondary-foreground"
+          >
+            <span className="font-semibold">💡 Tip:</span> {guide.tip}
+          </motion.div>
+        )}
+
+        {/* CTA to open the related page */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <Link to={guide.page}>
+            <Button className="w-full" size="lg">
+              {guide.pageLabel} <ArrowRight className="w-4 h-4 ml-1" />
+            </Button>
+          </Link>
+        </motion.div>
+
+        {/* PWA Install - show on all guide pages */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+          className="glass-card p-5 space-y-3"
+        >
+          <h3 className="font-semibold text-foreground flex items-center gap-2">
+            <Smartphone className="w-5 h-5 text-primary" /> Install as App
+          </h3>
+          {isInstalled ? (
+            <p className="text-sm text-primary font-medium">✓ MosqueSteps is already installed!</p>
+          ) : canInstall ? (
+            <Button onClick={install} className="w-full" variant="hero">
+              <Download className="w-4 h-4 mr-2" /> Install MosqueSteps
+            </Button>
+          ) : (
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p><strong>iOS Safari:</strong> Tap Share → "Add to Home Screen"</p>
+              <p><strong>Android Chrome:</strong> Tap menu (⋮) → "Install App"</p>
+              <p><strong>Desktop Chrome/Edge:</strong> Click install icon in address bar</p>
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground italic">
+            Installing enables offline support, push notifications, and native app-like experience.
+          </p>
+        </motion.div>
+
+        {/* Prev/Next navigation */}
+        <div className="flex gap-3">
+          {prevGuide ? (
+            <Link to={`/guides/${prevGuide.id}`} className="flex-1">
+              <div className="glass-card p-3 hover:shadow-teal transition-shadow">
+                <p className="text-[10px] text-muted-foreground">← Previous</p>
+                <p className="text-sm font-medium text-foreground truncate">{prevGuide.iconEmoji} {prevGuide.title}</p>
+              </div>
+            </Link>
+          ) : <div className="flex-1" />}
+          {nextGuide ? (
+            <Link to={`/guides/${nextGuide.id}`} className="flex-1 text-right">
+              <div className="glass-card p-3 hover:shadow-teal transition-shadow">
+                <p className="text-[10px] text-muted-foreground">Next →</p>
+                <p className="text-sm font-medium text-foreground truncate">{nextGuide.iconEmoji} {nextGuide.title}</p>
+              </div>
+            </Link>
+          ) : <div className="flex-1" />}
+        </div>
+
+        <div className="text-center pt-2">
+          <Link to="/guides" className="text-sm text-primary hover:underline">← All Guides</Link>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default GuidePage;
