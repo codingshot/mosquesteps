@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { MapPin, Bell, Locate, ChevronRight, Check, Home } from "lucide-react";
-import { saveSettings, getSettings } from "@/lib/walking-history";
+import { saveSettings, getSettings, fetchTimezone } from "@/lib/walking-history";
 import { requestNotificationPermission, isNotificationSupported } from "@/lib/notifications";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
@@ -73,6 +73,7 @@ const Onboarding = () => {
           );
           const data = await res.json();
           const city = data.address?.city || data.address?.town || data.address?.village || "Current Location";
+          const tz = await fetchTimezone(lat, lng);
           setSettingsState((s) => ({
             ...s,
             cityName: city,
@@ -81,6 +82,7 @@ const Onboarding = () => {
             homeLat: lat,
             homeLng: lng,
             homeAddress: data.display_name?.split(",").slice(0, 3).join(",") || "Home",
+            ...(tz ? { cityTimezone: tz } : {}),
           }));
           toast({ title: `Location: ${city}` });
         } catch {
@@ -104,11 +106,15 @@ const Onboarding = () => {
       const data = await res.json();
       if (data.length > 0) {
         const city = data[0].display_name?.split(",")[0] || citySearch;
+        const lat = parseFloat(data[0].lat);
+        const lng = parseFloat(data[0].lon);
+        const tz = await fetchTimezone(lat, lng);
         setSettingsState((s) => ({
           ...s,
           cityName: city,
-          cityLat: parseFloat(data[0].lat),
-          cityLng: parseFloat(data[0].lon),
+          cityLat: lat,
+          cityLng: lng,
+          ...(tz ? { cityTimezone: tz } : {}),
         }));
         toast({ title: `City set: ${city}` });
       }
