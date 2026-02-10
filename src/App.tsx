@@ -20,6 +20,7 @@ const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
 const Legal = lazy(() => import("./pages/Legal"));
 const Guides = lazy(() => import("./pages/Guides"));
+const GuidePage = lazy(() => import("./pages/GuidePage"));
 const FAQPage = lazy(() => import("./pages/FAQPage"));
 const HowItWorksPage = lazy(() => import("./pages/HowItWorksPage"));
 const SunnahPage = lazy(() => import("./pages/SunnahPage"));
@@ -73,6 +74,7 @@ const App = () => (
             <Route path="/terms" element={<Terms />} />
             <Route path="/legal" element={<Legal />} />
             <Route path="/guides" element={<Guides />} />
+            <Route path="/guides/:guideId" element={<GuidePage />} />
             <Route path="/faq" element={<FAQPage />} />
             <Route path="/how-it-works" element={<HowItWorksPage />} />
             <Route path="/sunnah" element={<SunnahPage />} />

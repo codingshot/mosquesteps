@@ -262,14 +262,37 @@ const Settings = () => {
             Get reminded when it's time to leave for the mosque based on walking distance.
           </p>
           {isNotificationSupported() ? (
-            <Button
-              variant={notifPermission === "granted" ? "outline" : "default"}
-              size="sm"
-              onClick={handleNotificationToggle}
-              className="w-full"
-            >
-              {notifPermission === "granted" ? "✓ Notifications Enabled" : "Enable Notifications"}
-            </Button>
+            <>
+              <Button
+                variant={notifPermission === "granted" ? "outline" : "default"}
+                size="sm"
+                onClick={handleNotificationToggle}
+                className="w-full"
+              >
+                {notifPermission === "granted" ? "✓ Notifications Enabled" : notifPermission === "denied" ? "🔒 Notifications Blocked" : "Enable Notifications"}
+              </Button>
+              {notifPermission === "denied" && (
+                <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 space-y-2">
+                  <p className="text-xs text-destructive font-medium">Notifications are blocked by your browser.</p>
+                  <p className="text-xs text-muted-foreground">To re-enable them:</p>
+                  <ol className="text-xs text-muted-foreground space-y-1 list-decimal pl-4">
+                    <li>Click the 🔒 lock icon in your browser's address bar</li>
+                    <li>Find "Notifications" and change it to "Allow"</li>
+                    <li>Refresh this page</li>
+                  </ol>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-2"
+                    onClick={() => {
+                      window.location.reload();
+                    }}
+                  >
+                    I've unblocked — Refresh now
+                  </Button>
+                </div>
+              )}
+            </>
           ) : (
             <p className="text-xs text-muted-foreground italic">Notifications not supported on this browser.</p>
           )}
