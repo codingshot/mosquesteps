@@ -103,19 +103,33 @@ export function getWalkingStats(): WalkingStats {
   for (let i = 0; i < uniqueDates.length; i++) {
     const d = new Date(uniqueDates[i]);
     d.setHours(0, 0, 0, 0);
-    const diff = Math.round((today.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+    const expectedDate = new Date(today);
+    expectedDate.setDate(expectedDate.getDate() - i);
+    expectedDate.setHours(0, 0, 0, 0);
 
-    if (diff === i) {
+    if (d.getTime() === expectedDate.getTime()) {
       tempStreak++;
-      if (i === 0 || diff <= currentStreak + 1) {
-        currentStreak = tempStreak;
-      }
     } else {
+      break;
+    }
+  }
+  currentStreak = tempStreak;
+
+  // Calculate longest streak from all dates
+  tempStreak = 1;
+  const allDates = [...new Set(history.map((e) => e.date.split("T")[0]))].sort();
+  for (let i = 1; i < allDates.length; i++) {
+    const prev = new Date(allDates[i - 1]);
+    const curr = new Date(allDates[i]);
+    const diffDays = Math.round((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays === 1) {
+      tempStreak++;
+    } else if (diffDays > 1) {
       longestStreak = Math.max(longestStreak, tempStreak);
       tempStreak = 1;
     }
   }
-  longestStreak = Math.max(longestStreak, tempStreak);
+  longestStreak = Math.max(longestStreak, tempStreak, currentStreak);
 
   return {
     totalSteps,
