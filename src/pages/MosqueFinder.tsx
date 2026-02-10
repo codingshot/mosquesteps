@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
+import SEOHead from "@/components/SEOHead";
 import { Button } from "@/components/ui/button";
 import { Search, MapPin, Footprints, Clock, Check, Star, Trash2, Home, Navigation, ArrowLeft, Route as RouteIcon } from "lucide-react";
 import L from "leaflet";
@@ -343,6 +344,7 @@ const MosqueFinder = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col pb-bottom-nav">
+      <SEOHead title="Find Mosques Near You" description="Discover nearby mosques with walking routes, distance estimates, and step counts. Powered by OpenStreetMap." path="/mosques" />
       <header className="bg-card border-b border-border">
         <div className="container py-3 flex items-center gap-2">
           <Link to="/dashboard" className="flex items-center gap-2">

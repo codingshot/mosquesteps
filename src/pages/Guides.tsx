@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowLeft, MapPin, Footprints, Bell, Star, Settings2, BarChart3, Smartphone, BookOpen } from "lucide-react";
 import { motion } from "framer-motion";
+import SEOHead from "@/components/SEOHead";
 import logo from "@/assets/logo.png";
 
 const guides = [
@@ -116,6 +117,7 @@ const guides = [
 const Guides = () => {
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead title="User Guides" description="Step-by-step guides for MosqueSteps — setup, tracking walks, finding mosques, prayer reminders, and earning rewards." path="/guides" />
       <header className="bg-gradient-teal text-primary-foreground">
         <div className="container py-4 flex items-center gap-2">
           <Link to="/" className="flex items-center gap-2 text-primary-foreground">

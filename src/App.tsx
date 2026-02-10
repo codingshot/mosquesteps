@@ -23,6 +23,8 @@ const Guides = lazy(() => import("./pages/Guides"));
 const FAQPage = lazy(() => import("./pages/FAQPage"));
 const HowItWorksPage = lazy(() => import("./pages/HowItWorksPage"));
 const SunnahPage = lazy(() => import("./pages/SunnahPage"));
+const Blog = lazy(() => import("./pages/Blog"));
+const BlogPost = lazy(() => import("./pages/BlogPost"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -74,6 +76,8 @@ const App = () => (
             <Route path="/faq" element={<FAQPage />} />
             <Route path="/how-it-works" element={<HowItWorksPage />} />
             <Route path="/sunnah" element={<SunnahPage />} />
+            <Route path="/blogs" element={<Blog />} />
+            <Route path="/blogs/:slug" element={<BlogPost />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <BottomNav />

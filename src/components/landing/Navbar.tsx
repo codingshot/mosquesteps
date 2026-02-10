@@ -12,7 +12,7 @@ const Navbar = () => {
     { label: "Sunnah", href: "/sunnah", isRoute: true },
     { label: "How It Works", href: "/how-it-works", isRoute: true },
     { label: "FAQ", href: "/faq", isRoute: true },
-    { label: "Guides", href: "/guides", isRoute: true },
+    { label: "Blog", href: "/blogs", isRoute: true },
   ];
 
   return (
