@@ -26,7 +26,7 @@ const Hero = () => {
             transition={{ duration: 0.8 }}
           >
             <p className="text-sm font-semibold tracking-widest uppercase text-primary mb-4">
-              MosqueSteps · SunnahSteps · SalatSteps
+              Count Every Step to the Mosque as a Blessing
             </p>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-tight text-foreground mb-6">
               Walk in the Footsteps of the{" "}

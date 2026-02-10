@@ -18,6 +18,7 @@ describe("Landing Page Components", () => {
     withRouter(<Hero />);
     expect(screen.getByText(/Walk in the Footsteps/i)).toBeInTheDocument();
     expect(screen.getByText(/Start Your Blessed Journey/i)).toBeInTheDocument();
+    expect(screen.getByText(/Count Every Step/i)).toBeInTheDocument();
   });
 
   it("Features renders all feature cards", () => {
