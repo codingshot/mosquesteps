@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { MapPin, Bell, Locate, ChevronRight, Check } from "lucide-react";
+import { MapPin, Bell, Locate, ChevronRight, Check, Home } from "lucide-react";
 import { saveSettings, getSettings } from "@/lib/walking-history";
 import { requestNotificationPermission, isNotificationSupported } from "@/lib/notifications";
 import { useToast } from "@/hooks/use-toast";
@@ -18,9 +18,12 @@ export function markOnboardingComplete() {
   localStorage.setItem(ONBOARDING_KEY, "true");
 }
 
+const ALL_PRAYERS = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"] as const;
+
 const steps = [
   { id: "welcome", title: "Welcome to MosqueSteps", icon: "🕌" },
   { id: "location", title: "Set Your Location", icon: "📍" },
+  { id: "prayers", title: "Your Prayers", icon: "🕌" },
   { id: "mosque", title: "Your Mosque", icon: "🕌" },
   { id: "notifications", title: "Prayer Reminders", icon: "🔔" },
 ];
@@ -32,6 +35,10 @@ const Onboarding = () => {
   const [settings, setSettingsState] = useState(getSettings());
   const [citySearch, setCitySearch] = useState("");
   const [locating, setLocating] = useState(false);
+  const [selectedPrayers, setSelectedPrayers] = useState<string[]>(
+    settings.prayerPreferences || ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]
+  );
+  const [homeSearch, setHomeSearch] = useState("");
 
   const next = () => {
     if (step < steps.length - 1) {
@@ -42,12 +49,13 @@ const Onboarding = () => {
   };
 
   const finish = () => {
-    saveSettings(settings);
+    saveSettings({ ...settings, prayerPreferences: selectedPrayers });
     markOnboardingComplete();
     navigate("/dashboard");
   };
 
   const skip = () => {
+    saveSettings({ ...settings, prayerPreferences: selectedPrayers });
     markOnboardingComplete();
     navigate("/dashboard");
   };
@@ -65,10 +73,18 @@ const Onboarding = () => {
           );
           const data = await res.json();
           const city = data.address?.city || data.address?.town || data.address?.village || "Current Location";
-          setSettingsState((s) => ({ ...s, cityName: city, cityLat: lat, cityLng: lng }));
+          setSettingsState((s) => ({
+            ...s,
+            cityName: city,
+            cityLat: lat,
+            cityLng: lng,
+            homeLat: lat,
+            homeLng: lng,
+            homeAddress: data.display_name?.split(",").slice(0, 3).join(",") || "Home",
+          }));
           toast({ title: `Location: ${city}` });
         } catch {
-          setSettingsState((s) => ({ ...s, cityName: "Current Location", cityLat: lat, cityLng: lng }));
+          setSettingsState((s) => ({ ...s, cityName: "Current Location", cityLat: lat, cityLng: lng, homeLat: lat, homeLng: lng }));
         }
         setLocating(false);
       },
@@ -101,12 +117,39 @@ const Onboarding = () => {
     }
   };
 
+  const handleHomeSearch = async () => {
+    if (!homeSearch.trim()) return;
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(homeSearch)}&format=json&limit=1`
+      );
+      const data = await res.json();
+      if (data.length > 0) {
+        setSettingsState((s) => ({
+          ...s,
+          homeAddress: data[0].display_name?.split(",").slice(0, 3).join(",") || homeSearch,
+          homeLat: parseFloat(data[0].lat),
+          homeLng: parseFloat(data[0].lon),
+        }));
+        toast({ title: "Home address set!" });
+      }
+    } catch {
+      toast({ title: "Search failed", variant: "destructive" });
+    }
+  };
+
   const handleNotifications = async () => {
     const granted = await requestNotificationPermission();
     if (granted) {
       toast({ title: "Notifications enabled! 🔔" });
     }
     next();
+  };
+
+  const togglePrayer = (prayer: string) => {
+    setSelectedPrayers((prev) =>
+      prev.includes(prayer) ? prev.filter((p) => p !== prayer) : [...prev, prayer]
+    );
   };
 
   return (
@@ -153,16 +196,16 @@ const Onboarding = () => {
               </div>
             )}
 
-            {/* Step 1: Location */}
+            {/* Step 1: Location + Home Address */}
             {step === 1 && (
-              <div className="space-y-6">
+              <div className="space-y-5">
                 <div className="text-center">
                   <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                     <MapPin className="w-8 h-8 text-primary" />
                   </div>
                   <h2 className="text-2xl font-bold text-foreground">Set Your Location</h2>
-                  <p className="text-muted-foreground mt-2">
-                    So we can show accurate prayer times for your area.
+                  <p className="text-muted-foreground mt-2 text-sm">
+                    For accurate prayer times and mosque distance calculations.
                   </p>
                 </div>
 
@@ -174,12 +217,7 @@ const Onboarding = () => {
                   </div>
                 )}
 
-                <Button
-                  variant="outline"
-                  onClick={handleUseLocation}
-                  disabled={locating}
-                  className="w-full"
-                >
+                <Button variant="outline" onClick={handleUseLocation} disabled={locating} className="w-full">
                   <Locate className="w-4 h-4 mr-2" />
                   {locating ? "Detecting..." : "Use Current Location"}
                 </Button>
@@ -196,6 +234,34 @@ const Onboarding = () => {
                   <Button size="sm" onClick={handleCitySearch}>Search</Button>
                 </div>
 
+                {/* Home address */}
+                <div className="border-t border-border pt-4">
+                  <label className="text-sm font-medium text-foreground flex items-center gap-1.5 mb-2">
+                    <Home className="w-4 h-4 text-primary" /> Home Address (optional)
+                  </label>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Set your home address so we can calculate exact walking distances to mosques.
+                  </p>
+                  {settings.homeAddress && (
+                    <div className="glass-card p-2 mb-2 text-center">
+                      <p className="text-xs font-medium text-primary truncate">
+                        <Check className="w-3 h-3 inline mr-1" /> {settings.homeAddress}
+                      </p>
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Search home address..."
+                      value={homeSearch}
+                      onChange={(e) => setHomeSearch(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleHomeSearch()}
+                      className="flex-1 px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                    <Button size="sm" onClick={handleHomeSearch}>Set</Button>
+                  </div>
+                </div>
+
                 <Button variant="hero" onClick={next} className="w-full">
                   Continue <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
@@ -205,15 +271,79 @@ const Onboarding = () => {
               </div>
             )}
 
-            {/* Step 2: Mosque */}
+            {/* Step 2: Which prayers do you walk to? */}
             {step === 2 && (
+              <div className="space-y-6">
+                <div className="text-center">
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                    <span className="text-3xl">🤲</span>
+                  </div>
+                  <h2 className="text-2xl font-bold text-foreground">Which prayers do you walk to?</h2>
+                  <p className="text-muted-foreground mt-2 text-sm">
+                    Select the prayers you typically walk to the mosque for. You can change this later.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  {ALL_PRAYERS.map((prayer) => {
+                    const isSelected = selectedPrayers.includes(prayer);
+                    return (
+                      <button
+                        key={prayer}
+                        onClick={() => togglePrayer(prayer)}
+                        className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${
+                          isSelected
+                            ? "border-primary bg-primary/5 shadow-sm"
+                            : "border-border hover:border-primary/40"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            isSelected ? "bg-gradient-teal" : "bg-muted"
+                          }`}>
+                            {isSelected ? (
+                              <Check className="w-4 h-4 text-primary-foreground" />
+                            ) : (
+                              <span className="text-sm text-muted-foreground">🕌</span>
+                            )}
+                          </div>
+                          <span className={`font-medium ${isSelected ? "text-foreground" : "text-muted-foreground"}`}>
+                            {prayer}
+                          </span>
+                        </div>
+                        {prayer === "Fajr" && (
+                          <span className="text-[10px] text-gold font-medium bg-gold/10 px-2 py-0.5 rounded-full">Extra reward</span>
+                        )}
+                        {prayer === "Isha" && (
+                          <span className="text-[10px] text-gold font-medium bg-gold/10 px-2 py-0.5 rounded-full">Extra reward</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <p className="text-xs text-muted-foreground text-center italic">
+                  Walking to Fajr and Isha in darkness earns "complete light on the Day of Resurrection" — Abu Dawud 561
+                </p>
+
+                <Button variant="hero" onClick={next} className="w-full">
+                  Continue <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+                <button onClick={skip} className="w-full text-center text-sm text-muted-foreground hover:text-primary">
+                  Skip →
+                </button>
+              </div>
+            )}
+
+            {/* Step 3: Mosque */}
+            {step === 3 && (
               <div className="space-y-6">
                 <div className="text-center">
                   <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                     <span className="text-3xl">🕌</span>
                   </div>
                   <h2 className="text-2xl font-bold text-foreground">Your Mosque</h2>
-                  <p className="text-muted-foreground mt-2">
+                  <p className="text-muted-foreground mt-2 text-sm">
                     Set your primary mosque and distance for accurate step tracking.
                   </p>
                 </div>
@@ -261,15 +391,15 @@ const Onboarding = () => {
               </div>
             )}
 
-            {/* Step 3: Notifications */}
-            {step === 3 && (
+            {/* Step 4: Notifications */}
+            {step === 4 && (
               <div className="space-y-6">
                 <div className="text-center">
                   <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                     <Bell className="w-8 h-8 text-primary" />
                   </div>
                   <h2 className="text-2xl font-bold text-foreground">Prayer Reminders</h2>
-                  <p className="text-muted-foreground mt-2">
+                  <p className="text-muted-foreground mt-2 text-sm">
                     Get notified when it's time to leave for the mosque based on your walking distance.
                   </p>
                 </div>

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { hasCompletedOnboarding } from "./Onboarding";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, MapPin, Clock, Footprints, Star, Navigation, Play, History, Settings2, Flame, Bell, Trophy } from "lucide-react";
+import { MapPin, Clock, Footprints, Star, Navigation, Settings2, Flame, Bell, Trophy } from "lucide-react";
 import { motion } from "framer-motion";
 import {
   fetchPrayerTimes,
@@ -23,7 +23,6 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [prayers, setPrayers] = useState<PrayerTime[]>([]);
-  const [hijriDate, setHijriDate] = useState("");
   const [readableDate, setReadableDate] = useState("");
   const [prayerError, setPrayerError] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -40,20 +39,21 @@ const Dashboard = () => {
   const walkMin = estimateWalkingTime(mosqueDistance, walkingSpeed);
   const hasanat = calculateHasanat(steps);
 
+  // Filter prayers to only ones user walks to
+  const prayerPrefs = settings.prayerPreferences || ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
+
   useEffect(() => {
-    // Redirect first-time users to onboarding
     if (!hasCompletedOnboarding()) {
       navigate("/onboarding", { replace: true });
       return;
     }
 
-    // Use saved city coordinates if available, otherwise try GPS
     if (settings.cityLat && settings.cityLng) {
       loadPrayers(settings.cityLat, settings.cityLng);
     } else if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => loadPrayers(pos.coords.latitude, pos.coords.longitude),
-        () => loadPrayers(21.4225, 39.8262) // Makkah fallback
+        () => loadPrayers(21.4225, 39.8262)
       );
     } else {
       loadPrayers(21.4225, 39.8262);
@@ -64,14 +64,14 @@ const Dashboard = () => {
     try {
       const data = await fetchPrayerTimes(lat, lng);
       setPrayers(data.prayers);
-      setHijriDate(data.hijriDate);
       setReadableDate(data.readableDate);
 
-      // Schedule notifications if enabled
       if (getNotificationPermission() === "granted") {
         data.prayers.forEach((p) => {
-          const leaveBy = calculateLeaveByTime(p.time, walkMin);
-          schedulePrayerReminder(p.name, leaveBy);
+          if (prayerPrefs.includes(p.name)) {
+            const leaveBy = calculateLeaveByTime(p.time, walkMin);
+            schedulePrayerReminder(p.name, leaveBy);
+          }
         });
       }
     } catch (e) {
@@ -95,10 +95,17 @@ const Dashboard = () => {
     const granted = await requestNotificationPermission();
     if (granted) {
       toast({ title: "Notifications enabled! 🔔", description: "You'll be reminded when to leave for prayer." });
-      // Re-schedule reminders
       prayers.forEach((p) => {
-        const leaveBy = calculateLeaveByTime(p.time, walkMin);
-        schedulePrayerReminder(p.name, leaveBy);
+        if (prayerPrefs.includes(p.name)) {
+          const leaveBy = calculateLeaveByTime(p.time, walkMin);
+          schedulePrayerReminder(p.name, leaveBy);
+        }
+      });
+    } else {
+      toast({
+        title: "Notifications blocked",
+        description: "Please enable notifications in your browser settings to receive prayer reminders.",
+        variant: "destructive",
       });
     }
   };
@@ -107,13 +114,13 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
+      {/* Header - logo links to dashboard */}
       <header className="bg-gradient-teal text-primary-foreground">
         <div className="container py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <Link to="/dashboard" className="flex items-center gap-2">
             <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
             <span className="font-bold">MosqueSteps</span>
-          </div>
+          </Link>
           <Link to="/settings">
             <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10 w-9 h-9">
               <Settings2 className="w-4 h-4" />
@@ -123,7 +130,7 @@ const Dashboard = () => {
 
         <div className="container pb-6">
           <p className="text-sm text-primary-foreground/70 mb-1">
-            {readableDate} · {hijriDate}
+            {readableDate}
             {settings.cityName && <span> · {settings.cityName}</span>}
           </p>
           <h1 className="text-xl font-bold mb-4">Today's Journey</h1>
@@ -163,7 +170,7 @@ const Dashboard = () => {
       </header>
 
       <div className="container py-6 space-y-6 pb-bottom-nav">
-        {/* Notification prompt */}
+        {/* Notification prompt - actually triggers permission */}
         {isNotificationSupported() && getNotificationPermission() !== "granted" && (
           <button
             onClick={handleEnableNotifications}
@@ -177,7 +184,6 @@ const Dashboard = () => {
           </button>
         )}
 
-
         {/* Streak & stats */}
         {stats.totalWalks > 0 && (
           <div className="glass-card p-4 flex items-center justify-between">
@@ -188,7 +194,7 @@ const Dashboard = () => {
                 <p className="text-xs text-muted-foreground">{stats.totalWalks} total walks · {stats.totalSteps.toLocaleString()} steps</p>
               </div>
             </div>
-            <Link to="/history" className="text-xs text-primary font-medium hover:underline">View all →</Link>
+            <Link to="/stats" className="text-xs text-primary font-medium hover:underline">View stats →</Link>
           </div>
         )}
 
@@ -233,7 +239,7 @@ const Dashboard = () => {
               {mosqueDistance} km · {walkMin} min walk · {estimateSteps(mosqueDistance)} steps one way
             </p>
           </div>
-          <Link to="/settings" className="text-xs text-primary font-medium hover:underline">Edit</Link>
+          <Link to="/mosques" className="text-xs text-primary font-medium hover:underline">Change</Link>
         </div>
 
         {/* Prayer times */}
@@ -260,17 +266,23 @@ const Dashboard = () => {
               {prayers.map((p) => {
                 const isNext = nextPrayer?.name === p.name;
                 const leaveBy = calculateLeaveByTime(p.time, walkMin);
+                const walksToThis = prayerPrefs.includes(p.name);
                 return (
                   <div key={p.name} className={`glass-card p-4 flex items-center justify-between ${isNext ? "ring-2 ring-gold shadow-gold" : ""}`}>
                     <div>
-                      <p className="font-semibold text-foreground">{p.name}</p>
+                      <p className="font-semibold text-foreground flex items-center gap-1.5">
+                        {p.name}
+                        {walksToThis && <Footprints className="w-3 h-3 text-primary" />}
+                      </p>
                       <p className="text-xs font-arabic text-muted-foreground">{p.arabicName}</p>
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-foreground">{p.time}</p>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
-                        <Navigation className="w-3 h-3" /> Leave by {leaveBy}
-                      </p>
+                      {walksToThis && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
+                          <Navigation className="w-3 h-3" /> Leave by {leaveBy}
+                        </p>
+                      )}
                     </div>
                   </div>
                 );
@@ -298,7 +310,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Hadith reminder with tooltip */}
+        {/* Hadith reminder */}
         <div className="bg-gradient-teal rounded-xl p-5 text-primary-foreground">
           <HadithTooltip hadithKey="muslim_666" className="text-primary-foreground">
             <p className="text-sm italic leading-relaxed">
@@ -311,7 +323,6 @@ const Dashboard = () => {
             — Sahih Muslim 666
           </a>
         </div>
-
       </div>
     </div>
   );

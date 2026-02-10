@@ -1,15 +1,18 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Search, MapPin, Footprints, Clock, Check, Locate } from "lucide-react";
+import { Search, MapPin, Footprints, Clock, Check, Star, Trash2, Home } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { estimateSteps, estimateWalkingTime } from "@/lib/prayer-times";
-import { saveSettings, getSettings } from "@/lib/walking-history";
+import {
+  saveSettings, getSettings,
+  saveMosque, getSavedMosques, removeSavedMosque, setPrimaryMosque,
+  type SavedMosque,
+} from "@/lib/walking-history";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
 
-// Fix leaflet default icon
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
@@ -52,32 +55,40 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 
 const MosqueFinder = () => {
   const { toast } = useToast();
-  const navigate = useNavigate();
   const settings = getSettings();
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<L.Marker[]>([]);
 
-  const [userPos, setUserPos] = useState<{ lat: number; lng: number }>({ lat: 51.5074, lng: -0.1278 });
+  // Default to user's saved city, then home, then London
+  const defaultLat = settings.cityLat || settings.homeLat || 51.5074;
+  const defaultLng = settings.cityLng || settings.homeLng || -0.1278;
+
+  const [userPos, setUserPos] = useState<{ lat: number; lng: number }>({ lat: defaultLat, lng: defaultLng });
   const [mosques, setMosques] = useState<Mosque[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
-  const [selectedMosque, setSelectedMosque] = useState<Mosque | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [savedList, setSavedList] = useState<SavedMosque[]>(getSavedMosques());
+  const [activeTab, setActiveTab] = useState<"nearby" | "saved">("nearby");
 
-  // Initialize vanilla Leaflet map
+  // Initialize vanilla Leaflet map — default to user's city
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    const map = L.map(mapContainerRef.current).setView([userPos.lat, userPos.lng], 14);
+    const map = L.map(mapContainerRef.current).setView([defaultLat, defaultLng], 14);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(map);
 
-    // User location marker
-    L.marker([userPos.lat, userPos.lng]).addTo(map).bindPopup("Your location");
+    L.marker([defaultLat, defaultLng]).addTo(map).bindPopup(
+      settings.homeAddress ? `🏠 ${settings.homeAddress}` : "Your location"
+    );
 
     mapRef.current = map;
+
+    // Auto-search nearby mosques at user's city
+    searchNearbyMosques(defaultLat, defaultLng);
 
     return () => {
       map.remove();
@@ -85,7 +96,7 @@ const MosqueFinder = () => {
     };
   }, []);
 
-  // Get user location on mount
+  // Also try GPS for more precise location
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -97,7 +108,9 @@ const MosqueFinder = () => {
           }
           searchNearbyMosques(loc.lat, loc.lng);
         },
-        () => searchNearbyMosques(userPos.lat, userPos.lng)
+        () => {
+          // GPS denied — already showing city default, do nothing
+        }
       );
     }
   }, []);
@@ -105,12 +118,9 @@ const MosqueFinder = () => {
   // Update map markers when mosques change
   useEffect(() => {
     if (!mapRef.current) return;
-
-    // Clear old markers
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 
-    // Add mosque markers
     mosques.forEach((m) => {
       const marker = L.marker([m.lat, m.lon], { icon: mosqueIcon })
         .addTo(mapRef.current!)
@@ -120,6 +130,14 @@ const MosqueFinder = () => {
       markersRef.current.push(marker);
     });
   }, [mosques]);
+
+  const getDistanceOrigin = () => {
+    // Use home address if set, otherwise user position
+    if (settings.homeLat && settings.homeLng) {
+      return { lat: settings.homeLat, lng: settings.homeLng };
+    }
+    return userPos;
+  };
 
   const searchNearbyMosques = async (lat: number, lng: number) => {
     setLoading(true);
@@ -139,6 +157,7 @@ const MosqueFinder = () => {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
       });
       const data = await res.json();
+      const origin = getDistanceOrigin();
       const results: Mosque[] = data.elements
         .map((el: any) => ({
           id: el.id,
@@ -147,7 +166,7 @@ const MosqueFinder = () => {
           lon: el.lon || el.center?.lon,
         }))
         .filter((m: Mosque) => m.lat && m.lon)
-        .map((m: Mosque) => ({ ...m, distance: haversineDistance(lat, lng, m.lat, m.lon) }))
+        .map((m: Mosque) => ({ ...m, distance: haversineDistance(origin.lat, origin.lng, m.lat, m.lon) }))
         .sort((a: Mosque, b: Mosque) => (a.distance || 0) - (b.distance || 0));
       setMosques(results);
     } catch (e) {
@@ -181,19 +200,37 @@ const MosqueFinder = () => {
     }
   };
 
-  const selectAsPrimary = (mosque: Mosque) => {
+  const handleSaveMosque = (mosque: Mosque, asPrimary: boolean) => {
     const dist = Math.round((mosque.distance || 0.5) * 100) / 100;
-    saveSettings({
-      selectedMosqueName: mosque.name,
-      selectedMosqueDistance: dist,
-      selectedMosqueLat: mosque.lat,
-      selectedMosqueLng: mosque.lon,
-    });
-    setSelectedMosque(mosque);
+    const saved: SavedMosque = {
+      id: String(mosque.id),
+      name: mosque.name,
+      lat: mosque.lat,
+      lng: mosque.lon,
+      distanceKm: dist,
+      isPrimary: asPrimary,
+    };
+    saveMosque(saved);
+    if (asPrimary) {
+      setPrimaryMosque(String(mosque.id));
+    }
+    setSavedList(getSavedMosques());
     toast({
-      title: `${mosque.name} selected! 🕌`,
-      description: `Distance: ${mosque.distance?.toFixed(2)} km · ${estimateSteps(mosque.distance || 0)} steps · ${estimateWalkingTime(mosque.distance || 0)} min walk`,
+      title: asPrimary ? `${mosque.name} set as primary! 🕌` : `${mosque.name} saved!`,
+      description: `${formatDistance(dist)} · ${estimateSteps(dist)} steps · ${estimateWalkingTime(dist)} min walk`,
     });
+  };
+
+  const handleRemoveSaved = (id: string) => {
+    removeSavedMosque(id);
+    setSavedList(getSavedMosques());
+    toast({ title: "Mosque removed" });
+  };
+
+  const handleSetPrimary = (id: string) => {
+    setPrimaryMosque(id);
+    setSavedList(getSavedMosques());
+    toast({ title: "Primary mosque updated! 🕌" });
   };
 
   const formatDistance = (km: number) => {
@@ -202,14 +239,19 @@ const MosqueFinder = () => {
     return `${km.toFixed(2)} km`;
   };
 
+  const isSaved = (mosqueId: number) => savedList.some((s) => s.id === String(mosqueId));
+  const primaryId = savedList.find((s) => s.isPrimary)?.id;
+
   return (
     <div className="min-h-screen bg-background flex flex-col pb-bottom-nav">
       <header className="bg-card border-b border-border">
         <div className="container py-3 flex items-center gap-2">
-          <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
-          <span className="font-bold text-foreground">Find Mosques</span>
+          <Link to="/dashboard" className="flex items-center gap-2">
+            <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
+            <span className="font-bold text-foreground">Find Mosques</span>
+          </Link>
         </div>
-        <div className="container pb-4">
+        <div className="container pb-3">
           <div className="flex gap-2">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -222,62 +264,135 @@ const MosqueFinder = () => {
                 className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
-            <Button onClick={handleSearch} disabled={loading}>
-              Search
-            </Button>
+            <Button onClick={handleSearch} disabled={loading}>Search</Button>
           </div>
+          {settings.homeAddress && (
+            <p className="text-[10px] text-muted-foreground mt-1.5 flex items-center gap-1">
+              <Home className="w-3 h-3" /> Distances from: {settings.homeAddress}
+            </p>
+          )}
         </div>
       </header>
 
-      {/* Map - vanilla Leaflet */}
-      <div className="flex-1 relative" style={{ minHeight: "40vh" }}>
-        <div ref={mapContainerRef} className="w-full h-full absolute inset-0" style={{ minHeight: "40vh" }} />
+      {/* Map */}
+      <div className="flex-1 relative" style={{ minHeight: "35vh" }}>
+        <div ref={mapContainerRef} className="w-full h-full absolute inset-0" style={{ minHeight: "35vh" }} />
+      </div>
+
+      {/* Tabs */}
+      <div className="container pt-3">
+        <div className="flex bg-muted rounded-lg p-1 mb-3">
+          <button
+            onClick={() => setActiveTab("nearby")}
+            className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${
+              activeTab === "nearby" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+            }`}
+          >
+            Nearby ({mosques.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("saved")}
+            className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${
+              activeTab === "saved" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+            }`}
+          >
+            Saved ({savedList.length})
+          </button>
+        </div>
       </div>
 
       {/* Mosque list */}
-      <div className="container py-4 space-y-2 max-h-[40vh] overflow-y-auto">
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-          {loading ? "Searching..." : `${mosques.length} mosques nearby`}
-        </h2>
-        {searchError && (
-          <div className="glass-card p-4 text-center">
-            <p className="text-sm text-destructive mb-1">⚠️ {searchError}</p>
-            <p className="text-xs text-muted-foreground">Try searching for a different location.</p>
-          </div>
-        )}
-        {!loading && !searchError && mosques.length === 0 && (
-          <div className="glass-card p-6 text-center">
-            <MapPin className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">No mosques found nearby.</p>
-            <p className="text-xs text-muted-foreground mt-1">Try searching for a different area.</p>
-          </div>
-        )}
-        {mosques.map((m) => {
-          const isSelected = selectedMosque?.id === m.id;
-          return (
-            <div key={m.id} className={`glass-card p-4 flex items-center justify-between ${isSelected ? "ring-2 ring-primary" : ""}`}>
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${isSelected ? "bg-gradient-gold" : "bg-gradient-teal"}`}>
-                  {isSelected ? <Check className="w-5 h-5 text-foreground" /> : <MapPin className="w-5 h-5 text-primary-foreground" />}
+      <div className="container pb-4 space-y-2 max-h-[35vh] overflow-y-auto">
+        {activeTab === "nearby" && (
+          <>
+            {loading && (
+              <p className="text-sm text-muted-foreground text-center py-4">Searching...</p>
+            )}
+            {searchError && (
+              <div className="glass-card p-4 text-center">
+                <p className="text-sm text-destructive mb-1">⚠️ {searchError}</p>
+                <p className="text-xs text-muted-foreground">Try searching for a different location.</p>
+              </div>
+            )}
+            {!loading && !searchError && mosques.length === 0 && (
+              <div className="glass-card p-6 text-center">
+                <MapPin className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">No mosques found nearby.</p>
+              </div>
+            )}
+            {mosques.map((m) => {
+              const saved = isSaved(m.id);
+              const isPrimary = primaryId === String(m.id);
+              return (
+                <div key={m.id} className={`glass-card p-3 flex items-center justify-between gap-2 ${isPrimary ? "ring-2 ring-primary" : ""}`}>
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${isPrimary ? "bg-gradient-gold" : "bg-gradient-teal"}`}>
+                      {isPrimary ? <Star className="w-4 h-4 text-foreground" /> : <MapPin className="w-4 h-4 text-primary-foreground" />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-foreground text-sm truncate">{m.name}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {formatDistance(m.distance || 0)} · <Footprints className="w-2.5 h-2.5 inline" /> {estimateSteps(m.distance || 0)} · <Clock className="w-2.5 h-2.5 inline" /> {estimateWalkingTime(m.distance || 0)} min
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-1 flex-shrink-0">
+                    {!saved && (
+                      <Button variant="outline" size="sm" className="text-[10px] h-7 px-2" onClick={() => handleSaveMosque(m, false)}>
+                        Save
+                      </Button>
+                    )}
+                    <Button
+                      variant={isPrimary ? "outline" : "default"}
+                      size="sm"
+                      className="text-[10px] h-7 px-2"
+                      onClick={() => handleSaveMosque(m, true)}
+                    >
+                      {isPrimary ? "★ Primary" : "Set Primary"}
+                    </Button>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="font-medium text-foreground text-sm truncate">{m.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatDistance(m.distance || 0)} · <Footprints className="w-3 h-3 inline" /> {estimateSteps(m.distance || 0)} · <Clock className="w-3 h-3 inline" /> {estimateWalkingTime(m.distance || 0)} min
-                  </p>
+              );
+            })}
+          </>
+        )}
+
+        {activeTab === "saved" && (
+          <>
+            {savedList.length === 0 && (
+              <div className="glass-card p-6 text-center">
+                <MapPin className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">No saved mosques yet.</p>
+                <p className="text-xs text-muted-foreground mt-1">Search and save mosques from the Nearby tab.</p>
+              </div>
+            )}
+            {savedList.map((m) => (
+              <div key={m.id} className={`glass-card p-3 flex items-center justify-between gap-2 ${m.isPrimary ? "ring-2 ring-primary" : ""}`}>
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${m.isPrimary ? "bg-gradient-gold" : "bg-gradient-teal"}`}>
+                    {m.isPrimary ? <Star className="w-4 h-4 text-foreground" /> : <MapPin className="w-4 h-4 text-primary-foreground" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground text-sm truncate">{m.name}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {formatDistance(m.distanceKm)} · {estimateSteps(m.distanceKm)} steps · {estimateWalkingTime(m.distanceKm)} min
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-1 flex-shrink-0">
+                  {!m.isPrimary && (
+                    <Button variant="outline" size="sm" className="text-[10px] h-7 px-2" onClick={() => handleSetPrimary(m.id)}>
+                      Set Primary
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="sm" className="text-[10px] h-7 w-7 p-0 text-destructive" onClick={() => handleRemoveSaved(m.id)}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
                 </div>
               </div>
-              <Button
-                variant={isSelected ? "outline" : "default"}
-                size="sm"
-                className="ml-2 flex-shrink-0 text-xs"
-                onClick={() => selectAsPrimary(m)}
-              >
-                {isSelected ? "Selected" : "Select"}
-              </Button>
-            </div>
-          );
-        })}
+            ))}
+          </>
+        )}
       </div>
     </div>
   );
