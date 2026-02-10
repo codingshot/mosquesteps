@@ -29,6 +29,9 @@ export interface UserSettings {
   selectedMosqueDistance: number; // km
   selectedMosqueLat?: number;
   selectedMosqueLng?: number;
+  cityName?: string;
+  cityLat?: number;
+  cityLng?: number;
 }
 
 const DEFAULT_SETTINGS: UserSettings = {

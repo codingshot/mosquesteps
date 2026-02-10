@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
+import HadithTooltip from "@/components/HadithTooltip";
 import heroImage from "@/assets/hero-image.jpg";
 
 const Hero = () => {
@@ -31,13 +32,15 @@ const Hero = () => {
               Walk in the Footsteps of the{" "}
               <span className="text-gradient-gold">Righteous</span>
             </h1>
-            <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-4 font-arabic leading-relaxed">
+            <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-4 leading-relaxed">
               The Prophet ﷺ said:{" "}
-              <em>
-                "Whoever purifies himself in his house then walks to one of the
-                houses of Allah to perform an obligatory prayer, one step will
-                erase a sin and another will raise him a degree."
-              </em>
+              <HadithTooltip hadithKey="muslim_666" className="text-muted-foreground">
+                <em>
+                  "Whoever purifies himself in his house then walks to one of the
+                  houses of Allah to perform an obligatory prayer, one step will
+                  erase a sin and another will raise him a degree."
+                </em>
+              </HadithTooltip>
             </p>
             <p className="text-sm text-muted-foreground mb-8">
               — <a href="https://sunnah.com/muslim:666" target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">Sahih Muslim 666</a>

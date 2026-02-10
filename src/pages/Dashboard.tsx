@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, MapPin, Clock, Footprints, Star, Navigation, Play, History, Settings2, Flame } from "lucide-react";
+import { ArrowLeft, MapPin, Clock, Footprints, Star, Navigation, Play, History, Settings2, Flame, Bell, Trophy } from "lucide-react";
 import { motion } from "framer-motion";
 import {
   fetchPrayerTimes,
@@ -12,9 +12,14 @@ import {
   type PrayerTime,
 } from "@/lib/prayer-times";
 import { getSettings, getWalkingStats } from "@/lib/walking-history";
+import { requestNotificationPermission, isNotificationSupported, getNotificationPermission, schedulePrayerReminder } from "@/lib/notifications";
+import { getBadges } from "@/lib/badges";
+import HadithTooltip from "@/components/HadithTooltip";
 import logo from "@/assets/logo.png";
+import { useToast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
+  const { toast } = useToast();
   const [prayers, setPrayers] = useState<PrayerTime[]>([]);
   const [hijriDate, setHijriDate] = useState("");
   const [readableDate, setReadableDate] = useState("");
@@ -22,6 +27,9 @@ const Dashboard = () => {
 
   const settings = getSettings();
   const stats = getWalkingStats();
+  const badges = getBadges(stats);
+  const earnedBadges = badges.filter((b) => b.badge.earned);
+  const nextBadge = badges.find((b) => !b.badge.earned);
   const mosqueDistance = settings.selectedMosqueDistance;
   const walkingSpeed = settings.walkingSpeed;
 
@@ -30,10 +38,13 @@ const Dashboard = () => {
   const hasanat = calculateHasanat(steps);
 
   useEffect(() => {
-    if (navigator.geolocation) {
+    // Use saved city coordinates if available, otherwise try GPS
+    if (settings.cityLat && settings.cityLng) {
+      loadPrayers(settings.cityLat, settings.cityLng);
+    } else if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => loadPrayers(pos.coords.latitude, pos.coords.longitude),
-        () => loadPrayers(21.4225, 39.8262)
+        () => loadPrayers(21.4225, 39.8262) // Makkah fallback
       );
     } else {
       loadPrayers(21.4225, 39.8262);
@@ -46,6 +57,14 @@ const Dashboard = () => {
       setPrayers(data.prayers);
       setHijriDate(data.hijriDate);
       setReadableDate(data.readableDate);
+
+      // Schedule notifications if enabled
+      if (getNotificationPermission() === "granted") {
+        data.prayers.forEach((p) => {
+          const leaveBy = calculateLeaveByTime(p.time, walkMin);
+          schedulePrayerReminder(p.name, leaveBy);
+        });
+      }
     } catch (e) {
       console.error("Failed to fetch prayer times:", e);
     } finally {
@@ -60,6 +79,18 @@ const Dashboard = () => {
       const [h, m] = p.time.split(":").map(Number);
       return h * 60 + m > currentMinutes;
     });
+  };
+
+  const handleEnableNotifications = async () => {
+    const granted = await requestNotificationPermission();
+    if (granted) {
+      toast({ title: "Notifications enabled! 🔔", description: "You'll be reminded when to leave for prayer." });
+      // Re-schedule reminders
+      prayers.forEach((p) => {
+        const leaveBy = calculateLeaveByTime(p.time, walkMin);
+        schedulePrayerReminder(p.name, leaveBy);
+      });
+    }
   };
 
   const nextPrayer = getNextPrayer();
@@ -86,6 +117,7 @@ const Dashboard = () => {
         <div className="container pb-8">
           <p className="text-sm text-primary-foreground/70 mb-1">
             {readableDate} · {hijriDate}
+            {settings.cityName && <span> · {settings.cityName}</span>}
           </p>
           <h1 className="text-2xl font-bold mb-6">Today's Journey</h1>
 
@@ -124,6 +156,20 @@ const Dashboard = () => {
       </header>
 
       <div className="container py-6 space-y-6">
+        {/* Notification prompt */}
+        {isNotificationSupported() && getNotificationPermission() !== "granted" && (
+          <button
+            onClick={handleEnableNotifications}
+            className="w-full glass-card p-4 flex items-center gap-3 hover:shadow-teal transition-shadow text-left"
+          >
+            <Bell className="w-8 h-8 text-gold flex-shrink-0" />
+            <div>
+              <p className="font-medium text-foreground text-sm">Enable Prayer Reminders</p>
+              <p className="text-xs text-muted-foreground">Get notified when it's time to leave for the mosque</p>
+            </div>
+          </button>
+        )}
+
         {/* Quick actions */}
         <div className="grid grid-cols-4 gap-2">
           <Link to="/walk" className="glass-card p-3 text-center hover:shadow-teal transition-shadow">
@@ -158,6 +204,39 @@ const Dashboard = () => {
           </div>
         )}
 
+        {/* Badges preview */}
+        {earnedBadges.length > 0 && (
+          <div className="glass-card p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                <Trophy className="w-4 h-4 text-gold" /> Badges
+              </h3>
+              <Link to="/rewards" className="text-xs text-primary font-medium hover:underline">
+                {earnedBadges.length}/{badges.length} →
+              </Link>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {earnedBadges.slice(0, 6).map((bp) => (
+                <span key={bp.badge.id} className="text-xl" title={bp.badge.name}>{bp.badge.icon}</span>
+              ))}
+              {earnedBadges.length > 6 && (
+                <span className="text-xs text-muted-foreground self-center">+{earnedBadges.length - 6} more</span>
+              )}
+            </div>
+            {nextBadge && (
+              <div className="mt-3">
+                <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                  <span>Next: {nextBadge.badge.icon} {nextBadge.badge.name}</span>
+                  <span>{Math.round(nextBadge.percent)}%</span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                  <div className="h-full bg-gradient-gold rounded-full transition-all" style={{ width: `${nextBadge.percent}%` }} />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Mosque info */}
         <div className="glass-card p-4 flex items-center justify-between">
           <div>
@@ -173,6 +252,7 @@ const Dashboard = () => {
         <div>
           <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
             <Clock className="w-5 h-5 text-primary" /> Prayer Times
+            {settings.cityName && <span className="text-xs text-muted-foreground font-normal">({settings.cityName})</span>}
           </h2>
           {loading ? (
             <div className="glass-card p-6 text-center text-muted-foreground">Loading prayer times...</div>
@@ -219,13 +299,15 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Hadith reminder */}
+        {/* Hadith reminder with tooltip */}
         <div className="bg-gradient-teal rounded-xl p-5 text-primary-foreground">
-          <p className="text-sm italic leading-relaxed">
-            "When one of you performs ablution well and goes out to the mosque, with no motive
-            other than prayer, he does not take a step without being raised a degree and having
-            one of his sins removed."
-          </p>
+          <HadithTooltip hadithKey="muslim_666" className="text-primary-foreground">
+            <p className="text-sm italic leading-relaxed">
+              "When one of you performs ablution well and goes out to the mosque, with no motive
+              other than prayer, he does not take a step without being raised a degree and having
+              one of his sins removed."
+            </p>
+          </HadithTooltip>
           <a href="https://sunnah.com/muslim:666" target="_blank" rel="noopener noreferrer" className="text-xs text-gold mt-2 inline-block hover:underline">
             — Sahih Muslim 666
           </a>
