@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Play, Square, Pause, MapPin, Footprints, Clock, Star, Navigation, AlertTriangle, Smartphone } from "lucide-react";
+import { ArrowLeft, Play, Square, Pause, MapPin, Footprints, Clock, Star, Navigation, AlertTriangle, Smartphone, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { estimateSteps, estimateWalkingTime, calculateHasanat } from "@/lib/prayer-times";
@@ -433,6 +433,24 @@ const ActiveWalk = () => {
 
             <div className="glass-card p-3 text-xs text-muted-foreground">
               {selectedPrayer} · {settings.selectedMosqueName} · {useRealSteps ? "Sensor steps" : "GPS estimated"}
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  const text = `🕌 Walk to ${selectedPrayer} complete!\n👣 ${displaySteps.toLocaleString()} steps\n⭐ ${hasanat.toLocaleString()} hasanat earned\n📏 ${distanceKm.toFixed(2)} km\n⏱️ ${formatTime(elapsedSeconds)}\n\nTracked with MosqueSteps — mosquesteps.com`;
+                  if (navigator.share) {
+                    navigator.share({ title: "MosqueSteps Walk", text }).catch(() => {});
+                  } else {
+                    navigator.clipboard.writeText(text);
+                    toast({ title: "Copied to clipboard! 📋", description: "Share your walk results with others." });
+                  }
+                }}
+              >
+                <Share2 className="w-4 h-4 mr-1" /> Share
+              </Button>
             </div>
 
             <div className="flex gap-3">

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Save, MapPin, Bell, BellOff, Locate } from "lucide-react";
+import { ArrowLeft, Save, MapPin, Bell, BellOff, Locate, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getSettings, saveSettings, type UserSettings } from "@/lib/walking-history";
 import { requestNotificationPermission, isNotificationSupported, getNotificationPermission } from "@/lib/notifications";
@@ -227,19 +227,42 @@ const Settings = () => {
           <p className="text-sm text-muted-foreground">
             All data is stored locally on your device. Nothing is sent to external servers.
           </p>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => {
-              if (confirm("Clear all walking history? This cannot be undone.")) {
-                localStorage.removeItem("mosquesteps_history");
-                localStorage.removeItem("mosquesteps_badges");
-                toast({ title: "History cleared", description: "All walking data has been removed." });
-              }
-            }}
-          >
-            Clear Walking History
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const history = localStorage.getItem("mosquesteps_history") || "[]";
+                const settingsData = localStorage.getItem("mosquesteps_settings") || "{}";
+                const exportData = JSON.stringify({ walks: JSON.parse(history), settings: JSON.parse(settingsData) }, null, 2);
+                const blob = new Blob([exportData], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `mosquesteps-export-${new Date().toISOString().split("T")[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                toast({ title: "Data exported! 📥", description: "Your walking data has been saved as JSON." });
+              }}
+              className="flex-1"
+            >
+              <Download className="w-4 h-4 mr-2" /> Export Data
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                if (confirm("Clear all walking history? This cannot be undone.")) {
+                  localStorage.removeItem("mosquesteps_history");
+                  localStorage.removeItem("mosquesteps_badges");
+                  toast({ title: "History cleared", description: "All walking data has been removed." });
+                }
+              }}
+              className="flex-1"
+            >
+              Clear History
+            </Button>
+          </div>
         </div>
 
         <Button variant="hero" className="w-full" onClick={handleSave}>

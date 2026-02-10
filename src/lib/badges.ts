@@ -70,10 +70,20 @@ export function getBadges(stats: any): BadgeProgress[] {
 
 export function getNewlyEarnedBadges(stats: any): Badge[] {
   const before = getEarnedBadges();
-  const badges = getBadges(stats);
-  return badges
-    .filter((bp) => bp.badge.earned && !before[bp.badge.id])
-    .map((bp) => bp.badge);
+  // Check which badges would be earned without saving yet
+  return BADGE_DEFINITIONS
+    .filter((def) => {
+      const current = def.check(stats);
+      return current >= def.target && !before[def.id];
+    })
+    .map((def) => ({
+      id: def.id,
+      name: def.name,
+      description: def.description,
+      icon: def.icon,
+      requirement: def.requirement,
+      earned: true,
+    }));
 }
 
 const BADGES_KEY = "mosquesteps_badges";

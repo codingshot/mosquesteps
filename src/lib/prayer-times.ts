@@ -66,10 +66,11 @@ export function calculateLeaveByTime(
   walkingMinutes: number
 ): string {
   const [hours, minutes] = prayerTime.split(":").map(Number);
-  const totalMinutes = hours * 60 + minutes - walkingMinutes - 5; // 5 min buffer
+  let totalMinutes = hours * 60 + minutes - walkingMinutes - 5; // 5 min buffer
+  if (totalMinutes < 0) totalMinutes += 24 * 60; // wrap past midnight
   const h = Math.floor(totalMinutes / 60) % 24;
   const m = totalMinutes % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  return `${String(h).padStart(2, "0")}:${String(m < 0 ? m + 60 : m).padStart(2, "0")}`;
 }
 
 export function estimateSteps(distanceKm: number): number {
