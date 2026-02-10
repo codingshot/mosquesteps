@@ -1,18 +1,92 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, MapPin, Bell, BellOff, Locate } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getSettings, saveSettings, type UserSettings } from "@/lib/walking-history";
+import { requestNotificationPermission, isNotificationSupported, getNotificationPermission } from "@/lib/notifications";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
 
 const Settings = () => {
   const { toast } = useToast();
   const [settings, setSettings] = useState<UserSettings>(getSettings());
+  const [citySearch, setCitySearch] = useState("");
+  const [notifPermission, setNotifPermission] = useState(getNotificationPermission());
+  const [locating, setLocating] = useState(false);
 
   const handleSave = () => {
     saveSettings(settings);
     toast({ title: "Settings saved", description: "Your preferences have been updated." });
+  };
+
+  const handleCitySearch = async () => {
+    if (!citySearch.trim()) return;
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(citySearch)}&format=json&limit=1`
+      );
+      const data = await res.json();
+      if (data.length > 0) {
+        const loc = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+        setSettings((s) => ({
+          ...s,
+          cityName: data[0].display_name?.split(",")[0] || citySearch,
+          cityLat: loc.lat,
+          cityLng: loc.lng,
+        }));
+        toast({
+          title: "City set!",
+          description: `Prayer times will be calculated for ${data[0].display_name?.split(",")[0]}`,
+        });
+      }
+    } catch {
+      toast({ title: "Search failed", description: "Could not find that city.", variant: "destructive" });
+    }
+  };
+
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast({ title: "Not available", description: "Your browser doesn't support location.", variant: "destructive" });
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        // Reverse geocode for city name
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`
+          );
+          const data = await res.json();
+          const city = data.address?.city || data.address?.town || data.address?.village || "Current Location";
+          setSettings((s) => ({ ...s, cityName: city, cityLat: lat, cityLng: lng }));
+          toast({ title: `Location set: ${city}`, description: "Prayer times will use your current location." });
+        } catch {
+          setSettings((s) => ({ ...s, cityName: "Current Location", cityLat: lat, cityLng: lng }));
+        }
+        setLocating(false);
+      },
+      () => {
+        toast({ title: "Location denied", description: "Please enable location access or search for your city.", variant: "destructive" });
+        setLocating(false);
+      }
+    );
+  };
+
+  const handleNotificationToggle = async () => {
+    if (notifPermission === "granted") {
+      toast({ title: "Notifications already enabled", description: "Manage in your browser settings." });
+      return;
+    }
+    const granted = await requestNotificationPermission();
+    setNotifPermission(granted ? "granted" : "denied");
+    if (granted) {
+      toast({ title: "Notifications enabled! 🔔", description: "You'll get prayer departure reminders." });
+    } else {
+      toast({ title: "Notifications blocked", description: "Enable them in your browser settings.", variant: "destructive" });
+    }
   };
 
   return (
@@ -28,6 +102,67 @@ const Settings = () => {
       </header>
 
       <div className="container py-6 space-y-6 max-w-lg">
+        {/* Location / City for prayer times */}
+        <div className="glass-card p-5 space-y-3">
+          <h2 className="font-semibold text-foreground flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-primary" /> Location for Prayer Times
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Set your city so prayer times are accurate even without GPS.
+            {settings.cityName && (
+              <span className="block mt-1 font-medium text-foreground">Current: {settings.cityName}</span>
+            )}
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleUseCurrentLocation}
+            disabled={locating}
+            className="w-full"
+          >
+            <Locate className="w-4 h-4 mr-2" />
+            {locating ? "Detecting..." : "Use Current Location"}
+          </Button>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Or search city (e.g. London, Makkah)..."
+              value={citySearch}
+              onChange={(e) => setCitySearch(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleCitySearch()}
+              className="flex-1 px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <Button size="sm" onClick={handleCitySearch}>Set</Button>
+          </div>
+        </div>
+
+        {/* Notifications */}
+        <div className="glass-card p-5 space-y-3">
+          <h2 className="font-semibold text-foreground flex items-center gap-2">
+            {notifPermission === "granted" ? (
+              <Bell className="w-4 h-4 text-primary" />
+            ) : (
+              <BellOff className="w-4 h-4 text-muted-foreground" />
+            )}
+            Prayer Notifications
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Get reminded when it's time to leave for the mosque based on walking distance.
+          </p>
+          {isNotificationSupported() ? (
+            <Button
+              variant={notifPermission === "granted" ? "outline" : "default"}
+              size="sm"
+              onClick={handleNotificationToggle}
+              className="w-full"
+            >
+              {notifPermission === "granted" ? "✓ Notifications Enabled" : "Enable Notifications"}
+            </Button>
+          ) : (
+            <p className="text-xs text-muted-foreground italic">Notifications not supported on this browser.</p>
+          )}
+        </div>
+
         {/* Walking speed */}
         <div className="glass-card p-5 space-y-3">
           <h2 className="font-semibold text-foreground">Walking Speed</h2>
@@ -98,6 +233,7 @@ const Settings = () => {
             onClick={() => {
               if (confirm("Clear all walking history? This cannot be undone.")) {
                 localStorage.removeItem("mosquesteps_history");
+                localStorage.removeItem("mosquesteps_badges");
                 toast({ title: "History cleared", description: "All walking data has been removed." });
               }
             }}
