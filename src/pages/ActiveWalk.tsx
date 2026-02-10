@@ -550,43 +550,58 @@ const ActiveWalk = () => {
               />
             )}
 
-            {/* Direction progress panel */}
+            {/* Turn-by-turn navigation panel */}
             {routeInfo && routeInfo.steps.length > 0 && (
-              <div className="glass-card p-0 overflow-hidden text-left">
-                {/* Current direction - hero */}
+              <div className="glass-card p-0 overflow-hidden text-left w-full">
+                {/* Current direction — large navigation-style card */}
                 {currentDirection && (
-                  <div className="bg-gradient-teal p-4 flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-primary-foreground/20 flex items-center justify-center flex-shrink-0">
-                      {getDirectionIcon(currentDirection.instruction)}
+                  <div className="bg-gradient-teal p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-14 h-14 rounded-xl bg-primary-foreground/20 flex items-center justify-center flex-shrink-0">
+                        {getDirectionIcon(currentDirection.instruction)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-lg font-bold text-primary-foreground capitalize leading-tight">
+                          {formatDirection(currentDirection.instruction)}
+                        </p>
+                        <p className="text-sm text-primary-foreground/70 mt-0.5">
+                          {currentDirection.distance > 1000 
+                            ? `${(currentDirection.distance / 1000).toFixed(1)} km` 
+                            : `${Math.round(currentDirection.distance)} m`}
+                        </p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-[10px] text-primary-foreground/50">STEP</p>
+                        <p className="text-xl font-bold text-primary-foreground">{currentDirectionIdx + 1}<span className="text-sm font-normal text-primary-foreground/40">/{routeInfo.steps.length}</span></p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-base font-bold text-primary-foreground capitalize leading-tight">
-                        {formatDirection(currentDirection.instruction)}
-                      </p>
-                      <p className="text-sm text-primary-foreground/70 mt-0.5">
-                        {currentDirection.distance > 1000 
-                          ? `${(currentDirection.distance / 1000).toFixed(1)} km` 
-                          : `${Math.round(currentDirection.distance)} m`}
-                      </p>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-xs text-primary-foreground/60">Step</p>
-                      <p className="text-lg font-bold text-primary-foreground">{currentDirectionIdx + 1}<span className="text-sm font-normal text-primary-foreground/50">/{routeInfo.steps.length}</span></p>
-                    </div>
+
+                    {/* Remaining distance to mosque */}
+                    {(() => {
+                      const remainingDist = routeInfo.steps.slice(currentDirectionIdx).reduce((sum, s) => sum + s.distance, 0);
+                      const remainingMin = Math.round((remainingDist / 1000) / (settings.walkingSpeed || 5) * 60);
+                      return (
+                        <div className="flex items-center gap-3 mt-3 pt-2 border-t border-primary-foreground/10 text-xs text-primary-foreground/60">
+                          <span>{remainingDist > 1000 ? `${(remainingDist / 1000).toFixed(1)} km` : `${Math.round(remainingDist)} m`} left</span>
+                          <span>~{remainingMin} min</span>
+                          <span className="ml-auto">{Math.round((currentDirectionIdx / Math.max(1, routeInfo.steps.length - 1)) * 100)}% done</span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 
-                {/* Direction step progress bar */}
-                <div className="px-4 pt-2 pb-1">
-                  <div className="flex gap-0.5">
+                {/* Segmented progress bar */}
+                <div className="px-3 pt-2 pb-1">
+                  <div className="flex gap-[2px]">
                     {routeInfo.steps.map((_, i) => (
                       <div
                         key={i}
-                        className={`h-1 rounded-full flex-1 transition-all duration-300 ${
+                        className={`h-1.5 rounded-full flex-1 transition-all duration-500 ${
                           i < currentDirectionIdx
                             ? "bg-primary"
                             : i === currentDirectionIdx
-                              ? "bg-gold"
+                              ? "bg-gold animate-pulse"
                               : "bg-border"
                         }`}
                       />
@@ -594,27 +609,67 @@ const ActiveWalk = () => {
                   </div>
                 </div>
 
-                {/* Upcoming directions */}
-                <div className="px-4 pb-3 pt-1 space-y-1 max-h-24 overflow-y-auto">
-                  {routeInfo.steps.slice(currentDirectionIdx + 1, currentDirectionIdx + 4).map((s, i) => {
-                    const actualIdx = currentDirectionIdx + 1 + i;
-                    return (
-                      <div key={actualIdx} className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <div className="w-5 h-5 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
-                          {getDirectionIcon(s.instruction, true)}
-                        </div>
-                        <span className="capitalize truncate flex-1">{formatDirection(s.instruction)}</span>
-                        <span className="text-muted-foreground/60 flex-shrink-0">
-                          {s.distance > 1000 ? `${(s.distance / 1000).toFixed(1)}km` : `${Math.round(s.distance)}m`}
-                        </span>
-                      </div>
-                    );
-                  })}
-                  {routeInfo.steps.length > currentDirectionIdx + 4 && (
-                    <p className="text-[10px] text-muted-foreground/50 text-center">
-                      +{routeInfo.steps.length - currentDirectionIdx - 4} more steps
-                    </p>
-                  )}
+                {/* Next up — upcoming directions list */}
+                {routeInfo.steps.length > currentDirectionIdx + 1 && (
+                  <div className="px-3 pb-3 pt-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Next up</p>
+                    <div className="space-y-1.5">
+                      {routeInfo.steps.slice(currentDirectionIdx + 1, currentDirectionIdx + 4).map((s, i) => {
+                        const actualIdx = currentDirectionIdx + 1 + i;
+                        const isNext = i === 0;
+                        return (
+                          <div
+                            key={actualIdx}
+                            className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors ${
+                              isNext ? "bg-muted/80" : ""
+                            }`}
+                          >
+                            <div className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${
+                              isNext ? "bg-primary/10" : "bg-muted"
+                            }`}>
+                              {getDirectionIcon(s.instruction, true)}
+                            </div>
+                            <span className={`text-xs capitalize truncate flex-1 ${isNext ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+                              {formatDirection(s.instruction)}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground/60 flex-shrink-0 tabular-nums">
+                              {s.distance > 1000 ? `${(s.distance / 1000).toFixed(1)} km` : `${Math.round(s.distance)} m`}
+                            </span>
+                          </div>
+                        );
+                      })}
+                      {routeInfo.steps.length > currentDirectionIdx + 4 && (
+                        <p className="text-[10px] text-muted-foreground/40 text-center pt-0.5">
+                          +{routeInfo.steps.length - currentDirectionIdx - 4} more
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Final step — arrival indicator */}
+                {currentDirectionIdx === routeInfo.steps.length - 1 && (
+                  <div className="px-3 pb-3 pt-1">
+                    <div className="flex items-center gap-2 bg-gold/10 rounded-lg px-3 py-2">
+                      <MapPin className="w-4 h-4 text-gold" />
+                      <span className="text-xs font-semibold text-foreground">Arriving at {mosqueName}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* No route fallback — show basic distance guidance */}
+            {(!routeInfo || routeInfo.steps.length === 0) && isWalking && mosquePosition && currentPosition && (
+              <div className="glass-card p-3 flex items-center gap-3 text-left">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Navigation className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    {(haversine(currentPosition.lat, currentPosition.lng, mosquePosition.lat, mosquePosition.lng) * 1000).toFixed(0)} m to mosque
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">Head towards {mosqueName}</p>
                 </div>
               </div>
             )}
