@@ -109,7 +109,7 @@ const Settings = () => {
         </div>
       </header>
 
-      <div className="container py-6 space-y-6 max-w-lg">
+      <div className="container py-6 space-y-6 max-w-lg pb-32">
         {/* Theme */}
         <div className="glass-card p-5 space-y-3">
           <h2 className="font-semibold text-foreground flex items-center gap-2">
@@ -522,9 +522,15 @@ const Settings = () => {
           </div>
         </div>
 
-        <Button variant="hero" className="w-full" onClick={handleSave}>
-          <Save className="w-4 h-4 mr-2" /> Save Settings
-        </Button>
+      </div>
+
+      {/* Sticky save bar */}
+      <div className="fixed bottom-16 left-0 right-0 z-40 bg-background/95 backdrop-blur-sm border-t border-border p-3">
+        <div className="container max-w-lg">
+          <Button variant="hero" className="w-full" onClick={handleSave}>
+            <Save className="w-4 h-4 mr-2" /> Save Settings
+          </Button>
+        </div>
       </div>
     </div>
   );
