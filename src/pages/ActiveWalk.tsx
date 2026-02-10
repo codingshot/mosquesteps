@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Play, Square, Pause, MapPin, Footprints, Clock, Star, Navigation, AlertTriangle, Smartphone, Share2, Map } from "lucide-react";
+import { ArrowLeft, Play, Square, Pause, MapPin, Footprints, Clock, Star, Navigation, AlertTriangle, Smartphone, Share2, Map, Image, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { estimateSteps, estimateWalkingTime, calculateHasanat } from "@/lib/prayer-times";
@@ -8,6 +8,8 @@ import { addWalkEntry, getSettings, getSavedMosques } from "@/lib/walking-histor
 import { StepCounter, isStepCountingAvailable, getPaceCategory } from "@/lib/step-counter";
 import { fetchWalkingRoute } from "@/lib/routing";
 import { useToast } from "@/hooks/use-toast";
+import { generateShareCard, shareOrDownload } from "@/lib/share-card";
+import { isNearMosque, addCheckIn, hasCheckedInToday } from "@/lib/checkin";
 import logo from "@/assets/logo.png";
 import WalkMap from "@/components/WalkMap";
 
@@ -56,6 +58,8 @@ const ActiveWalk = () => {
   const [routeInfo, setRouteInfo] = useState<{ distanceKm: number; durationMin: number; steps: { instruction: string; distance: number }[] } | null>(null);
   const [currentPosition, setCurrentPosition] = useState<Position | null>(null);
   const [currentDirectionIdx, setCurrentDirectionIdx] = useState(0);
+  const [checkedIn, setCheckedIn] = useState(false);
+  const [sharingCard, setSharingCard] = useState(false);
 
   const stepCounterRef = useRef<StepCounter | null>(null);
   const distanceRef = useRef(0);
@@ -481,17 +485,79 @@ const ActiveWalk = () => {
             </div>
 
             <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={async () => {
+                setSharingCard(true);
+                try {
+                  const blob = await generateShareCard({
+                    title: `Walk to ${selectedPrayer} Complete!`,
+                    subtitle: `${mosqueName} • ${new Date().toLocaleDateString()}`,
+                    stats: [
+                      { label: "Steps", value: displaySteps.toLocaleString() },
+                      { label: "Hasanat", value: hasanat.toLocaleString() },
+                      { label: "Distance", value: `${distanceKm.toFixed(2)} km` },
+                    ],
+                    hadith: "He does not take a step without being raised a degree and having one of his sins removed.",
+                    type: "walk",
+                  });
+                  await shareOrDownload(blob, `${displaySteps.toLocaleString()} steps to ${selectedPrayer} — ${hasanat.toLocaleString()} hasanat earned!`);
+                } catch {
+                  // Fallback to text share
+                  const text = `🕌 Walk to ${selectedPrayer} complete!\n👣 ${displaySteps.toLocaleString()} steps\n⭐ ${hasanat.toLocaleString()} hasanat\n📏 ${distanceKm.toFixed(2)} km`;
+                  if (navigator.share) { navigator.share({ title: "MosqueSteps Walk", text }).catch(() => {}); }
+                  else { navigator.clipboard.writeText(text); toast({ title: "Copied! 📋" }); }
+                }
+                setSharingCard(false);
+              }}>
+                <Image className="w-4 h-4 mr-1" /> {sharingCard ? "Generating..." : "Share Card"}
+              </Button>
               <Button variant="outline" className="flex-1" onClick={() => {
                 const text = `🕌 Walk to ${selectedPrayer} complete!\n👣 ${displaySteps.toLocaleString()} steps\n⭐ ${hasanat.toLocaleString()} hasanat\n📏 ${distanceKm.toFixed(2)} km\n⏱️ ${formatTime(elapsedSeconds)}`;
                 if (navigator.share) { navigator.share({ title: "MosqueSteps Walk", text }).catch(() => {}); }
                 else { navigator.clipboard.writeText(text); toast({ title: "Copied! 📋" }); }
               }}>
-                <Share2 className="w-4 h-4 mr-1" /> Share
+                <Share2 className="w-4 h-4 mr-1" /> Share Text
               </Button>
             </div>
 
+            {/* Check-in button */}
+            {mosquePosition && currentPosition && (
+              <div className="glass-card p-4">
+                {isNearMosque(currentPosition.lat, currentPosition.lng, mosquePosition.lat, mosquePosition.lng) ? (
+                  checkedIn || hasCheckedInToday(String(mosquePosition.lat), selectedPrayer) ? (
+                    <div className="flex items-center gap-2 text-primary">
+                      <CheckCircle className="w-5 h-5" />
+                      <span className="font-semibold text-sm">Checked in at {mosqueName}! 🕌</span>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="hero"
+                      className="w-full"
+                      onClick={() => {
+                        addCheckIn({
+                          mosqueId: String(mosquePosition.lat),
+                          mosqueName,
+                          date: new Date().toISOString(),
+                          prayer: selectedPrayer,
+                          lat: currentPosition!.lat,
+                          lng: currentPosition!.lng,
+                        });
+                        setCheckedIn(true);
+                        toast({ title: "Checked in! 🕌", description: `${mosqueName} — ${selectedPrayer}` });
+                      }}
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" /> Check In at {mosqueName}
+                    </Button>
+                  )
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center">
+                    📍 Get within 100m of the mosque to check in
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="flex gap-3">
-              <Button variant="hero" className="flex-1" onClick={() => { setCompleted(false); setDistanceKm(0); setSensorSteps(0); }}>
+              <Button variant="hero" className="flex-1" onClick={() => { setCompleted(false); setDistanceKm(0); setSensorSteps(0); setCheckedIn(false); }}>
                 <Play className="w-4 h-4 mr-1" /> New Walk
               </Button>
               <Link to="/history" className="flex-1">
