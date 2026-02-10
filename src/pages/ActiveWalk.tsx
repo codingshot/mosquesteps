@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Play, Square, Pause, MapPin, Footprints, Clock, Star, Navigation, AlertTriangle, Smartphone, Share2, Map, Image, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { estimateSteps, estimateWalkingTime, calculateHasanat } from "@/lib/prayer-times";
+import { estimateSteps, estimateWalkingTime, calculateHasanat, fetchPrayerTimes, calculateLeaveByTime, minutesUntilLeave, getIPGeolocation, type PrayerTime } from "@/lib/prayer-times";
 import { addWalkEntry, getSettings, getSavedMosques } from "@/lib/walking-history";
 import { StepCounter, isStepCountingAvailable, getPaceCategory } from "@/lib/step-counter";
 import { fetchWalkingRoute } from "@/lib/routing";
@@ -49,8 +49,12 @@ const ActiveWalk = () => {
   const [currentQuoteIdx, setCurrentQuoteIdx] = useState(0);
   const [watchId, setWatchId] = useState<number | null>(null);
   const [completed, setCompleted] = useState(false);
-  const [selectedPrayer, setSelectedPrayer] = useState<string>(searchParams.get("prayer") || "Dhuhr");
+  const [selectedPrayer, setSelectedPrayer] = useState<string>(searchParams.get("prayer") || "");
   const [sensorSteps, setSensorSteps] = useState(0);
+  const [prayerTimes, setPrayerTimes] = useState<PrayerTime[]>([]);
+  const [prayerLoading, setPrayerLoading] = useState(true);
+  const [timeUntilPrayer, setTimeUntilPrayer] = useState<string>("");
+  const [mosqueAddress, setMosqueAddress] = useState<string>("");
   const [sensorSource, setSensorSource] = useState<string>("none");
   const [showPaceWarning, setShowPaceWarning] = useState(false);
   const [showMap, setShowMap] = useState(true);
@@ -82,10 +86,60 @@ const ActiveWalk = () => {
   const mosqueName = prayerMosque?.name || settings.selectedMosqueName;
   const progressPercent = mosqueDist > 0 ? Math.min(1, distanceKm / mosqueDist) : 0;
 
+  // Fetch prayer times and auto-select next prayer
+  useEffect(() => {
+    const loadPrayers = async () => {
+      try {
+        let lat = settings.cityLat;
+        let lng = settings.cityLng;
+        if (!lat || !lng) {
+          const ipGeo = await getIPGeolocation();
+          if (ipGeo) { lat = ipGeo.lat; lng = ipGeo.lng; }
+          else { lat = 21.42; lng = 39.83; }
+        }
+        const data = await fetchPrayerTimes(lat, lng);
+        setPrayerTimes(data.prayers);
+        
+        // Auto-select next upcoming prayer if none specified
+        if (!searchParams.get("prayer")) {
+          const nextPrayer = data.prayers.find((p) => !p.isPast);
+          if (nextPrayer) {
+            setSelectedPrayer(nextPrayer.name);
+          } else {
+            setSelectedPrayer("Fajr"); // All passed, default to Fajr (next day)
+          }
+        }
+      } catch {
+        if (!selectedPrayer) setSelectedPrayer("Dhuhr");
+      } finally {
+        setPrayerLoading(false);
+      }
+    };
+    loadPrayers();
+  }, []);
+
+  // Reverse-geocode mosque address
+  useEffect(() => {
+    if (!mosquePosition) return;
+    const fetchAddress = async () => {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${mosquePosition.lat}&lon=${mosquePosition.lng}&format=json`, {
+          headers: { "Accept-Language": "en" },
+        });
+        const data = await res.json();
+        if (data.display_name) {
+          // Shorten: take first 3 parts
+          const parts = data.display_name.split(", ");
+          setMosqueAddress(parts.slice(0, 3).join(", "));
+        }
+      } catch {}
+    };
+    fetchAddress();
+  }, [mosquePosition?.lat, mosquePosition?.lng]);
+
   // Fetch route on mount if we have user position and mosque
   useEffect(() => {
     if (!mosquePosition) return;
-    // Get initial position for route
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
@@ -101,6 +155,27 @@ const ActiveWalk = () => {
       );
     }
   }, [mosquePosition?.lat, mosquePosition?.lng]);
+
+  // Countdown to selected prayer
+  useEffect(() => {
+    if (!selectedPrayer || !prayerTimes.length) return;
+    const prayer = prayerTimes.find((p) => p.name === selectedPrayer);
+    if (!prayer) { setTimeUntilPrayer(""); return; }
+    
+    const update = () => {
+      const [h, m] = prayer.time.split(":").map(Number);
+      const now = new Date();
+      let diffMin = (h * 60 + m) - (now.getHours() * 60 + now.getMinutes());
+      if (diffMin < 0) diffMin += 24 * 60;
+      if (diffMin <= 0) { setTimeUntilPrayer("Now"); return; }
+      const hours = Math.floor(diffMin / 60);
+      const mins = diffMin % 60;
+      setTimeUntilPrayer(hours > 0 ? `${hours}h ${mins}m` : `${mins}m`);
+    };
+    update();
+    const interval = setInterval(update, 30000);
+    return () => clearInterval(interval);
+  }, [selectedPrayer, prayerTimes]);
 
   // Show pace warning
   useEffect(() => {
@@ -266,31 +341,116 @@ const ActiveWalk = () => {
               {isStepCountingAvailable() ? "Motion sensors available — real step counting!" : "Steps estimated from GPS."}
             </p>
 
-            {/* Prayer selection */}
+            {/* Prayer selection with time info */}
             <div className="glass-card p-4 text-left">
               <label className="text-sm font-medium text-foreground mb-2 block">Walking for which prayer?</label>
-              <div className="flex flex-wrap gap-2">
-                {PRAYERS.map((p) => (
-                  <button key={p} onClick={() => setSelectedPrayer(p)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${selectedPrayer === p ? "bg-gradient-teal text-primary-foreground shadow-teal" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
-                  >{p}</button>
-                ))}
-              </div>
+              {prayerLoading ? (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  Detecting next prayer...
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {PRAYERS.map((p) => {
+                    const prayerData = prayerTimes.find((pt) => pt.name === p);
+                    const isNext = prayerData && !prayerData.isPast && !prayerTimes.slice(0, prayerTimes.indexOf(prayerData)).some((pt) => !pt.isPast);
+                    return (
+                      <button key={p} onClick={() => setSelectedPrayer(p)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all relative ${
+                          selectedPrayer === p 
+                            ? "bg-gradient-teal text-primary-foreground shadow-teal" 
+                            : prayerData?.isPast 
+                              ? "bg-muted/50 text-muted-foreground/50" 
+                              : isNext 
+                                ? "bg-gold/20 text-gold ring-1 ring-gold/30" 
+                                : "bg-muted text-muted-foreground hover:bg-muted/80"
+                        }`}
+                      >
+                        {p}
+                        {prayerData && !prayerData.isPast && (
+                          <span className="block text-[9px] opacity-70">{prayerData.time}</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Time until selected prayer */}
+              {selectedPrayer && timeUntilPrayer && (
+                <div className="mt-3 flex items-center gap-2 text-sm">
+                  <Clock className="w-4 h-4 text-gold" />
+                  <span className="text-foreground font-medium">
+                    {selectedPrayer} in <span className="text-gold font-bold">{timeUntilPrayer}</span>
+                  </span>
+                  {(() => {
+                    const prayerData = prayerTimes.find((pt) => pt.name === selectedPrayer);
+                    if (!prayerData) return null;
+                    const walkTime = routeInfo?.durationMin || estimateWalkingTime(mosqueDist, settings.walkingSpeed);
+                    const leaveBy = calculateLeaveByTime(prayerData.time, walkTime);
+                    const minsLeft = minutesUntilLeave(prayerData.time, walkTime);
+                    return (
+                      <span className={`text-xs ml-auto font-medium ${minsLeft <= 5 ? "text-destructive" : minsLeft <= 15 ? "text-gold" : "text-primary"}`}>
+                        Leave by {leaveBy}
+                      </span>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
 
-            {/* Route info */}
-            <div className="glass-card p-4 text-left text-sm space-y-1 text-muted-foreground">
-              <p><MapPin className="w-4 h-4 inline mr-1 text-primary" /> {mosqueName}</p>
-              {routeInfo ? (
+            {/* Mosque info card */}
+            <div className="glass-card p-4 text-left space-y-2">
+              {mosquePosition ? (
                 <>
-                  <p><Navigation className="w-4 h-4 inline mr-1 text-primary" /> {routeInfo.distanceKm.toFixed(1)} km route · {estimateSteps(routeInfo.distanceKm)} steps</p>
-                  <p><Clock className="w-4 h-4 inline mr-1 text-primary" /> ~{routeInfo.durationMin} min walk</p>
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                        <MapPin className="w-4 h-4 text-primary flex-shrink-0" />
+                        {mosqueName}
+                      </p>
+                      {mosqueAddress && (
+                        <p className="text-xs text-muted-foreground ml-5.5 pl-0.5">{mosqueAddress}</p>
+                      )}
+                    </div>
+                    <Link to="/mosques" className="text-xs text-primary font-medium hover:underline flex-shrink-0">
+                      Change
+                    </Link>
+                  </div>
+
+                  {/* Distance & route details */}
+                  <div className="grid grid-cols-3 gap-2 mt-2">
+                    <div className="bg-muted/50 rounded-lg p-2 text-center">
+                      <p className="text-sm font-bold text-foreground">
+                        {routeInfo ? routeInfo.distanceKm.toFixed(1) : mosqueDist.toFixed(1)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">km</p>
+                    </div>
+                    <div className="bg-muted/50 rounded-lg p-2 text-center">
+                      <p className="text-sm font-bold text-foreground">
+                        {routeInfo ? estimateSteps(routeInfo.distanceKm).toLocaleString() : estimateSteps(mosqueDist).toLocaleString()}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">steps</p>
+                    </div>
+                    <div className="bg-muted/50 rounded-lg p-2 text-center">
+                      <p className="text-sm font-bold text-foreground">
+                        ~{routeInfo ? routeInfo.durationMin : estimateWalkingTime(mosqueDist, settings.walkingSpeed)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">min</p>
+                    </div>
+                  </div>
                 </>
               ) : (
-                <>
-                  <p><Navigation className="w-4 h-4 inline mr-1 text-primary" /> Est. {mosqueDist} km · {estimateSteps(mosqueDist)} steps</p>
-                  <p><Clock className="w-4 h-4 inline mr-1 text-primary" /> Est. {estimateWalkingTime(mosqueDist, settings.walkingSpeed)} min</p>
-                </>
+                <div className="text-center py-2 space-y-2">
+                  <MapPin className="w-8 h-8 text-muted-foreground/50 mx-auto" />
+                  <p className="text-sm font-medium text-foreground">No mosque selected</p>
+                  <p className="text-xs text-muted-foreground">Find a nearby mosque to get route info and distance tracking.</p>
+                  <Link to="/mosques">
+                    <Button variant="outline" size="sm" className="mt-1">
+                      <MapPin className="w-3 h-3 mr-1" /> Find Mosque
+                    </Button>
+                  </Link>
+                </div>
               )}
             </div>
 
