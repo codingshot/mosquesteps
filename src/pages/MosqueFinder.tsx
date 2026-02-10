@@ -189,20 +189,33 @@ const MosqueFinder = () => {
       const data = await res.json();
       const origin = getDistanceOrigin();
 
-      // Deduplicate by id
+      // Deduplicate by id AND by proximity (within 50m with same name)
       const seen = new Set<number>();
-      const results: Mosque[] = data.elements
+      const deduped: Mosque[] = [];
+      const allParsed: Mosque[] = data.elements
         .map((el: any) => ({
           id: el.id,
           name: el.tags?.name || el.tags?.["name:en"] || el.tags?.["name:ar"] || "Mosque",
           lat: el.lat || el.center?.lat,
           lon: el.lon || el.center?.lon,
         }))
-        .filter((m: Mosque) => {
-          if (!m.lat || !m.lon || seen.has(m.id)) return false;
+        .filter((m: Mosque) => m.lat && m.lon);
+
+      for (const m of allParsed) {
+        if (seen.has(m.id)) continue;
+        // Check if a mosque with similar name exists within 50m
+        const isDuplicate = deduped.some(
+          (existing) =>
+            existing.name === m.name &&
+            haversineDistance(existing.lat, existing.lon, m.lat, m.lon) < 0.05
+        );
+        if (!isDuplicate) {
           seen.add(m.id);
-          return true;
-        })
+          deduped.push(m);
+        }
+      }
+
+      const results: Mosque[] = deduped
         .map((m: Mosque) => ({ ...m, distance: haversineDistance(origin.lat, origin.lng, m.lat, m.lon) }))
         .sort((a: Mosque, b: Mosque) => (a.distance || 0) - (b.distance || 0));
       setMosques(results);
