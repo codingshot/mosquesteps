@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Footprints, Clock, Star, Flame, BarChart3,
-  TrendingUp, Route as RouteIcon, Target, Edit2, Check
+  TrendingUp, Route as RouteIcon, Target, Edit2, Check, ArrowLeft
 } from "lucide-react";
 import { getWalkHistory, getWalkingStats, getSettings } from "@/lib/walking-history";
 import { getGoals, saveGoals, type WalkingGoals } from "@/lib/goals";
@@ -110,6 +110,7 @@ const Stats = () => {
       <header className="bg-gradient-teal text-primary-foreground">
         <div className="container py-3 flex items-center gap-2">
           <Link to="/dashboard" className="flex items-center gap-2">
+            <ArrowLeft className="w-5 h-5" />
             <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
             <span className="font-bold">Walking Stats</span>
           </Link>

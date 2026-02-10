@@ -3,8 +3,19 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, Footprints, Clock, Star, Flame, Trash2, Calendar, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import { getWalkHistory, getWalkingStats, deleteWalkEntry, type WalkEntry } from "@/lib/walking-history";
+import { getWalkHistory, getWalkingStats, deleteWalkEntry, getSettings, type WalkEntry } from "@/lib/walking-history";
 import logo from "@/assets/logo.png";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -12,6 +23,9 @@ const History = () => {
   const [history, setHistory] = useState<WalkEntry[]>([]);
   const [stats, setStats] = useState(getWalkingStats());
   const [activeTab, setActiveTab] = useState<"log" | "charts">("log");
+  const settings = getSettings();
+  const isImperial = settings.distanceUnit === "mi";
+  const formatDist = (km: number) => isImperial ? `${(km * 0.621371).toFixed(2)} mi` : `${km.toFixed(2)} km`;
 
   useEffect(() => {
     setHistory(getWalkHistory());
@@ -69,6 +83,7 @@ const History = () => {
       <header className="bg-card border-b border-border">
         <div className="container py-3 flex items-center gap-2">
           <Link to="/dashboard" className="flex items-center gap-2">
+            <ArrowLeft className="w-5 h-5 text-foreground" />
             <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
             <span className="font-bold text-foreground">Walking History</span>
           </Link>
@@ -102,7 +117,7 @@ const History = () => {
 
         <div className="grid grid-cols-2 gap-3">
           <div className="glass-card p-4 text-center">
-            <p className="text-lg font-bold text-foreground">{stats.totalDistance.toFixed(1)} km</p>
+            <p className="text-lg font-bold text-foreground">{formatDist(stats.totalDistance)}</p>
             <p className="text-xs text-muted-foreground">Total Distance</p>
           </div>
           <div className="glass-card p-4 text-center">
@@ -217,7 +232,7 @@ const History = () => {
                       <div>
                         <p className="font-medium text-foreground text-sm">{entry.mosqueName}</p>
                         <p className="text-xs text-muted-foreground">
-                          {formatDate(entry.date)} · {entry.prayer !== "Unknown" ? entry.prayer : ""} · {entry.distanceKm.toFixed(2)} km
+                          {formatDate(entry.date)} · {entry.prayer !== "Unknown" ? entry.prayer : ""} · {formatDist(entry.distanceKm)}
                         </p>
                       </div>
                     </div>
@@ -226,13 +241,30 @@ const History = () => {
                         <p className="font-medium text-foreground">{entry.steps.toLocaleString()} steps</p>
                         <p className="text-gold">{entry.hasanat.toLocaleString()} hasanat</p>
                       </div>
-                      <button
-                        onClick={() => handleDelete(entry.id)}
-                        className="text-muted-foreground hover:text-destructive transition-colors p-1"
-                        aria-label="Delete walk"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button
+                            className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                            aria-label="Delete walk"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete this walk?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will permanently remove this walk entry ({entry.steps.toLocaleString()} steps, {entry.hasanat.toLocaleString()} hasanat). This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDelete(entry.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </motion.div>
                 ))}
