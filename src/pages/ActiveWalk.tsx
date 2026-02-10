@@ -332,8 +332,10 @@ const ActiveWalk = () => {
             {/* Live stats */}
             <div className="grid grid-cols-4 gap-2">
               <div className="glass-card p-2.5 text-center">
-                <p className="text-base font-bold text-foreground">{(distanceKm * 1000).toFixed(0)}</p>
-                <p className="text-[10px] text-muted-foreground">meters</p>
+                <p className="text-base font-bold text-foreground">
+                  {(settings.distanceUnit === "mi" ? distanceKm * 0.621371 * 5280 : distanceKm * 1000).toFixed(0)}
+                </p>
+                <p className="text-[10px] text-muted-foreground">{settings.distanceUnit === "mi" ? "feet" : "meters"}</p>
               </div>
               <div className="glass-card p-2.5 text-center">
                 <p className="text-base font-bold text-foreground">{formatTime(elapsedSeconds)}</p>
@@ -344,8 +346,14 @@ const ActiveWalk = () => {
                 <p className="text-[10px] text-muted-foreground">hasanat</p>
               </div>
               <div className="glass-card p-2.5 text-center">
-                <p className="text-base font-bold text-foreground">{stepsPerMinute}</p>
-                <p className="text-[10px] text-muted-foreground">steps/min</p>
+                <p className="text-base font-bold text-foreground">
+                  {elapsedSeconds > 30
+                    ? (settings.speedUnit === "mph"
+                        ? ((distanceKm / (elapsedSeconds / 3600)) * 0.621371).toFixed(1)
+                        : (distanceKm / (elapsedSeconds / 3600)).toFixed(1))
+                    : "—"}
+                </p>
+                <p className="text-[10px] text-muted-foreground">{settings.speedUnit === "mph" ? "mph" : "km/h"}</p>
               </div>
             </div>
 

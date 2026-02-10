@@ -32,6 +32,9 @@ export interface UserSettings {
   cityName?: string;
   cityLat?: number;
   cityLng?: number;
+  distanceUnit?: "km" | "mi";
+  speedUnit?: "kmh" | "mph";
+  strideLength?: number; // meters
 }
 
 const DEFAULT_SETTINGS: UserSettings = {

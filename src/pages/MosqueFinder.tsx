@@ -1,12 +1,11 @@
-import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Search, MapPin, Footprints, Clock, Check } from "lucide-react";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import { Search, MapPin, Footprints, Clock, Check, Locate } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { estimateSteps, estimateWalkingTime } from "@/lib/prayer-times";
-import { saveSettings } from "@/lib/walking-history";
+import { saveSettings, getSettings } from "@/lib/walking-history";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
 
@@ -23,7 +22,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-// Custom mosque marker
 const mosqueIcon = new L.Icon({
   iconUrl: markerIcon,
   iconRetinaUrl: markerIcon2x,
@@ -42,14 +40,6 @@ interface Mosque {
   distance?: number;
 }
 
-function RecenterMap({ lat, lng }: { lat: number; lng: number }) {
-  const map = useMap();
-  useEffect(() => {
-    map.setView([lat, lng], 14);
-  }, [lat, lng, map]);
-  return null;
-}
-
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -63,6 +53,11 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 const MosqueFinder = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const settings = getSettings();
+  const mapRef = useRef<L.Map | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const markersRef = useRef<L.Marker[]>([]);
+
   const [userPos, setUserPos] = useState<{ lat: number; lng: number }>({ lat: 51.5074, lng: -0.1278 });
   const [mosques, setMosques] = useState<Mosque[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -70,18 +65,61 @@ const MosqueFinder = () => {
   const [selectedMosque, setSelectedMosque] = useState<Mosque | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
 
+  // Initialize vanilla Leaflet map
+  useEffect(() => {
+    if (!mapContainerRef.current || mapRef.current) return;
+
+    const map = L.map(mapContainerRef.current).setView([userPos.lat, userPos.lng], 14);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(map);
+
+    // User location marker
+    L.marker([userPos.lat, userPos.lng]).addTo(map).bindPopup("Your location");
+
+    mapRef.current = map;
+
+    return () => {
+      map.remove();
+      mapRef.current = null;
+    };
+  }, []);
+
+  // Get user location on mount
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
           setUserPos(loc);
+          if (mapRef.current) {
+            mapRef.current.setView([loc.lat, loc.lng], 14);
+          }
           searchNearbyMosques(loc.lat, loc.lng);
         },
         () => searchNearbyMosques(userPos.lat, userPos.lng)
       );
     }
   }, []);
+
+  // Update map markers when mosques change
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    // Clear old markers
+    markersRef.current.forEach((m) => m.remove());
+    markersRef.current = [];
+
+    // Add mosque markers
+    mosques.forEach((m) => {
+      const marker = L.marker([m.lat, m.lon], { icon: mosqueIcon })
+        .addTo(mapRef.current!)
+        .bindPopup(
+          `<div style="font-size:13px"><strong>${m.name}</strong><br/>${m.distance?.toFixed(2)} km · ~${estimateSteps(m.distance || 0)} steps · ${estimateWalkingTime(m.distance || 0)} min</div>`
+        );
+      markersRef.current.push(marker);
+    });
+  }, [mosques]);
 
   const searchNearbyMosques = async (lat: number, lng: number) => {
     setLoading(true);
@@ -131,6 +169,9 @@ const MosqueFinder = () => {
       if (data.length > 0) {
         const loc = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
         setUserPos(loc);
+        if (mapRef.current) {
+          mapRef.current.setView([loc.lat, loc.lng], 14);
+        }
         searchNearbyMosques(loc.lat, loc.lng);
       }
     } catch (e) {
@@ -141,9 +182,10 @@ const MosqueFinder = () => {
   };
 
   const selectAsPrimary = (mosque: Mosque) => {
+    const dist = Math.round((mosque.distance || 0.5) * 100) / 100;
     saveSettings({
       selectedMosqueName: mosque.name,
-      selectedMosqueDistance: Math.round((mosque.distance || 0.5) * 100) / 100,
+      selectedMosqueDistance: dist,
       selectedMosqueLat: mosque.lat,
       selectedMosqueLng: mosque.lon,
     });
@@ -152,6 +194,12 @@ const MosqueFinder = () => {
       title: `${mosque.name} selected! 🕌`,
       description: `Distance: ${mosque.distance?.toFixed(2)} km · ${estimateSteps(mosque.distance || 0)} steps · ${estimateWalkingTime(mosque.distance || 0)} min walk`,
     });
+  };
+
+  const formatDistance = (km: number) => {
+    const unit = settings.distanceUnit || "km";
+    if (unit === "mi") return `${(km * 0.621371).toFixed(2)} mi`;
+    return `${km.toFixed(2)} km`;
   };
 
   return (
@@ -181,34 +229,9 @@ const MosqueFinder = () => {
         </div>
       </header>
 
-      {/* Map */}
+      {/* Map - vanilla Leaflet */}
       <div className="flex-1 relative" style={{ minHeight: "40vh" }}>
-        <MapContainer
-          center={[userPos.lat, userPos.lng]}
-          zoom={14}
-          className="w-full h-full absolute inset-0"
-          style={{ minHeight: "40vh" }}
-        >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          <RecenterMap lat={userPos.lat} lng={userPos.lng} />
-          <Marker position={[userPos.lat, userPos.lng]}>
-            <Popup>Your location</Popup>
-          </Marker>
-          {mosques.map((m) => (
-            <Marker key={m.id} position={[m.lat, m.lon]} icon={mosqueIcon}>
-              <Popup>
-                <div className="text-sm">
-                  <strong>{m.name}</strong>
-                  <br />
-                  {m.distance?.toFixed(2)} km · ~{estimateSteps(m.distance || 0)} steps · {estimateWalkingTime(m.distance || 0)} min
-                </div>
-              </Popup>
-            </Marker>
-          ))}
-        </MapContainer>
+        <div ref={mapContainerRef} className="w-full h-full absolute inset-0" style={{ minHeight: "40vh" }} />
       </div>
 
       {/* Mosque list */}
@@ -226,7 +249,7 @@ const MosqueFinder = () => {
           <div className="glass-card p-6 text-center">
             <MapPin className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
             <p className="text-sm text-muted-foreground">No mosques found nearby.</p>
-            <p className="text-xs text-muted-foreground mt-1">Try searching for a different area or zooming out.</p>
+            <p className="text-xs text-muted-foreground mt-1">Try searching for a different area.</p>
           </div>
         )}
         {mosques.map((m) => {
@@ -240,7 +263,7 @@ const MosqueFinder = () => {
                 <div className="min-w-0">
                   <p className="font-medium text-foreground text-sm truncate">{m.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {m.distance?.toFixed(2)} km · <Footprints className="w-3 h-3 inline" /> {estimateSteps(m.distance || 0)} · <Clock className="w-3 h-3 inline" /> {estimateWalkingTime(m.distance || 0)} min
+                    {formatDistance(m.distance || 0)} · <Footprints className="w-3 h-3 inline" /> {estimateSteps(m.distance || 0)} · <Clock className="w-3 h-3 inline" /> {estimateWalkingTime(m.distance || 0)} min
                   </p>
                 </div>
               </div>

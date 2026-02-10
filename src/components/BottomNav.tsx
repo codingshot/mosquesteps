@@ -1,13 +1,13 @@
 import { Link, useLocation } from "react-router-dom";
-import { MapPin, Footprints, Clock, Trophy, LayoutDashboard } from "lucide-react";
+import { MapPin, Footprints, BarChart3, Trophy, LayoutDashboard } from "lucide-react";
 import { motion } from "framer-motion";
 
 const tabs = [
   { path: "/dashboard", label: "Home", icon: LayoutDashboard },
   { path: "/mosques", label: "Mosques", icon: MapPin },
   { path: "/walk", label: "Walk", icon: Footprints, isMain: true },
+  { path: "/stats", label: "Stats", icon: BarChart3 },
   { path: "/rewards", label: "Rewards", icon: Trophy },
-  { path: "/history", label: "History", icon: Clock },
 ];
 
 const BottomNav = () => {

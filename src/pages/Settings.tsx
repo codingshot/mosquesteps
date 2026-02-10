@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Save, MapPin, Bell, BellOff, Locate, Download, Sun, Moon, Monitor } from "lucide-react";
+import { ArrowLeft, Save, MapPin, Bell, BellOff, Locate, Download, Sun, Moon, Monitor, Ruler, Gauge, Footprints } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getSettings, saveSettings, type UserSettings } from "@/lib/walking-history";
 import { requestNotificationPermission, isNotificationSupported, getNotificationPermission } from "@/lib/notifications";
@@ -56,7 +56,6 @@ const Settings = () => {
       async (pos) => {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
-        // Reverse geocode for city name
         try {
           const res = await fetch(
             `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`
@@ -90,6 +89,12 @@ const Settings = () => {
       toast({ title: "Notifications blocked", description: "Enable them in your browser settings.", variant: "destructive" });
     }
   };
+
+  const distanceUnit = settings.distanceUnit || "km";
+  const speedUnit = settings.speedUnit || "kmh";
+  const displaySpeed = speedUnit === "mph"
+    ? (settings.walkingSpeed * 0.621371).toFixed(1)
+    : settings.walkingSpeed.toFixed(1);
 
   return (
     <div className="min-h-screen bg-background pb-bottom-nav">
@@ -128,6 +133,80 @@ const Settings = () => {
                 {label}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Measurement Units */}
+        <div className="glass-card p-5 space-y-4">
+          <h2 className="font-semibold text-foreground flex items-center gap-2">
+            <Ruler className="w-4 h-4 text-primary" /> Measurement Units
+          </h2>
+
+          {/* Distance */}
+          <div>
+            <label className="text-sm text-muted-foreground block mb-2">Distance</label>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { value: "km" as const, label: "Kilometers (km)" },
+                { value: "mi" as const, label: "Miles (mi)" },
+              ]).map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setSettings({ ...settings, distanceUnit: value })}
+                  className={`px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                    distanceUnit === value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/50"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Speed */}
+          <div>
+            <label className="text-sm text-muted-foreground block mb-2">Speed</label>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { value: "kmh" as const, label: "km/h" },
+                { value: "mph" as const, label: "mph" },
+              ]).map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setSettings({ ...settings, speedUnit: value })}
+                  className={`px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                    speedUnit === value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/50"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Stride length */}
+          <div>
+            <label className="text-sm text-muted-foreground block mb-2">
+              Stride Length: {(settings.strideLength || 0.75).toFixed(2)} m ({((settings.strideLength || 0.75) * 3.281).toFixed(1)} ft)
+            </label>
+            <input
+              type="range"
+              min="0.5"
+              max="1.0"
+              step="0.01"
+              value={settings.strideLength || 0.75}
+              onChange={(e) => setSettings({ ...settings, strideLength: parseFloat(e.target.value) })}
+              className="w-full accent-primary"
+            />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Short (0.5m)</span>
+              <span>Avg (0.75m)</span>
+              <span>Long (1.0m)</span>
+            </div>
           </div>
         </div>
 
@@ -194,7 +273,9 @@ const Settings = () => {
 
         {/* Walking speed */}
         <div className="glass-card p-5 space-y-3">
-          <h2 className="font-semibold text-foreground">Walking Speed</h2>
+          <h2 className="font-semibold text-foreground flex items-center gap-2">
+            <Gauge className="w-4 h-4 text-primary" /> Walking Speed
+          </h2>
           <p className="text-sm text-muted-foreground">
             Adjust your average walking pace. This affects time estimates and "Leave by" calculations.
           </p>
@@ -208,8 +289,8 @@ const Settings = () => {
               onChange={(e) => setSettings({ ...settings, walkingSpeed: parseFloat(e.target.value) })}
               className="flex-1 accent-primary"
             />
-            <span className="text-sm font-medium text-foreground w-16 text-right">
-              {settings.walkingSpeed} km/h
+            <span className="text-sm font-medium text-foreground w-20 text-right">
+              {displaySpeed} {speedUnit === "mph" ? "mph" : "km/h"}
             </span>
           </div>
           <div className="flex justify-between text-xs text-muted-foreground">
@@ -221,7 +302,9 @@ const Settings = () => {
 
         {/* Mosque name */}
         <div className="glass-card p-5 space-y-3">
-          <h2 className="font-semibold text-foreground">Primary Mosque</h2>
+          <h2 className="font-semibold text-foreground flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-primary" /> Primary Mosque
+          </h2>
           <div>
             <label className="text-sm text-muted-foreground block mb-1">Mosque name</label>
             <input
@@ -233,7 +316,9 @@ const Settings = () => {
           </div>
           <div>
             <label className="text-sm text-muted-foreground block mb-1">
-              Distance: {settings.selectedMosqueDistance} km
+              Distance: {distanceUnit === "mi"
+                ? `${(settings.selectedMosqueDistance * 0.621371).toFixed(2)} mi`
+                : `${settings.selectedMosqueDistance} km`}
             </label>
             <input
               type="range"
