@@ -34,6 +34,13 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [isNextDay, setIsNextDay] = useState(false);
   const [hasanatTooltipOpen, setHasanatTooltipOpen] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Live clock
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const settings = getSettings();
   const stats = getWalkingStats();
@@ -186,9 +193,15 @@ const Dashboard = () => {
                 </defs>
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <Footprints className="w-6 h-6 text-gold mb-1" />
-                <span className="text-3xl font-bold">{steps.toLocaleString()}</span>
-                <span className="text-xs text-primary-foreground/70">est. steps (round trip)</span>
+                <span className="text-2xl font-bold tabular-nums">
+                  {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+                <span className="text-[10px] text-primary-foreground/60 mb-0.5">
+                  {settings.cityName || "Local Time"}
+                </span>
+                <Footprints className="w-5 h-5 text-gold mb-0.5" />
+                <span className="text-xl font-bold">{steps.toLocaleString()}</span>
+                <span className="text-[10px] text-primary-foreground/70">est. steps (round trip)</span>
               </div>
             </div>
           </motion.div>
