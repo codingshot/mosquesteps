@@ -11,6 +11,51 @@
     <priority>0.9</priority>
   </url>
   <url>
+    <loc>https://mosquesteps.com/blogs</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://mosquesteps.com/blogs/virtues-of-walking-to-mosque</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://mosquesteps.com/blogs/sunnah-of-going-to-prayer</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://mosquesteps.com/blogs/fajr-isha-special-rewards</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://mosquesteps.com/blogs/getting-started-with-mosquesteps</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://mosquesteps.com/blogs/tracking-walks-effectively</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://mosquesteps.com/blogs/health-benefits-walking-mosque</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://mosquesteps.com/blogs/mosque-finder-tips</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://mosquesteps.com/blogs/building-walking-streak</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://mosquesteps.com/guides</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>

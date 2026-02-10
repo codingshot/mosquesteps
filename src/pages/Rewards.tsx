@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import SEOHead from "@/components/SEOHead";
 import { ArrowLeft, Star, Footprints, BookOpen, Trophy, Lock } from "lucide-react";
 import { motion } from "framer-motion";
 import { getWalkingStats } from "@/lib/walking-history";
@@ -18,6 +19,7 @@ const Rewards = () => {
 
   return (
     <div className="min-h-screen bg-background pb-bottom-nav">
+      <SEOHead title="Rewards & Badges" description="Track your spiritual rewards (hasanat) and earn badges for walking to the mosque. Based on authentic hadiths." path="/rewards" />
       <header className="bg-gradient-gold">
         <div className="container py-3 flex items-center gap-2">
           <Link to="/dashboard" className="flex items-center gap-2">
