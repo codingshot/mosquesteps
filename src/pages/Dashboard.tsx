@@ -17,6 +17,7 @@ import {
 } from "@/lib/prayer-times";
 import { getSettings, saveSettings, getWalkingStats, getWalkHistory, getSavedMosques, fetchTimezone } from "@/lib/walking-history";
 import { requestNotificationPermission, isNotificationSupported, getNotificationPermission, schedulePrayerReminder, checkAndSendWeeklyInsight } from "@/lib/notifications";
+import { getUnreadCount } from "@/lib/notification-store";
 import { getStepRecommendation } from "@/lib/health-recommendations";
 import { getOnboardingDate } from "./Onboarding";
 import { getBadges } from "@/lib/badges";
@@ -211,11 +212,21 @@ const Dashboard = () => {
             <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
             <span className="font-bold">MosqueSteps</span>
           </Link>
-          <Link to="/settings">
-            <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10 w-9 h-9">
-              <Settings2 className="w-4 h-4" />
-            </Button>
-          </Link>
+          <div className="flex items-center gap-1">
+            <Link to="/notifications" className="relative">
+              <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10 w-9 h-9">
+                <Bell className="w-4 h-4" />
+                {getUnreadCount() > 0 && (
+                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-destructive" />
+                )}
+              </Button>
+            </Link>
+            <Link to="/settings">
+              <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10 w-9 h-9">
+                <Settings2 className="w-4 h-4" />
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <div className="container pb-6">
