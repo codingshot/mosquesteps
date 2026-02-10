@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { hasCompletedOnboarding } from "./Onboarding";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, MapPin, Clock, Footprints, Star, Navigation, Play, History, Settings2, Flame, Bell, Trophy } from "lucide-react";
 import { motion } from "framer-motion";
@@ -19,6 +20,7 @@ import logo from "@/assets/logo.png";
 import { useToast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [prayers, setPrayers] = useState<PrayerTime[]>([]);
   const [hijriDate, setHijriDate] = useState("");
@@ -38,6 +40,12 @@ const Dashboard = () => {
   const hasanat = calculateHasanat(steps);
 
   useEffect(() => {
+    // Redirect first-time users to onboarding
+    if (!hasCompletedOnboarding()) {
+      navigate("/onboarding", { replace: true });
+      return;
+    }
+
     // Use saved city coordinates if available, otherwise try GPS
     if (settings.cityLat && settings.cityLng) {
       loadPrayers(settings.cityLat, settings.cityLng);
