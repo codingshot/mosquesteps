@@ -2,10 +2,12 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  Footprints, Clock, Star, Flame, Calendar, BarChart3,
-  TrendingUp, MapPin, Gauge, Route as RouteIcon
+  Footprints, Clock, Star, Flame, BarChart3,
+  TrendingUp, Route as RouteIcon, Target, Edit2, Check
 } from "lucide-react";
 import { getWalkHistory, getWalkingStats, getSettings } from "@/lib/walking-history";
+import { getGoals, saveGoals, type WalkingGoals } from "@/lib/goals";
+import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo.png";
 
 const Stats = () => {
@@ -13,6 +15,8 @@ const Stats = () => {
   const history = getWalkHistory();
   const settings = getSettings();
   const isImperial = settings.distanceUnit === "mi";
+  const [goals, setGoals] = useState<WalkingGoals>(getGoals());
+  const [editingGoals, setEditingGoals] = useState(false);
 
   const formatDist = (km: number) => {
     if (isImperial) return `${(km * 0.621371).toFixed(1)} mi`;
@@ -24,77 +28,82 @@ const Stats = () => {
     return `${kmh.toFixed(1)} km/h`;
   };
 
-  // Calculate average walking speed from history
   const avgSpeedKmh = history.length > 0
     ? history.reduce((s, e) => s + (e.walkingTimeMin > 0 ? (e.distanceKm / (e.walkingTimeMin / 60)) : 0), 0) / history.filter(e => e.walkingTimeMin > 0).length || 0
     : 0;
-
-  // Average steps per walk
-  const avgSteps = history.length > 0
-    ? Math.round(history.reduce((s, e) => s + e.steps, 0) / history.length)
-    : 0;
-
-  // Average distance per walk
-  const avgDistance = history.length > 0
-    ? history.reduce((s, e) => s + e.distanceKm, 0) / history.length
-    : 0;
-
-  // Total time walking
+  const avgSteps = history.length > 0 ? Math.round(history.reduce((s, e) => s + e.steps, 0) / history.length) : 0;
+  const avgDistance = history.length > 0 ? history.reduce((s, e) => s + e.distanceKm, 0) / history.length : 0;
   const totalMinutes = history.reduce((s, e) => s + e.walkingTimeMin, 0);
   const totalHours = Math.floor(totalMinutes / 60);
   const remainingMinutes = totalMinutes % 60;
-
-  // Most walked prayer
   const prayerCounts = Object.entries(stats.walksByPrayer).sort((a, b) => b[1] - a[1]);
   const topPrayer = prayerCounts[0];
 
+  // Goal progress calculations
+  const today = new Date();
+  const todayStr = today.toISOString().split("T")[0];
+  const todaySteps = history.filter(e => e.date.startsWith(todayStr)).reduce((s, e) => s + e.steps, 0);
+  const weekStart = new Date(today);
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+  const thisWeekWalks = history.filter(e => new Date(e.date) >= weekStart).length;
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const thisMonthDist = history.filter(e => new Date(e.date) >= monthStart).reduce((s, e) => s + e.distanceKm, 0);
+
+  const goalProgress = [
+    { label: "Daily Steps", current: todaySteps, target: goals.dailySteps, unit: "steps", icon: Footprints },
+    { label: "Weekly Walks", current: thisWeekWalks, target: goals.weeklyWalks, unit: "walks", icon: Flame },
+    { label: "Monthly Distance", current: thisMonthDist, target: goals.monthlyDistance, unit: isImperial ? "mi" : "km", icon: RouteIcon },
+  ];
+
   // Weekly data
   const getWeeklyData = () => {
-    const today = new Date();
-    const days: { label: string; steps: number; distance: number; walks: number }[] = [];
+    const days: { label: string; steps: number; walks: number }[] = [];
     const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     for (let i = 6; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
       const dateStr = d.toISOString().split("T")[0];
       const dayWalks = history.filter((e) => e.date.startsWith(dateStr));
-      days.push({
-        label: DAYS[d.getDay()],
-        steps: dayWalks.reduce((s, e) => s + e.steps, 0),
-        distance: dayWalks.reduce((s, e) => s + e.distanceKm, 0),
-        walks: dayWalks.length,
-      });
+      days.push({ label: DAYS[d.getDay()], steps: dayWalks.reduce((s, e) => s + e.steps, 0), walks: dayWalks.length });
     }
     return days;
   };
 
-  // Monthly data (last 4 weeks)
   const getMonthlyData = () => {
-    const today = new Date();
     const weeks: { label: string; steps: number; walks: number; hasanat: number }[] = [];
     for (let w = 3; w >= 0; w--) {
-      const weekStart = new Date(today);
-      weekStart.setDate(weekStart.getDate() - (w * 7 + 6));
-      const weekEnd = new Date(today);
-      weekEnd.setDate(weekEnd.getDate() - w * 7);
-      const weekWalks = history.filter((e) => {
-        const d = new Date(e.date);
-        return d >= weekStart && d <= weekEnd;
-      });
-      weeks.push({
-        label: `W${4 - w}`,
-        steps: weekWalks.reduce((s, e) => s + e.steps, 0),
-        walks: weekWalks.length,
-        hasanat: weekWalks.reduce((s, e) => s + e.hasanat, 0),
-      });
+      const ws = new Date(today); ws.setDate(ws.getDate() - (w * 7 + 6));
+      const we = new Date(today); we.setDate(we.getDate() - w * 7);
+      const ww = history.filter((e) => { const d = new Date(e.date); return d >= ws && d <= we; });
+      weeks.push({ label: `W${4 - w}`, steps: ww.reduce((s, e) => s + e.steps, 0), walks: ww.length, hasanat: ww.reduce((s, e) => s + e.hasanat, 0) });
     }
     return weeks;
   };
 
+  // Walk frequency heatmap (last 30 days)
+  const getFrequencyData = () => {
+    const data: { date: string; walks: number; label: string }[] = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split("T")[0];
+      const count = history.filter(e => e.date.startsWith(dateStr)).length;
+      data.push({ date: dateStr, walks: count, label: `${d.getDate()}/${d.getMonth() + 1}` });
+    }
+    return data;
+  };
+
   const weeklyData = getWeeklyData();
   const monthlyData = getMonthlyData();
+  const frequencyData = getFrequencyData();
   const maxWeeklySteps = Math.max(...weeklyData.map((d) => d.steps), 1);
   const maxMonthlySteps = Math.max(...monthlyData.map((d) => d.steps), 1);
+  const maxFreqWalks = Math.max(...frequencyData.map(d => d.walks), 1);
+
+  const handleSaveGoals = () => {
+    saveGoals(goals);
+    setEditingGoals(false);
+  };
 
   return (
     <div className="min-h-screen bg-background pb-bottom-nav">
@@ -115,6 +124,66 @@ const Stats = () => {
       </header>
 
       <div className="container py-6 space-y-6">
+        {/* Walking Goals */}
+        <div className="glass-card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+              <Target className="w-4 h-4 text-primary" /> Walking Goals
+            </h3>
+            <button onClick={() => editingGoals ? handleSaveGoals() : setEditingGoals(true)}
+              className="text-xs text-primary font-medium flex items-center gap-1 hover:underline">
+              {editingGoals ? <><Check className="w-3 h-3" /> Save</> : <><Edit2 className="w-3 h-3" /> Edit</>}
+            </button>
+          </div>
+
+          {editingGoals ? (
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Daily Steps Goal</label>
+                <input type="number" value={goals.dailySteps} onChange={(e) => setGoals({ ...goals, dailySteps: parseInt(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Weekly Walks Goal</label>
+                <input type="number" value={goals.weeklyWalks} onChange={(e) => setGoals({ ...goals, weeklyWalks: parseInt(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Monthly Distance Goal ({isImperial ? "mi" : "km"})</label>
+                <input type="number" value={goals.monthlyDistance} onChange={(e) => setGoals({ ...goals, monthlyDistance: parseFloat(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm" />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {goalProgress.map((g) => {
+                const Icon = g.icon;
+                const current = g.label === "Monthly Distance" && isImperial ? g.current * 0.621371 : g.current;
+                const pct = Math.min(100, g.target > 0 ? (current / g.target) * 100 : 0);
+                return (
+                  <div key={g.label}>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="text-muted-foreground flex items-center gap-1"><Icon className="w-3 h-3" /> {g.label}</span>
+                      <span className="font-medium text-foreground">
+                        {g.label === "Monthly Distance" ? formatDist(g.current) : Math.round(current).toLocaleString()} / {g.target.toLocaleString()} {g.unit}
+                      </span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${pct}%` }}
+                        transition={{ duration: 0.8, ease: "easeOut" }}
+                        className={`h-full rounded-full transition-all ${pct >= 100 ? "bg-gradient-gold" : "bg-gradient-teal"}`}
+                      />
+                    </div>
+                    {pct >= 100 && <p className="text-[10px] text-gold mt-0.5">🎉 Goal achieved!</p>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* Key metrics */}
         <div className="grid grid-cols-2 gap-3">
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-4 text-center">
@@ -172,6 +241,34 @@ const Stats = () => {
           </div>
         </div>
 
+        {/* Walk frequency heatmap */}
+        <div className="glass-card p-5">
+          <h3 className="text-sm font-semibold text-foreground mb-3">Walk Frequency (Last 30 Days)</h3>
+          <div className="flex flex-wrap gap-1">
+            {frequencyData.map((d, i) => (
+              <div
+                key={i}
+                title={`${d.label}: ${d.walks} walks`}
+                className="w-[calc(100%/10-4px)] aspect-square rounded-sm transition-colors"
+                style={{
+                  backgroundColor: d.walks === 0
+                    ? "hsl(var(--muted))"
+                    : `hsl(174, 74%, ${65 - (d.walks / maxFreqWalks) * 40}%)`,
+                }}
+              />
+            ))}
+          </div>
+          <div className="flex items-center gap-2 mt-2 text-[10px] text-muted-foreground justify-end">
+            <span>Less</span>
+            {[0, 0.25, 0.5, 0.75, 1].map((v, i) => (
+              <div key={i} className="w-3 h-3 rounded-sm" style={{
+                backgroundColor: v === 0 ? "hsl(var(--muted))" : `hsl(174, 74%, ${65 - v * 40}%)`,
+              }} />
+            ))}
+            <span>More</span>
+          </div>
+        </div>
+
         {/* Weekly chart */}
         <div className="glass-card p-5">
           <h3 className="text-sm font-semibold text-foreground mb-4">Steps This Week</h3>
@@ -179,10 +276,8 @@ const Stats = () => {
             {weeklyData.map((d, i) => (
               <div key={i} className="flex-1 flex flex-col items-center gap-1">
                 <span className="text-[10px] text-muted-foreground">{d.steps > 0 ? d.steps : ""}</span>
-                <div
-                  className="w-full rounded-t-md bg-gradient-teal transition-all duration-500"
-                  style={{ height: `${(d.steps / maxWeeklySteps) * 100}%`, minHeight: d.steps > 0 ? "4px" : "2px" }}
-                />
+                <div className="w-full rounded-t-md bg-gradient-teal transition-all duration-500"
+                  style={{ height: `${(d.steps / maxWeeklySteps) * 100}%`, minHeight: d.steps > 0 ? "4px" : "2px" }} />
                 <span className="text-[10px] text-muted-foreground">{d.label}</span>
               </div>
             ))}
@@ -196,10 +291,8 @@ const Stats = () => {
             {monthlyData.map((w, i) => (
               <div key={i} className="flex-1 flex flex-col items-center gap-1">
                 <span className="text-[10px] text-muted-foreground">{w.walks > 0 ? `${w.walks}w` : ""}</span>
-                <div
-                  className="w-full rounded-t-md bg-gradient-gold transition-all duration-500"
-                  style={{ height: `${(w.steps / maxMonthlySteps) * 100}%`, minHeight: w.steps > 0 ? "4px" : "2px" }}
-                />
+                <div className="w-full rounded-t-md bg-gradient-gold transition-all duration-500"
+                  style={{ height: `${(w.steps / maxMonthlySteps) * 100}%`, minHeight: w.steps > 0 ? "4px" : "2px" }} />
                 <span className="text-[10px] text-muted-foreground">{w.label}</span>
               </div>
             ))}
@@ -215,10 +308,8 @@ const Stats = () => {
                 <div key={prayer} className="flex items-center gap-3">
                   <span className="text-sm text-foreground w-16 font-medium">{prayer}</span>
                   <div className="flex-1 bg-muted rounded-full h-3 overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-teal rounded-full transition-all duration-500"
-                      style={{ width: `${(count / stats.totalWalks) * 100}%` }}
-                    />
+                    <div className="h-full bg-gradient-teal rounded-full transition-all duration-500"
+                      style={{ width: `${(count / stats.totalWalks) * 100}%` }} />
                   </div>
                   <span className="text-xs text-muted-foreground w-8 text-right">{count}</span>
                 </div>
