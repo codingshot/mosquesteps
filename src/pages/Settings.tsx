@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Save, MapPin, Bell, BellOff, Locate, Download, Sun, Moon, Monitor, Ruler, Gauge, Footprints } from "lucide-react";
+import { ArrowLeft, Save, MapPin, Bell, BellOff, Locate, Download, Sun, Moon, Monitor, Ruler, Gauge, Footprints, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getSettings, saveSettings, type UserSettings } from "@/lib/walking-history";
+import { getSettings, saveSettings, getSavedMosques, type UserSettings } from "@/lib/walking-history";
 import { requestNotificationPermission, isNotificationSupported, getNotificationPermission } from "@/lib/notifications";
 import { useTheme } from "@/hooks/use-theme";
 import { useToast } from "@/hooks/use-toast";
@@ -269,6 +269,102 @@ const Settings = () => {
           ) : (
             <p className="text-xs text-muted-foreground italic">Notifications not supported on this browser.</p>
           )}
+          <div>
+            <label className="text-sm text-muted-foreground block mb-2">
+              Notify {settings.notifyMinutesBefore ?? 5} minutes before "Leave by" time
+            </label>
+            <input
+              type="range"
+              min="0"
+              max="30"
+              step="5"
+              value={settings.notifyMinutesBefore ?? 5}
+              onChange={(e) => setSettings({ ...settings, notifyMinutesBefore: parseInt(e.target.value) })}
+              className="w-full accent-primary"
+            />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>At leave time</span>
+              <span>5 min</span>
+              <span>15 min</span>
+              <span>30 min early</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Per-prayer mosque assignment */}
+        {getSavedMosques().length > 1 && (
+          <div className="glass-card p-5 space-y-3">
+            <h2 className="font-semibold text-foreground flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-primary" /> Mosque per Prayer
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Assign a different mosque for each prayer. Uses your primary mosque if not set.
+            </p>
+            {(settings.prayerPreferences || ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]).map((prayer) => (
+              <div key={prayer} className="flex items-center justify-between">
+                <span className="text-sm font-medium text-foreground">{prayer}</span>
+                <select
+                  value={settings.prayerMosques?.[prayer] || ""}
+                  onChange={(e) => {
+                    const prayerMosques = { ...(settings.prayerMosques || {}), [prayer]: e.target.value };
+                    if (!e.target.value) delete prayerMosques[prayer];
+                    setSettings({ ...settings, prayerMosques });
+                  }}
+                  className="px-2 py-1 rounded-lg border border-input bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring max-w-[180px]"
+                >
+                  <option value="">Primary mosque</option>
+                  {getSavedMosques().map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} ({m.distanceKm.toFixed(1)} km)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Home Address */}
+        <div className="glass-card p-5 space-y-3">
+          <h2 className="font-semibold text-foreground flex items-center gap-2">
+            <Home className="w-4 h-4 text-primary" /> Home Address
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Used to calculate walking distances to mosques.
+            {settings.homeAddress && (
+              <span className="block mt-1 font-medium text-foreground">Current: {settings.homeAddress}</span>
+            )}
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Search home address..."
+              id="homeSearchInput"
+              onKeyDown={async (e) => {
+                if (e.key !== "Enter") return;
+                const val = (e.target as HTMLInputElement).value;
+                if (!val.trim()) return;
+                try {
+                  const res = await fetch(
+                    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val)}&format=json&limit=1`
+                  );
+                  const data = await res.json();
+                  if (data.length > 0) {
+                    setSettings({
+                      ...settings,
+                      homeAddress: data[0].display_name?.split(",").slice(0, 3).join(",") || val,
+                      homeLat: parseFloat(data[0].lat),
+                      homeLng: parseFloat(data[0].lon),
+                    });
+                    toast({ title: "Home address updated!" });
+                  }
+                } catch {
+                  toast({ title: "Search failed", variant: "destructive" });
+                }
+              }}
+              className="flex-1 px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
         </div>
 
         {/* Walking speed */}

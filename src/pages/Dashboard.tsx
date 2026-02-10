@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { hasCompletedOnboarding } from "./Onboarding";
 import { Button } from "@/components/ui/button";
-import { MapPin, Clock, Footprints, Star, Navigation, Settings2, Flame, Bell, Trophy } from "lucide-react";
+import { MapPin, Clock, Footprints, Star, Navigation, Settings2, Flame, Bell, Trophy, Info, Play } from "lucide-react";
 import { motion } from "framer-motion";
 import {
   fetchPrayerTimes,
@@ -10,14 +10,20 @@ import {
   estimateSteps,
   estimateWalkingTime,
   calculateHasanat,
+  minutesUntilLeave,
   type PrayerTime,
 } from "@/lib/prayer-times";
-import { getSettings, getWalkingStats } from "@/lib/walking-history";
+import { getSettings, getWalkingStats, getSavedMosques } from "@/lib/walking-history";
 import { requestNotificationPermission, isNotificationSupported, getNotificationPermission, schedulePrayerReminder } from "@/lib/notifications";
 import { getBadges } from "@/lib/badges";
 import HadithTooltip from "@/components/HadithTooltip";
 import logo from "@/assets/logo.png";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -26,10 +32,13 @@ const Dashboard = () => {
   const [readableDate, setReadableDate] = useState("");
   const [prayerError, setPrayerError] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isNextDay, setIsNextDay] = useState(false);
+  const [hasanatTooltipOpen, setHasanatTooltipOpen] = useState(false);
 
   const settings = getSettings();
   const stats = getWalkingStats();
   const badges = getBadges(stats);
+  const savedMosques = getSavedMosques();
   const earnedBadges = badges.filter((b) => b.badge.earned);
   const nextBadge = badges.find((b) => !b.badge.earned);
   const mosqueDistance = settings.selectedMosqueDistance;
@@ -38,9 +47,22 @@ const Dashboard = () => {
   const steps = estimateSteps(mosqueDistance * 2);
   const walkMin = estimateWalkingTime(mosqueDistance, walkingSpeed);
   const hasanat = calculateHasanat(steps);
+  const notifyMinBefore = settings.notifyMinutesBefore ?? 5;
 
   // Filter prayers to only ones user walks to
   const prayerPrefs = settings.prayerPreferences || ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
+
+  // Get mosque for a specific prayer
+  const getMosqueForPrayer = (prayerName: string) => {
+    const mosqueId = settings.prayerMosques?.[prayerName];
+    if (mosqueId) {
+      const mosque = savedMosques.find((m) => m.id === mosqueId);
+      if (mosque) return mosque;
+    }
+    // Fallback to primary mosque
+    const primary = savedMosques.find((m) => m.isPrimary);
+    return primary || null;
+  };
 
   useEffect(() => {
     if (!hasCompletedOnboarding()) {
@@ -62,15 +84,24 @@ const Dashboard = () => {
 
   const loadPrayers = async (lat: number, lng: number) => {
     try {
-      const data = await fetchPrayerTimes(lat, lng);
+      let data = await fetchPrayerTimes(lat, lng);
+
+      // If all prayers have passed, fetch tomorrow's times
+      if (data.isNextDay) {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        data = await fetchPrayerTimes(lat, lng, tomorrow);
+        setIsNextDay(true);
+      }
+
       setPrayers(data.prayers);
       setReadableDate(data.readableDate);
 
       if (getNotificationPermission() === "granted") {
         data.prayers.forEach((p) => {
-          if (prayerPrefs.includes(p.name)) {
+          if (prayerPrefs.includes(p.name) && !p.isPast) {
             const leaveBy = calculateLeaveByTime(p.time, walkMin);
-            schedulePrayerReminder(p.name, leaveBy);
+            schedulePrayerReminder(p.name, leaveBy, notifyMinBefore);
           }
         });
       }
@@ -83,22 +114,18 @@ const Dashboard = () => {
   };
 
   const getNextPrayer = (): PrayerTime | undefined => {
-    const now = new Date();
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    return prayers.find((p) => {
-      const [h, m] = p.time.split(":").map(Number);
-      return h * 60 + m > currentMinutes;
-    });
+    // Return the first non-past prayer
+    return prayers.find((p) => !p.isPast);
   };
 
   const handleEnableNotifications = async () => {
     const granted = await requestNotificationPermission();
     if (granted) {
-      toast({ title: "Notifications enabled! 🔔", description: "You'll be reminded when to leave for prayer." });
+      toast({ title: "Notifications enabled! 🔔", description: `You'll be reminded ${notifyMinBefore} min before leave time.` });
       prayers.forEach((p) => {
-        if (prayerPrefs.includes(p.name)) {
+        if (prayerPrefs.includes(p.name) && !p.isPast) {
           const leaveBy = calculateLeaveByTime(p.time, walkMin);
-          schedulePrayerReminder(p.name, leaveBy);
+          schedulePrayerReminder(p.name, leaveBy, notifyMinBefore);
         }
       });
     } else {
@@ -112,9 +139,12 @@ const Dashboard = () => {
 
   const nextPrayer = getNextPrayer();
 
+  // Filter to only upcoming prayers (hide past ones)
+  const upcomingPrayers = prayers.filter((p) => !p.isPast);
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Header - logo links to dashboard */}
+      {/* Header */}
       <header className="bg-gradient-teal text-primary-foreground">
         <div className="container py-3 flex items-center justify-between">
           <Link to="/dashboard" className="flex items-center gap-2">
@@ -130,10 +160,12 @@ const Dashboard = () => {
 
         <div className="container pb-6">
           <p className="text-sm text-primary-foreground/70 mb-1">
-            {readableDate}
+            {isNextDay ? "Tomorrow · " : ""}{readableDate}
             {settings.cityName && <span> · {settings.cityName}</span>}
           </p>
-          <h1 className="text-xl font-bold mb-4">Today's Journey</h1>
+          <h1 className="text-xl font-bold mb-4">
+            {isNextDay ? "Tomorrow's Prayers" : "Today's Journey"}
+          </h1>
 
           {/* Circular progress */}
           <motion.div
@@ -164,13 +196,43 @@ const Dashboard = () => {
           <div className="flex justify-center gap-6 mt-4 text-sm">
             <span>{(mosqueDistance * 2).toFixed(1)} km</span>
             <span>{walkMin * 2} min</span>
-            <span className="text-gold">{hasanat.toLocaleString()} hasanat</span>
+            <Tooltip open={hasanatTooltipOpen} onOpenChange={setHasanatTooltipOpen}>
+              <TooltipTrigger asChild>
+                <button
+                  className="text-gold flex items-center gap-1"
+                  onClick={() => setHasanatTooltipOpen(!hasanatTooltipOpen)}
+                >
+                  {hasanat.toLocaleString()} hasanat
+                  <Info className="w-3 h-3" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs p-3" side="bottom">
+                <div className="space-y-2">
+                  <p className="font-semibold text-sm text-popover-foreground">What are Hasanat?</p>
+                  <p className="text-xs text-popover-foreground/80 leading-relaxed">
+                    <strong>Hasanat</strong> (حسنات) are spiritual reward points in Islam — good deeds recorded by Allah.
+                    Each step to the mosque earns <strong>2 hasanat</strong>: one sin is erased and you're raised one degree in rank.
+                  </p>
+                  <p className="text-xs text-popover-foreground/80 italic">
+                    "He does not take a step without being raised a degree and having one of his sins removed."
+                  </p>
+                  <a
+                    href="https://sunnah.com/muslim:666"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-primary hover:underline"
+                  >
+                    — Sahih Muslim 666
+                  </a>
+                </div>
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
       </header>
 
       <div className="container py-6 space-y-6 pb-bottom-nav">
-        {/* Notification prompt - actually triggers permission */}
+        {/* Notification prompt */}
         {isNotificationSupported() && getNotificationPermission() !== "granted" && (
           <button
             onClick={handleEnableNotifications}
@@ -179,7 +241,7 @@ const Dashboard = () => {
             <Bell className="w-8 h-8 text-gold flex-shrink-0" />
             <div>
               <p className="font-medium text-foreground text-sm">Enable Prayer Reminders</p>
-              <p className="text-xs text-muted-foreground">Get notified when it's time to leave for the mosque</p>
+              <p className="text-xs text-muted-foreground">Get notified {notifyMinBefore} min before it's time to leave</p>
             </div>
           </button>
         )}
@@ -242,10 +304,11 @@ const Dashboard = () => {
           <Link to="/mosques" className="text-xs text-primary font-medium hover:underline">Change</Link>
         </div>
 
-        {/* Prayer times */}
+        {/* Prayer times - only upcoming */}
         <div>
           <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
-            <Clock className="w-5 h-5 text-primary" /> Prayer Times
+            <Clock className="w-5 h-5 text-primary" />
+            {isNextDay ? "Tomorrow's Prayers" : "Upcoming Prayers"}
             {settings.cityName && <span className="text-xs text-muted-foreground font-normal">({settings.cityName})</span>}
           </h2>
           {loading ? (
@@ -263,30 +326,68 @@ const Dashboard = () => {
             </div>
           ) : (
             <div className="space-y-2">
-              {prayers.map((p) => {
+              {(isNextDay ? prayers : upcomingPrayers).map((p) => {
                 const isNext = nextPrayer?.name === p.name;
-                const leaveBy = calculateLeaveByTime(p.time, walkMin);
+                const prayerMosque = getMosqueForPrayer(p.name);
+                const pMosqueDist = prayerMosque?.distanceKm || mosqueDistance;
+                const pWalkMin = estimateWalkingTime(pMosqueDist, walkingSpeed);
+                const leaveBy = calculateLeaveByTime(p.time, pWalkMin);
                 const walksToThis = prayerPrefs.includes(p.name);
+                const minsLeft = !isNextDay && walksToThis ? minutesUntilLeave(p.time, pWalkMin) : null;
+
                 return (
-                  <div key={p.name} className={`glass-card p-4 flex items-center justify-between ${isNext ? "ring-2 ring-gold shadow-gold" : ""}`}>
-                    <div>
-                      <p className="font-semibold text-foreground flex items-center gap-1.5">
-                        {p.name}
-                        {walksToThis && <Footprints className="w-3 h-3 text-primary" />}
-                      </p>
-                      <p className="text-xs font-arabic text-muted-foreground">{p.arabicName}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-foreground">{p.time}</p>
-                      {walksToThis && (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
-                          <Navigation className="w-3 h-3" /> Leave by {leaveBy}
+                  <div key={p.name} className={`glass-card p-4 ${isNext ? "ring-2 ring-gold shadow-gold" : ""}`}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-foreground flex items-center gap-1.5">
+                          {p.name}
+                          {walksToThis && <Footprints className="w-3 h-3 text-primary" />}
                         </p>
-                      )}
+                        <p className="text-xs font-arabic text-muted-foreground">{p.arabicName}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-foreground">{p.time}</p>
+                        {walksToThis && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
+                            <Navigation className="w-3 h-3" /> Leave by {leaveBy}
+                          </p>
+                        )}
+                      </div>
                     </div>
+
+                    {walksToThis && (
+                      <div className="mt-2 pt-2 border-t border-border/50 flex items-center justify-between">
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          {prayerMosque && (
+                            <span className="flex items-center gap-1">
+                              <MapPin className="w-3 h-3" /> {prayerMosque.name}
+                            </span>
+                          )}
+                          <span>{pMosqueDist.toFixed(1)} km · {pWalkMin} min</span>
+                          {minsLeft !== null && minsLeft > 0 && (
+                            <span className={`font-medium ${minsLeft <= 10 ? "text-destructive" : minsLeft <= 30 ? "text-gold" : "text-primary"}`}>
+                              {minsLeft <= 60 ? `${minsLeft}m left` : `${Math.floor(minsLeft / 60)}h ${minsLeft % 60}m`}
+                            </span>
+                          )}
+                        </div>
+                        <Link
+                          to={`/walk?prayer=${p.name}`}
+                          className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                        >
+                          <Play className="w-3 h-3" /> Start Walk
+                        </Link>
+                      </div>
+                    )}
                   </div>
                 );
               })}
+
+              {!isNextDay && upcomingPrayers.length === 0 && (
+                <div className="glass-card p-4 text-center">
+                  <p className="text-sm text-muted-foreground">All prayers have passed for today.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Showing tomorrow's times above.</p>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -303,11 +404,20 @@ const Dashboard = () => {
             <p className="text-lg font-bold text-foreground">{walkMin * 2} min</p>
             <p className="text-xs text-muted-foreground">Round Trip</p>
           </div>
-          <div className="glass-card p-4 text-center">
-            <Star className="w-5 h-5 text-gold mx-auto mb-1" />
-            <p className="text-lg font-bold text-gradient-gold">{hasanat.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground">Hasanat</p>
-          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="glass-card p-4 text-center cursor-help">
+                <Star className="w-5 h-5 text-gold mx-auto mb-1" />
+                <p className="text-lg font-bold text-gradient-gold">{hasanat.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Hasanat ⓘ</p>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs p-3">
+              <p className="text-xs">
+                <strong>Hasanat</strong> = spiritual rewards. Each step earns 2 hasanat (1 sin erased + 1 degree raised). Based on Sahih Muslim 666.
+              </p>
+            </TooltipContent>
+          </Tooltip>
         </div>
 
         {/* Hadith reminder */}
