@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Save, MapPin, Bell, BellOff, Locate, Download } from "lucide-react";
+import { ArrowLeft, Save, MapPin, Bell, BellOff, Locate, Download, Sun, Moon, Monitor } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getSettings, saveSettings, type UserSettings } from "@/lib/walking-history";
 import { requestNotificationPermission, isNotificationSupported, getNotificationPermission } from "@/lib/notifications";
+import { useTheme } from "@/hooks/use-theme";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
 
 const Settings = () => {
+  const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const [settings, setSettings] = useState<UserSettings>(getSettings());
   const [citySearch, setCitySearch] = useState("");
@@ -102,6 +104,33 @@ const Settings = () => {
       </header>
 
       <div className="container py-6 space-y-6 max-w-lg">
+        {/* Theme */}
+        <div className="glass-card p-5 space-y-3">
+          <h2 className="font-semibold text-foreground flex items-center gap-2">
+            <Sun className="w-4 h-4 text-primary" /> Appearance
+          </h2>
+          <div className="grid grid-cols-3 gap-2">
+            {([
+              { value: "light" as const, label: "Light", icon: Sun },
+              { value: "dark" as const, label: "Dark", icon: Moon },
+              { value: "system" as const, label: "System", icon: Monitor },
+            ]).map(({ value, label, icon: Icon }) => (
+              <button
+                key={value}
+                onClick={() => setTheme(value)}
+                className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border text-sm font-medium transition-colors ${
+                  theme === value
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:border-primary/50"
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Location / City for prayer times */}
         <div className="glass-card p-5 space-y-3">
           <h2 className="font-semibold text-foreground flex items-center gap-2">

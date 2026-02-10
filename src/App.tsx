@@ -1,9 +1,10 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { hasCompletedOnboarding } from "./pages/Onboarding";
 import Index from "./pages/Index";
 
 // Lazy-load non-critical routes for performance
@@ -20,6 +21,7 @@ const Guides = lazy(() => import("./pages/Guides"));
 const FAQPage = lazy(() => import("./pages/FAQPage"));
 const HowItWorksPage = lazy(() => import("./pages/HowItWorksPage"));
 const SunnahPage = lazy(() => import("./pages/SunnahPage"));
+const Onboarding = lazy(() => import("./pages/Onboarding"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -33,15 +35,29 @@ const PageLoader = () => (
   </div>
 );
 
+// Apply saved theme on load
+function ThemeInit() {
+  useEffect(() => {
+    const saved = localStorage.getItem("mosquesteps_theme") || "system";
+    const resolved = saved === "system"
+      ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+      : saved;
+    document.documentElement.classList.toggle("dark", resolved === "dark");
+  }, []);
+  return null;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
+      <ThemeInit />
       <Toaster />
       <Sonner />
       <BrowserRouter>
         <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/mosques" element={<MosqueFinder />} />
             <Route path="/rewards" element={<Rewards />} />
