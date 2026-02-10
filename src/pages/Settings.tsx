@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Save, MapPin, Bell, BellOff, Locate, Download, Sun, Moon, Monitor, Ruler, Gauge, Footprints, Home, User, Globe } from "lucide-react";
+import { ArrowLeft, MapPin, Bell, BellOff, Locate, Download, Sun, Moon, Monitor, Ruler, Gauge, Footprints, Home, User, Globe, CheckCircle } from "lucide-react";
 import { useLocale } from "@/hooks/use-locale";
 import { getAvailableLocales, type Locale } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
@@ -21,10 +21,24 @@ const Settings = () => {
   const { locale, setLocale } = useLocale();
   const availableLocales = getAvailableLocales();
 
-  const handleSave = () => {
-    saveSettings(settings);
-    toast({ title: "Settings saved", description: "Your preferences have been updated." });
-  };
+  // Autosave with debounce
+  const isFirstRender = useRef(true);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const [showSaved, setShowSaved] = useState(false);
+
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      saveSettings(settings);
+      setShowSaved(true);
+      setTimeout(() => setShowSaved(false), 1500);
+    }, 400);
+    return () => clearTimeout(saveTimeoutRef.current);
+  }, [settings]);
 
   const handleCitySearch = async () => {
     if (!citySearch.trim()) return;
@@ -621,14 +635,12 @@ const Settings = () => {
 
       </div>
 
-      {/* Sticky save bar */}
-      <div className="fixed bottom-16 left-0 right-0 z-40 bg-background/95 backdrop-blur-sm border-t border-border p-3">
-        <div className="container max-w-lg">
-          <Button variant="hero" className="w-full" onClick={handleSave}>
-            <Save className="w-4 h-4 mr-2" /> Save Settings
-          </Button>
+      {/* Autosave indicator */}
+      {showSaved && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 bg-primary text-primary-foreground px-4 py-2 rounded-full text-sm font-medium shadow-lg flex items-center gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <CheckCircle className="w-3.5 h-3.5" /> Saved
         </div>
-      </div>
+      )}
     </div>
   );
 };
