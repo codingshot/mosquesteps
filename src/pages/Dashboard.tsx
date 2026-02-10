@@ -176,7 +176,9 @@ const Dashboard = () => {
             </h1>
             <div className="text-right">
               <span className="text-2xl font-bold tabular-nums">
-                {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {settings.cityTimezone
+                  ? currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: settings.cityTimezone })
+                  : currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
               <p className="text-[10px] text-primary-foreground/60">
                 {settings.cityName || "Local Time"}

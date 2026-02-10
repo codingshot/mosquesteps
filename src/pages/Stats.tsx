@@ -41,7 +41,7 @@ const Stats = () => {
 
   // Goal progress calculations
   const today = new Date();
-  const todayStr = today.toISOString().split("T")[0];
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const todaySteps = history.filter(e => e.date.startsWith(todayStr)).reduce((s, e) => s + e.steps, 0);
   const weekStart = new Date(today);
   weekStart.setDate(weekStart.getDate() - weekStart.getDay());
@@ -62,7 +62,7 @@ const Stats = () => {
     for (let i = 6; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split("T")[0];
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       const dayWalks = history.filter((e) => e.date.startsWith(dateStr));
       days.push({ label: DAYS[d.getDay()], steps: dayWalks.reduce((s, e) => s + e.steps, 0), walks: dayWalks.length });
     }
@@ -86,7 +86,7 @@ const Stats = () => {
     for (let i = 29; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split("T")[0];
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       const count = history.filter(e => e.date.startsWith(dateStr)).length;
       data.push({ date: dateStr, walks: count, label: `${d.getDate()}/${d.getMonth() + 1}` });
     }

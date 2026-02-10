@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Save, MapPin, Bell, BellOff, Locate, Download, Sun, Moon, Monitor, Ruler, Gauge, Footprints, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getSettings, saveSettings, getSavedMosques, type UserSettings } from "@/lib/walking-history";
+import { getSettings, saveSettings, getSavedMosques, fetchTimezone, type UserSettings } from "@/lib/walking-history";
 import { requestNotificationPermission, isNotificationSupported, getNotificationPermission } from "@/lib/notifications";
 import { useTheme } from "@/hooks/use-theme";
 import { useToast } from "@/hooks/use-toast";
@@ -31,15 +31,17 @@ const Settings = () => {
       const data = await res.json();
       if (data.length > 0) {
         const loc = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+        const tz = await fetchTimezone(loc.lat, loc.lng);
         setSettings((s) => ({
           ...s,
           cityName: data[0].display_name?.split(",")[0] || citySearch,
           cityLat: loc.lat,
           cityLng: loc.lng,
+          ...(tz ? { cityTimezone: tz } : {}),
         }));
         toast({
           title: "City set!",
-          description: `Prayer times will be calculated for ${data[0].display_name?.split(",")[0]}`,
+          description: `Prayer times will be calculated for ${data[0].display_name?.split(",")[0]}${tz ? ` (${tz})` : ""}`,
         });
       }
     } catch {
@@ -63,8 +65,9 @@ const Settings = () => {
           );
           const data = await res.json();
           const city = data.address?.city || data.address?.town || data.address?.village || "Current Location";
-          setSettings((s) => ({ ...s, cityName: city, cityLat: lat, cityLng: lng }));
-          toast({ title: `Location set: ${city}`, description: "Prayer times will use your current location." });
+          const tz = await fetchTimezone(lat, lng);
+          setSettings((s) => ({ ...s, cityName: city, cityLat: lat, cityLng: lng, ...(tz ? { cityTimezone: tz } : {}) }));
+          toast({ title: `Location set: ${city}`, description: `Prayer times will use your current location.${tz ? ` (${tz})` : ""}` });
         } catch {
           setSettings((s) => ({ ...s, cityName: "Current Location", cityLat: lat, cityLng: lng }));
         }

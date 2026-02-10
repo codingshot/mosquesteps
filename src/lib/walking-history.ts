@@ -42,6 +42,7 @@ export interface UserSettings {
   cityName?: string;
   cityLat?: number;
   cityLng?: number;
+  cityTimezone?: string; // IANA timezone e.g. "Europe/London"
   distanceUnit?: "km" | "mi";
   speedUnit?: "kmh" | "mph";
   strideLength?: number; // meters
@@ -51,6 +52,30 @@ export interface UserSettings {
   prayerPreferences?: string[]; // which prayers user walks to
   prayerMosques?: Record<string, string>; // prayer name -> mosque id
   notifyMinutesBefore?: number; // minutes before "leave by" time to notify
+}
+
+/**
+ * Fetch IANA timezone string from coordinates using TimeAPI.io
+ */
+export async function fetchTimezone(lat: number, lng: number): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://timeapi.io/api/timezone/coordinate?latitude=${lat}&longitude=${lng}`
+    );
+    const data = await res.json();
+    return data.timeZone || null;
+  } catch {
+    // Fallback: approximate from longitude (15° per hour)
+    try {
+      const offsetHours = Math.round(lng / 15);
+      const sign = offsetHours >= 0 ? "+" : "-";
+      const abs = Math.abs(offsetHours);
+      // Try to resolve via Intl — won't work for all, but is a decent fallback
+      return `Etc/GMT${offsetHours <= 0 ? "+" : "-"}${abs}`;
+    } catch {
+      return null;
+    }
+  }
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
