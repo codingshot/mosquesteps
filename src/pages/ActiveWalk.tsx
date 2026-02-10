@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Play, Square, Pause, MapPin, Footprints, Clock, Star, Navigation, AlertTriangle, Smartphone, Share2, Map, Image, CheckCircle } from "lucide-react";
+import { ArrowLeft, Play, Square, Pause, MapPin, Footprints, Clock, Star, Navigation, AlertTriangle, Smartphone, Share2, Map, Image, CheckCircle, ArrowUp, CornerDownLeft, CornerDownRight, ArrowRight, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { estimateSteps, estimateWalkingTime, calculateHasanat, fetchPrayerTimes, calculateLeaveByTime, minutesUntilLeave, getIPGeolocation, type PrayerTime } from "@/lib/prayer-times";
@@ -33,6 +33,36 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number): numb
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function getDirectionIcon(instruction: string, small = false) {
+  const size = small ? "w-3 h-3" : "w-6 h-6 text-primary-foreground";
+  const lower = instruction.toLowerCase();
+  if (lower.includes("left")) return <CornerDownLeft className={size} />;
+  if (lower.includes("right")) return <CornerDownRight className={size} />;
+  if (lower.includes("arrive") || lower.includes("destination")) return <MapPin className={size} />;
+  if (lower.includes("straight") || lower.includes("continue")) return <ArrowUp className={size} />;
+  if (lower.includes("depart")) return <Play className={`${size}`} />;
+  return <ArrowUp className={size} />;
+}
+
+function formatDirection(instruction: string): string {
+  const parts = instruction.split(" ");
+  const type = parts[0];
+  const rest = parts.slice(1).join(" ");
+  const typeMap: Record<string, string> = {
+    turn: "Turn",
+    "new": "Continue on",
+    depart: "Start walking",
+    arrive: "Arrive at destination",
+    continue: "Continue",
+    merge: "Merge",
+    fork: "Take fork",
+    "end": "End",
+    roundabout: "Enter roundabout",
+  };
+  const mapped = typeMap[type.toLowerCase()] || type;
+  return rest ? `${mapped} ${rest}` : mapped;
 }
 
 const ActiveWalk = () => {
@@ -200,24 +230,38 @@ const ActiveWalk = () => {
     return () => clearInterval(interval);
   }, [isWalking]);
 
-  // Update turn-by-turn direction based on position
+  // Update turn-by-turn direction based on position — improved matching
   useEffect(() => {
     if (!routeInfo?.steps?.length || !currentPosition || !routeCoords.length) return;
-    // Find closest route segment
+    
+    // Find closest point on route
     let minDist = Infinity;
-    let closestIdx = 0;
-    let cumSteps = 0;
-    for (let i = 0; i < routeInfo.steps.length; i++) {
-      cumSteps++;
-      if (i < routeCoords.length) {
-        const d = haversine(currentPosition.lat, currentPosition.lng, routeCoords[i][0], routeCoords[i][1]);
-        if (d < minDist) {
-          minDist = d;
-          closestIdx = cumSteps - 1;
-        }
+    let closestCoordIdx = 0;
+    for (let i = 0; i < routeCoords.length; i++) {
+      const d = haversine(currentPosition.lat, currentPosition.lng, routeCoords[i][0], routeCoords[i][1]);
+      if (d < minDist) {
+        minDist = d;
+        closestCoordIdx = i;
       }
     }
-    setCurrentDirectionIdx(Math.min(closestIdx, routeInfo.steps.length - 1));
+    
+    // Map closest coord to the right direction step by accumulating distances
+    let accDist = 0;
+    const totalRouteDist = routeInfo.steps.reduce((s, st) => s + st.distance, 0);
+    const progressRatio = closestCoordIdx / Math.max(1, routeCoords.length - 1);
+    const targetDist = progressRatio * totalRouteDist;
+    
+    let stepIdx = 0;
+    for (let i = 0; i < routeInfo.steps.length; i++) {
+      accDist += routeInfo.steps[i].distance;
+      if (accDist >= targetDist) {
+        stepIdx = i;
+        break;
+      }
+      stepIdx = i;
+    }
+    
+    setCurrentDirectionIdx(stepIdx);
   }, [currentPosition, routeInfo]);
 
   const startWalk = useCallback(async () => {
@@ -506,13 +550,71 @@ const ActiveWalk = () => {
               />
             )}
 
-            {/* Current direction */}
-            {currentDirection && (
-              <div className="glass-card p-3 flex items-center gap-2 text-left">
-                <Navigation className="w-5 h-5 text-primary flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-foreground capitalize">{currentDirection.instruction}</p>
-                  <p className="text-xs text-muted-foreground">{currentDirection.distance > 1000 ? `${(currentDirection.distance / 1000).toFixed(1)} km` : `${Math.round(currentDirection.distance)} m`}</p>
+            {/* Direction progress panel */}
+            {routeInfo && routeInfo.steps.length > 0 && (
+              <div className="glass-card p-0 overflow-hidden text-left">
+                {/* Current direction - hero */}
+                {currentDirection && (
+                  <div className="bg-gradient-teal p-4 flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-primary-foreground/20 flex items-center justify-center flex-shrink-0">
+                      {getDirectionIcon(currentDirection.instruction)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-base font-bold text-primary-foreground capitalize leading-tight">
+                        {formatDirection(currentDirection.instruction)}
+                      </p>
+                      <p className="text-sm text-primary-foreground/70 mt-0.5">
+                        {currentDirection.distance > 1000 
+                          ? `${(currentDirection.distance / 1000).toFixed(1)} km` 
+                          : `${Math.round(currentDirection.distance)} m`}
+                      </p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-xs text-primary-foreground/60">Step</p>
+                      <p className="text-lg font-bold text-primary-foreground">{currentDirectionIdx + 1}<span className="text-sm font-normal text-primary-foreground/50">/{routeInfo.steps.length}</span></p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Direction step progress bar */}
+                <div className="px-4 pt-2 pb-1">
+                  <div className="flex gap-0.5">
+                    {routeInfo.steps.map((_, i) => (
+                      <div
+                        key={i}
+                        className={`h-1 rounded-full flex-1 transition-all duration-300 ${
+                          i < currentDirectionIdx
+                            ? "bg-primary"
+                            : i === currentDirectionIdx
+                              ? "bg-gold"
+                              : "bg-border"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Upcoming directions */}
+                <div className="px-4 pb-3 pt-1 space-y-1 max-h-24 overflow-y-auto">
+                  {routeInfo.steps.slice(currentDirectionIdx + 1, currentDirectionIdx + 4).map((s, i) => {
+                    const actualIdx = currentDirectionIdx + 1 + i;
+                    return (
+                      <div key={actualIdx} className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <div className="w-5 h-5 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
+                          {getDirectionIcon(s.instruction, true)}
+                        </div>
+                        <span className="capitalize truncate flex-1">{formatDirection(s.instruction)}</span>
+                        <span className="text-muted-foreground/60 flex-shrink-0">
+                          {s.distance > 1000 ? `${(s.distance / 1000).toFixed(1)}km` : `${Math.round(s.distance)}m`}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {routeInfo.steps.length > currentDirectionIdx + 4 && (
+                    <p className="text-[10px] text-muted-foreground/50 text-center">
+                      +{routeInfo.steps.length - currentDirectionIdx - 4} more steps
+                    </p>
+                  )}
                 </div>
               </div>
             )}
