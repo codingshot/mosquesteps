@@ -14,6 +14,7 @@ const MosqueFinder = lazy(() => import("./pages/MosqueFinder"));
 const Rewards = lazy(() => import("./pages/Rewards"));
 const ActiveWalk = lazy(() => import("./pages/ActiveWalk"));
 const History = lazy(() => import("./pages/History"));
+const Stats = lazy(() => import("./pages/Stats"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
@@ -64,6 +65,7 @@ const App = () => (
             <Route path="/rewards" element={<Rewards />} />
             <Route path="/walk" element={<ActiveWalk />} />
             <Route path="/history" element={<History />} />
+            <Route path="/stats" element={<Stats />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
