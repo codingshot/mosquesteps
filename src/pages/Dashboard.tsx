@@ -431,8 +431,13 @@ const Dashboard = () => {
                       <div className="text-right">
                         <p className="font-semibold text-foreground">{p.time}</p>
                         {walksToThis && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
+                          <p className={`text-xs flex items-center gap-1 justify-end font-medium ${minsLeft !== null && minsLeft <= 5 ? "text-destructive" : minsLeft !== null && minsLeft <= 15 ? "text-amber-500" : "text-muted-foreground"}`}>
                             <Navigation className="w-3 h-3" /> Leave by {leaveBy}
+                            {minsLeft !== null && (
+                              <span className="ml-1 opacity-80">
+                                ({minsLeft <= 0 ? "now!" : `${minsLeft}m left`})
+                              </span>
+                            )}
                           </p>
                         )}
                       </div>
