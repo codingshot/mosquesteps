@@ -12,10 +12,13 @@ import {
   estimateWalkingTime,
   calculateHasanat,
   minutesUntilLeave,
+  getIPGeolocation,
   type PrayerTime,
 } from "@/lib/prayer-times";
-import { getSettings, getWalkingStats, getSavedMosques } from "@/lib/walking-history";
-import { requestNotificationPermission, isNotificationSupported, getNotificationPermission, schedulePrayerReminder } from "@/lib/notifications";
+import { getSettings, saveSettings, getWalkingStats, getWalkHistory, getSavedMosques, fetchTimezone } from "@/lib/walking-history";
+import { requestNotificationPermission, isNotificationSupported, getNotificationPermission, schedulePrayerReminder, checkAndSendWeeklyInsight } from "@/lib/notifications";
+import { getStepRecommendation } from "@/lib/health-recommendations";
+import { getOnboardingDate } from "./Onboarding";
 import { getBadges } from "@/lib/badges";
 import HadithTooltip from "@/components/HadithTooltip";
 import logo from "@/assets/logo.png";
@@ -41,6 +44,28 @@ const Dashboard = () => {
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  // Weekly health insight notification
+  useEffect(() => {
+    if (getNotificationPermission() !== "granted") return;
+    const history = getWalkHistory();
+    const onboardingDate = getOnboardingDate();
+    const daysSince = Math.max(1, Math.ceil((Date.now() - onboardingDate.getTime()) / (1000 * 60 * 60 * 24)));
+    const daysWindow = Math.min(7, daysSince);
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - daysWindow);
+    const recentWalks = history.filter((e) => new Date(e.date) >= weekAgo);
+    const totalRecentSteps = recentWalks.reduce((s, e) => s + e.steps, 0);
+    const avgDaily = daysWindow > 0 ? Math.round(totalRecentSteps / daysWindow) : 0;
+    const rec = getStepRecommendation(settings.age, settings.gender);
+    checkAndSendWeeklyInsight({
+      totalSteps: totalRecentSteps,
+      totalWalks: recentWalks.length,
+      avgDailySteps: avgDaily,
+      recommendedSteps: rec.dailySteps,
+      currentStreak: stats.currentStreak,
+    });
   }, []);
 
   const settings = getSettings();
@@ -83,12 +108,29 @@ const Dashboard = () => {
     } else if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => loadPrayers(pos.coords.latitude, pos.coords.longitude),
-        () => loadPrayers(21.4225, 39.8262)
+        () => fallbackToIP()
       );
     } else {
-      loadPrayers(21.4225, 39.8262);
+      fallbackToIP();
     }
   }, []);
+
+  const fallbackToIP = async () => {
+    const ipGeo = await getIPGeolocation();
+    if (ipGeo) {
+      // Auto-save detected location for future use
+      const tz = ipGeo.timezone || await fetchTimezone(ipGeo.lat, ipGeo.lng) || undefined;
+      saveSettings({
+        cityName: ipGeo.city,
+        cityLat: ipGeo.lat,
+        cityLng: ipGeo.lng,
+        ...(tz ? { cityTimezone: tz } : {}),
+      });
+      loadPrayers(ipGeo.lat, ipGeo.lng);
+    } else {
+      loadPrayers(21.4225, 39.8262); // Makkah fallback
+    }
+  };
 
   const loadPrayers = async (lat: number, lng: number) => {
     try {
