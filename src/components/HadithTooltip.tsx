@@ -1,29 +1,20 @@
 import { useState } from "react";
 import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card";
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { BookOpen } from "lucide-react";
 
 export interface HadithData {
-  /** Short inline text displayed in the UI */
   shortText: string;
-  /** Full hadith text shown on hover/tap */
   fullText: string;
-  /** Source reference e.g. "Sahih Muslim 666" */
   source: string;
-  /** Direct link to sunnah.com */
   link: string;
-  /** Grade of the hadith */
   grade?: string;
-  /** Arabic text if available */
   arabic?: string;
 }
 
-/**
- * Verified hadith database — every entry fact-checked against sunnah.com
- */
 export const VERIFIED_HADITHS: Record<string, HadithData> = {
   muslim_666: {
     shortText: "Each step erases a sin and raises a degree.",
@@ -83,33 +74,37 @@ export const VERIFIED_HADITHS: Record<string, HadithData> = {
 
 interface HadithTooltipProps {
   hadithKey: string;
-  /** Override display text */
   children?: React.ReactNode;
   className?: string;
 }
 
 const HadithTooltip = ({ hadithKey, children, className = "" }: HadithTooltipProps) => {
   const hadith = VERIFIED_HADITHS[hadithKey];
+  const [open, setOpen] = useState(false);
+
   if (!hadith) return <span className={className}>{children}</span>;
 
   return (
-    <HoverCard openDelay={200}>
-      <HoverCardTrigger asChild>
-        <span className={`cursor-help border-b border-dashed border-primary/40 ${className}`}>
+    <Tooltip open={open} onOpenChange={setOpen}>
+      <TooltipTrigger asChild>
+        <span
+          className={`cursor-help border-b border-dashed border-primary/40 ${className}`}
+          onClick={() => setOpen(!open)}
+        >
           {children || hadith.shortText}
         </span>
-      </HoverCardTrigger>
-      <HoverCardContent className="w-80 sm:w-96 p-4" side="top">
-        <div className="space-y-3">
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs sm:max-w-sm p-4" side="top">
+        <div className="space-y-2">
           {hadith.arabic && (
-            <p className="font-arabic text-sm text-right leading-loose text-muted-foreground">
+            <p className="font-arabic text-xs text-right leading-loose text-muted-foreground">
               {hadith.arabic}
             </p>
           )}
-          <p className="text-sm text-foreground leading-relaxed italic">
+          <p className="text-xs text-popover-foreground leading-relaxed italic">
             "{hadith.fullText}"
           </p>
-          <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center justify-between text-[10px]">
             <a
               href={hadith.link}
               target="_blank"
@@ -121,13 +116,13 @@ const HadithTooltip = ({ hadithKey, children, className = "" }: HadithTooltipPro
             </a>
             {hadith.grade && (
               <span className="text-muted-foreground">
-                Grade: {hadith.grade}
+                {hadith.grade}
               </span>
             )}
           </div>
         </div>
-      </HoverCardContent>
-    </HoverCard>
+      </TooltipContent>
+    </Tooltip>
   );
 };
 
