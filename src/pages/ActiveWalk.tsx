@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Play, Square, Pause, MapPin, Footprints, Clock, Star, Navigation, AlertTriangle, Smartphone, Share2, Map, Image, CheckCircle, ArrowUp, CornerDownLeft, CornerDownRight, ArrowRight, ChevronDown } from "lucide-react";
+import { ArrowLeft, Play, Square, Pause, MapPin, Footprints, Clock, Star, Navigation, AlertTriangle, Smartphone, Share2, Map, Image, CheckCircle, ArrowUp, CornerDownLeft, CornerDownRight, ArrowRight, ChevronDown, Volume2, VolumeX, Route } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { estimateSteps, estimateWalkingTime, calculateHasanat, fetchPrayerTimes, calculateLeaveByTime, minutesUntilLeave, getIPGeolocation, type PrayerTime } from "@/lib/prayer-times";
@@ -94,6 +94,9 @@ const ActiveWalk = () => {
   const [currentDirectionIdx, setCurrentDirectionIdx] = useState(0);
   const [checkedIn, setCheckedIn] = useState(false);
   const [sharingCard, setSharingCard] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [showDirections, setShowDirections] = useState(true);
+  const prevDirectionIdx = useRef(-1);
 
   const stepCounterRef = useRef<StepCounter | null>(null);
   const distanceRef = useRef(0);
@@ -263,6 +266,45 @@ const ActiveWalk = () => {
     
     setCurrentDirectionIdx(stepIdx);
   }, [currentPosition, routeInfo]);
+
+  // Voice directions — speak when step changes
+  useEffect(() => {
+    if (!voiceEnabled || !isWalking || !routeInfo?.steps?.length) return;
+    if (currentDirectionIdx === prevDirectionIdx.current) return;
+    prevDirectionIdx.current = currentDirectionIdx;
+
+    const step = routeInfo.steps[currentDirectionIdx];
+    if (!step) return;
+
+    const text = formatDirection(step.instruction);
+    const distText = step.distance > 1000
+      ? `${(step.distance / 1000).toFixed(1)} kilometers`
+      : `${Math.round(step.distance)} meters`;
+
+    const isLast = currentDirectionIdx === routeInfo.steps.length - 1;
+    const speech = isLast
+      ? `Arriving at ${mosqueName}. You have reached your destination.`
+      : `${text}. ${distText}.`;
+
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(speech);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.volume = 0.9;
+      const voices = window.speechSynthesis.getVoices();
+      const enVoice = voices.find((v) => v.lang.startsWith("en")) || voices[0];
+      if (enVoice) utterance.voice = enVoice;
+      window.speechSynthesis.speak(utterance);
+    }
+  }, [currentDirectionIdx, voiceEnabled, isWalking, routeInfo, mosqueName]);
+
+  // Stop speech when walk ends
+  useEffect(() => {
+    if (!isWalking && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+  }, [isWalking]);
 
   const startWalk = useCallback(async () => {
     if (!navigator.geolocation) {
@@ -534,24 +576,52 @@ const ActiveWalk = () => {
         {/* Active walk screen */}
         {isWalking && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center space-y-4 w-full max-w-sm">
-            <div className="inline-block px-3 py-1 rounded-full bg-gradient-gold text-foreground text-xs font-semibold">
-              Walking to {selectedPrayer}
+            {/* Walking header with toggles */}
+            <div className="flex items-center justify-between">
+              <div className="inline-block px-3 py-1 rounded-full bg-gradient-gold text-foreground text-xs font-semibold">
+                Walking to {selectedPrayer}
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setVoiceEnabled(!voiceEnabled)}
+                  className={`p-1.5 rounded-lg transition-colors ${voiceEnabled ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
+                  title={voiceEnabled ? "Voice ON" : "Voice OFF"}
+                >
+                  {voiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                </button>
+                <button
+                  onClick={() => setShowDirections(!showDirections)}
+                  className={`p-1.5 rounded-lg transition-colors ${showDirections ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
+                  title={showDirections ? "Directions ON" : "Directions OFF"}
+                >
+                  <Route className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setShowMap(!showMap)}
+                  className={`p-1.5 rounded-lg transition-colors ${showMap ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
+                  title={showMap ? "Map ON" : "Map OFF"}
+                >
+                  <Map className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
-            {/* Live map */}
+            {/* Live map with overlays */}
             {showMap && (
               <WalkMap
                 userPosition={currentPosition}
                 mosquePosition={mosquePosition}
                 walkPath={positions}
                 routeCoords={routeCoords}
+                routeSteps={routeInfo?.steps}
+                currentStepIdx={currentDirectionIdx}
                 isWalking={true}
                 className="shadow-md"
               />
             )}
 
             {/* Turn-by-turn navigation panel */}
-            {routeInfo && routeInfo.steps.length > 0 && (
+            {showDirections && routeInfo && routeInfo.steps.length > 0 && (
               <div className="glass-card p-0 overflow-hidden text-left w-full">
                 {/* Current direction — large navigation-style card */}
                 {currentDirection && (
