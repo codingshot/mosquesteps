@@ -20,8 +20,10 @@ const Rewards = () => {
     <div className="min-h-screen bg-background pb-bottom-nav">
       <header className="bg-gradient-gold">
         <div className="container py-3 flex items-center gap-2">
-          <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
-          <span className="font-bold text-foreground">Spiritual Rewards</span>
+          <Link to="/dashboard" className="flex items-center gap-2">
+            <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
+            <span className="font-bold text-foreground">Spiritual Rewards</span>
+          </Link>
         </div>
         <div className="container pb-6 text-center">
           <Star className="w-10 h-10 text-foreground mx-auto mb-2" />

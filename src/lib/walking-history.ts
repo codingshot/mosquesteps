@@ -10,6 +10,15 @@ export interface WalkEntry {
   prayer: string;
 }
 
+export interface SavedMosque {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  distanceKm: number;
+  isPrimary?: boolean;
+}
+
 export interface WalkingStats {
   totalSteps: number;
   totalDistance: number;
@@ -22,6 +31,7 @@ export interface WalkingStats {
 
 const STORAGE_KEY = "mosquesteps_history";
 const SETTINGS_KEY = "mosquesteps_settings";
+const MOSQUES_KEY = "mosquesteps_saved_mosques";
 
 export interface UserSettings {
   walkingSpeed: number; // km/h
@@ -35,6 +45,10 @@ export interface UserSettings {
   distanceUnit?: "km" | "mi";
   speedUnit?: "kmh" | "mph";
   strideLength?: number; // meters
+  homeAddress?: string;
+  homeLat?: number;
+  homeLng?: number;
+  prayerPreferences?: string[]; // which prayers user walks to
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
@@ -55,6 +69,46 @@ export function getSettings(): UserSettings {
 export function saveSettings(settings: Partial<UserSettings>) {
   const current = getSettings();
   localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...current, ...settings }));
+}
+
+// Saved mosques
+export function getSavedMosques(): SavedMosque[] {
+  try {
+    const stored = localStorage.getItem(MOSQUES_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveMosque(mosque: SavedMosque) {
+  const mosques = getSavedMosques();
+  const existing = mosques.findIndex((m) => m.id === mosque.id);
+  if (existing >= 0) {
+    mosques[existing] = mosque;
+  } else {
+    mosques.push(mosque);
+  }
+  localStorage.setItem(MOSQUES_KEY, JSON.stringify(mosques));
+}
+
+export function removeSavedMosque(id: string) {
+  const mosques = getSavedMosques().filter((m) => m.id !== id);
+  localStorage.setItem(MOSQUES_KEY, JSON.stringify(mosques));
+}
+
+export function setPrimaryMosque(id: string) {
+  const mosques = getSavedMosques().map((m) => ({ ...m, isPrimary: m.id === id }));
+  localStorage.setItem(MOSQUES_KEY, JSON.stringify(mosques));
+  const primary = mosques.find((m) => m.isPrimary);
+  if (primary) {
+    saveSettings({
+      selectedMosqueName: primary.name,
+      selectedMosqueDistance: primary.distanceKm,
+      selectedMosqueLat: primary.lat,
+      selectedMosqueLng: primary.lng,
+    });
+  }
 }
 
 export function getWalkHistory(): WalkEntry[] {

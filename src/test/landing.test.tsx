@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 // Test landing page components render
 import Hero from "@/components/landing/Hero";
@@ -11,7 +12,7 @@ import ProblemSolution from "@/components/landing/ProblemSolution";
 import HowItWorks from "@/components/landing/HowItWorks";
 
 const withRouter = (component: React.ReactNode) =>
-  render(<BrowserRouter>{component}</BrowserRouter>);
+  render(<BrowserRouter><TooltipProvider>{component}</TooltipProvider></BrowserRouter>);
 
 describe("Landing Page Components", () => {
   it("Hero renders headline and CTA", () => {

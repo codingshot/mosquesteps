@@ -68,8 +68,10 @@ const History = () => {
     <div className="min-h-screen bg-background">
       <header className="bg-card border-b border-border">
         <div className="container py-3 flex items-center gap-2">
-          <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
-          <span className="font-bold text-foreground">Walking History</span>
+          <Link to="/dashboard" className="flex items-center gap-2">
+            <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
+            <span className="font-bold text-foreground">Walking History</span>
+          </Link>
         </div>
       </header>
 

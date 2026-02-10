@@ -100,8 +100,10 @@ const Stats = () => {
     <div className="min-h-screen bg-background pb-bottom-nav">
       <header className="bg-gradient-teal text-primary-foreground">
         <div className="container py-3 flex items-center gap-2">
-          <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
-          <span className="font-bold">Walking Stats</span>
+          <Link to="/dashboard" className="flex items-center gap-2">
+            <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
+            <span className="font-bold">Walking Stats</span>
+          </Link>
         </div>
         <div className="container pb-6 text-center">
           <BarChart3 className="w-10 h-10 mx-auto mb-2" />
