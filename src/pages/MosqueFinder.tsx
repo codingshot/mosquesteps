@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Search, MapPin, Footprints, Clock } from "lucide-react";
+import { ArrowLeft, Search, MapPin, Footprints, Clock, Check } from "lucide-react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { estimateSteps, estimateWalkingTime } from "@/lib/prayer-times";
+import { saveSettings } from "@/lib/walking-history";
+import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
 
 // Fix leaflet default icon
@@ -19,6 +21,17 @@ L.Icon.Default.mergeOptions({
   iconRetinaUrl: markerIcon2x,
   iconUrl: markerIcon,
   shadowUrl: markerShadow,
+});
+
+// Custom mosque marker
+const mosqueIcon = new L.Icon({
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIcon2x,
+  shadowUrl: markerShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
 });
 
 interface Mosque {
@@ -37,28 +50,24 @@ function RecenterMap({ lat, lng }: { lat: number; lng: number }) {
   return null;
 }
 
-function haversineDistance(
-  lat1: number, lon1: number, lat2: number, lon2: number
-): number {
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 const MosqueFinder = () => {
-  const [userPos, setUserPos] = useState<{ lat: number; lng: number }>({
-    lat: 51.5074,
-    lng: -0.1278,
-  });
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const [userPos, setUserPos] = useState<{ lat: number; lng: number }>({ lat: 51.5074, lng: -0.1278 });
   const [mosques, setMosques] = useState<Mosque[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [selectedMosque, setSelectedMosque] = useState<Mosque | null>(null);
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -68,9 +77,7 @@ const MosqueFinder = () => {
           setUserPos(loc);
           searchNearbyMosques(loc.lat, loc.lng);
         },
-        () => {
-          searchNearbyMosques(userPos.lat, userPos.lng);
-        }
+        () => searchNearbyMosques(userPos.lat, userPos.lng)
       );
     }
   }, []);
@@ -100,10 +107,7 @@ const MosqueFinder = () => {
           lon: el.lon || el.center?.lon,
         }))
         .filter((m: Mosque) => m.lat && m.lon)
-        .map((m: Mosque) => ({
-          ...m,
-          distance: haversineDistance(lat, lng, m.lat, m.lon),
-        }))
+        .map((m: Mosque) => ({ ...m, distance: haversineDistance(lat, lng, m.lat, m.lon) }))
         .sort((a: Mosque, b: Mosque) => (a.distance || 0) - (b.distance || 0));
       setMosques(results);
     } catch (e) {
@@ -133,9 +137,22 @@ const MosqueFinder = () => {
     }
   };
 
+  const selectAsPrimary = (mosque: Mosque) => {
+    saveSettings({
+      selectedMosqueName: mosque.name,
+      selectedMosqueDistance: Math.round((mosque.distance || 0.5) * 100) / 100,
+      selectedMosqueLat: mosque.lat,
+      selectedMosqueLng: mosque.lon,
+    });
+    setSelectedMosque(mosque);
+    toast({
+      title: `${mosque.name} selected! 🕌`,
+      description: `Distance: ${mosque.distance?.toFixed(2)} km · ${estimateSteps(mosque.distance || 0)} steps · ${estimateWalkingTime(mosque.distance || 0)} min walk`,
+    });
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
       <header className="bg-card border-b border-border">
         <div className="container py-4 flex items-center justify-between">
           <Link to="/dashboard" className="flex items-center gap-2 text-foreground">
@@ -144,8 +161,6 @@ const MosqueFinder = () => {
             <span className="font-bold">Find Mosques</span>
           </Link>
         </div>
-
-        {/* Search */}
         <div className="container pb-4">
           <div className="flex gap-2">
             <div className="flex-1 relative">
@@ -179,19 +194,17 @@ const MosqueFinder = () => {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           <RecenterMap lat={userPos.lat} lng={userPos.lng} />
-          {/* User marker */}
           <Marker position={[userPos.lat, userPos.lng]}>
             <Popup>Your location</Popup>
           </Marker>
-          {/* Mosque markers */}
           {mosques.map((m) => (
-            <Marker key={m.id} position={[m.lat, m.lon]}>
+            <Marker key={m.id} position={[m.lat, m.lon]} icon={mosqueIcon}>
               <Popup>
-                <strong>{m.name}</strong>
-                <br />
-                {m.distance?.toFixed(2)} km away
-                <br />
-                ~{estimateSteps(m.distance || 0)} steps · {estimateWalkingTime(m.distance || 0)} min
+                <div className="text-sm">
+                  <strong>{m.name}</strong>
+                  <br />
+                  {m.distance?.toFixed(2)} km · ~{estimateSteps(m.distance || 0)} steps · {estimateWalkingTime(m.distance || 0)} min
+                </div>
               </Popup>
             </Marker>
           ))}
@@ -203,29 +216,32 @@ const MosqueFinder = () => {
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
           {loading ? "Searching..." : `${mosques.length} mosques nearby`}
         </h2>
-        {mosques.map((m) => (
-          <div key={m.id} className="glass-card p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gradient-teal flex items-center justify-center">
-                <MapPin className="w-5 h-5 text-primary-foreground" />
+        {mosques.map((m) => {
+          const isSelected = selectedMosque?.id === m.id;
+          return (
+            <div key={m.id} className={`glass-card p-4 flex items-center justify-between ${isSelected ? "ring-2 ring-primary" : ""}`}>
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${isSelected ? "bg-gradient-gold" : "bg-gradient-teal"}`}>
+                  {isSelected ? <Check className="w-5 h-5 text-foreground" /> : <MapPin className="w-5 h-5 text-primary-foreground" />}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-medium text-foreground text-sm truncate">{m.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {m.distance?.toFixed(2)} km · <Footprints className="w-3 h-3 inline" /> {estimateSteps(m.distance || 0)} · <Clock className="w-3 h-3 inline" /> {estimateWalkingTime(m.distance || 0)} min
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="font-medium text-foreground text-sm">{m.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {m.distance?.toFixed(2)} km away
-                </p>
-              </div>
+              <Button
+                variant={isSelected ? "outline" : "default"}
+                size="sm"
+                className="ml-2 flex-shrink-0 text-xs"
+                onClick={() => selectAsPrimary(m)}
+              >
+                {isSelected ? "Selected" : "Select"}
+              </Button>
             </div>
-            <div className="text-right text-xs text-muted-foreground space-y-1">
-              <p className="flex items-center gap-1 justify-end">
-                <Footprints className="w-3 h-3" /> {estimateSteps(m.distance || 0)} steps
-              </p>
-              <p className="flex items-center gap-1 justify-end">
-                <Clock className="w-3 h-3" /> {estimateWalkingTime(m.distance || 0)} min walk
-              </p>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
