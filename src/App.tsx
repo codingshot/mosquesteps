@@ -7,6 +7,12 @@ import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import MosqueFinder from "./pages/MosqueFinder";
 import Rewards from "./pages/Rewards";
+import ActiveWalk from "./pages/ActiveWalk";
+import History from "./pages/History";
+import Settings from "./pages/Settings";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
+import Legal from "./pages/Legal";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +28,12 @@ const App = () => (
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/mosques" element={<MosqueFinder />} />
           <Route path="/rewards" element={<Rewards />} />
+          <Route path="/walk" element={<ActiveWalk />} />
+          <Route path="/history" element={<History />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/legal" element={<Legal />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

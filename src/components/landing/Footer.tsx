@@ -47,12 +47,14 @@ const Footer = () => {
             </ul>
           </div>
 
-          {/* Also Known As */}
+          {/* Legal */}
           <div>
-            <h4 className="text-sm font-semibold text-foreground mb-3">Also Known As</h4>
-            <p className="text-sm text-muted-foreground">
-              MosqueSteps · SunnahSteps · PraySteps · SalatSteps
-            </p>
+            <h4 className="text-sm font-semibold text-foreground mb-3">Legal</h4>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li><Link to="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link></li>
+              <li><Link to="/terms" className="hover:text-primary transition-colors">Terms of Service</Link></li>
+              <li><Link to="/legal" className="hover:text-primary transition-colors">Legal Info</Link></li>
+            </ul>
           </div>
         </div>
 
