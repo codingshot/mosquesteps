@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Save, MapPin, Bell, BellOff, Locate, Download, Sun, Moon, Monitor, Ruler, Gauge, Footprints, Home, User } from "lucide-react";
+import { ArrowLeft, Save, MapPin, Bell, BellOff, Locate, Download, Sun, Moon, Monitor, Ruler, Gauge, Footprints, Home, User, Globe } from "lucide-react";
+import { useLocale } from "@/hooks/use-locale";
+import { getAvailableLocales, type Locale } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { getSettings, saveSettings, getSavedMosques, fetchTimezone, type UserSettings } from "@/lib/walking-history";
 import { requestNotificationPermission, isNotificationSupported, getNotificationPermission } from "@/lib/notifications";
@@ -16,6 +18,8 @@ const Settings = () => {
   const [notifPermission, setNotifPermission] = useState(getNotificationPermission());
   const [locating, setLocating] = useState(false);
   const [homeLocating, setHomeLocating] = useState(false);
+  const { locale, setLocale } = useLocale();
+  const availableLocales = getAvailableLocales();
 
   const handleSave = () => {
     saveSettings(settings);
@@ -545,6 +549,30 @@ const Settings = () => {
           <p className="text-xs text-muted-foreground">
             Tip: Use the <Link to="/mosques" className="text-primary underline">mosque finder</Link> to get exact distance.
           </p>
+        </div>
+
+        {/* Language */}
+        <div className="glass-card p-5 space-y-3">
+          <h2 className="font-semibold text-foreground flex items-center gap-2">
+            <Globe className="w-4 h-4 text-primary" /> Language
+          </h2>
+          <p className="text-sm text-muted-foreground">Choose your preferred language.</p>
+          <div className="grid grid-cols-2 gap-2">
+            {availableLocales.map((l) => (
+              <button
+                key={l.code}
+                onClick={() => setLocale(l.code)}
+                className={`px-3 py-2 rounded-lg border text-sm font-medium transition-colors flex items-center gap-2 ${
+                  locale === l.code
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:border-primary/50"
+                }`}
+              >
+                <span>{l.flag}</span>
+                <span>{l.nativeName}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Data management */}

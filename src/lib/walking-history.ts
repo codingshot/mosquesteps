@@ -149,14 +149,28 @@ export function getWalkHistory(): WalkEntry[] {
   }
 }
 
+function sanitizeString(str: string): string {
+  return str.replace(/[<>]/g, "").trim().slice(0, 500);
+}
+
 export function addWalkEntry(entry: Omit<WalkEntry, "id">): WalkEntry {
   const history = getWalkHistory();
   const newEntry: WalkEntry = {
     ...entry,
+    mosqueName: sanitizeString(entry.mosqueName),
+    prayer: sanitizeString(entry.prayer),
+    distanceKm: Math.max(0, Number(entry.distanceKm) || 0),
+    steps: Math.max(0, Math.round(Number(entry.steps) || 0)),
+    walkingTimeMin: Math.max(0, Math.round(Number(entry.walkingTimeMin) || 0)),
+    hasanat: Math.max(0, Math.round(Number(entry.hasanat) || 0)),
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
   };
   history.unshift(newEntry);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+  } catch {
+    // localStorage quota exceeded — silently fail
+  }
   return newEntry;
 }
 
