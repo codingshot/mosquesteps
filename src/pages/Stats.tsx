@@ -3,11 +3,12 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Footprints, Clock, Star, Flame, BarChart3,
-  TrendingUp, Route as RouteIcon, Target, Edit2, Check, ArrowLeft, Heart
+  TrendingUp, Route as RouteIcon, Target, Edit2, Check, ArrowLeft, Heart, Zap, Activity
 } from "lucide-react";
 import { getWalkHistory, getWalkingStats, getSettings } from "@/lib/walking-history";
 import { getGoals, saveGoals, type WalkingGoals } from "@/lib/goals";
 import { getStepRecommendation, getHealthAssessment } from "@/lib/health-recommendations";
+import { getOnboardingDate } from "@/pages/Onboarding";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo.png";
 
@@ -19,6 +20,9 @@ const Stats = () => {
   const [goals, setGoals] = useState<WalkingGoals>(getGoals());
   const [editingGoals, setEditingGoals] = useState(false);
 
+  const onboardingDate = getOnboardingDate();
+  const daysSinceOnboarding = Math.max(1, Math.ceil((Date.now() - onboardingDate.getTime()) / (1000 * 60 * 60 * 24)));
+
   const formatDist = (km: number) => {
     if (isImperial) return `${(km * 0.621371).toFixed(1)} mi`;
     return `${km.toFixed(1)} km`;
@@ -29,26 +33,31 @@ const Stats = () => {
     return `${kmh.toFixed(1)} km/h`;
   };
 
-  const avgSpeedKmh = history.length > 0
-    ? history.reduce((s, e) => s + (e.walkingTimeMin > 0 ? (e.distanceKm / (e.walkingTimeMin / 60)) : 0), 0) / history.filter(e => e.walkingTimeMin > 0).length || 0
+  const validWalks = history.filter(e => e.walkingTimeMin > 0);
+  const avgSpeedKmh = validWalks.length > 0
+    ? validWalks.reduce((s, e) => s + (e.distanceKm / (e.walkingTimeMin / 60)), 0) / validWalks.length
     : 0;
   const avgSteps = history.length > 0 ? Math.round(history.reduce((s, e) => s + e.steps, 0) / history.length) : 0;
   const avgDistance = history.length > 0 ? history.reduce((s, e) => s + e.distanceKm, 0) / history.length : 0;
+  const avgDuration = history.length > 0 ? Math.round(history.reduce((s, e) => s + e.walkingTimeMin, 0) / history.length) : 0;
   const totalMinutes = history.reduce((s, e) => s + e.walkingTimeMin, 0);
   const totalHours = Math.floor(totalMinutes / 60);
   const remainingMinutes = totalMinutes % 60;
   const prayerCounts = Object.entries(stats.walksByPrayer).sort((a, b) => b[1] - a[1]);
   const topPrayer = prayerCounts[0];
 
+  // Calorie estimate: ~0.04 kcal per step (walking, average weight)
+  const totalCalories = Math.round(stats.totalSteps * 0.04);
+  const walksPerDay = daysSinceOnboarding > 0 ? (stats.totalWalks / daysSinceOnboarding).toFixed(1) : "0";
+
   // Health recommendations
   const recommendation = getStepRecommendation(settings.age, settings.gender);
-  // Calculate average daily steps (last 30 days)
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const recentWalks = history.filter(e => new Date(e.date) >= thirtyDaysAgo);
+  const daysToAverage = Math.min(30, daysSinceOnboarding);
+  const avgWindow = new Date();
+  avgWindow.setDate(avgWindow.getDate() - daysToAverage);
+  const recentWalks = history.filter(e => new Date(e.date) >= avgWindow);
   const totalRecentSteps = recentWalks.reduce((s, e) => s + e.steps, 0);
-  const activeDays = new Set(recentWalks.map(e => e.date.split("T")[0])).size;
-  const avgDailySteps = activeDays > 0 ? Math.round(totalRecentSteps / 30) : 0;
+  const avgDailySteps = daysToAverage > 0 ? Math.round(totalRecentSteps / daysToAverage) : 0;
   const assessment = getHealthAssessment(avgDailySteps, recommendation);
 
   // Goal progress calculations
@@ -74,6 +83,11 @@ const Stats = () => {
     for (let i = 6; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
+      // Skip days before onboarding
+      if (d < onboardingDate) {
+        days.push({ label: DAYS[d.getDay()], steps: -1, walks: 0 }); // -1 = pre-onboarding
+        continue;
+      }
       const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       const dayWalks = history.filter((e) => e.date.startsWith(dateStr));
       days.push({ label: DAYS[d.getDay()], steps: dayWalks.reduce((s, e) => s + e.steps, 0), walks: dayWalks.length });
@@ -92,10 +106,11 @@ const Stats = () => {
     return weeks;
   };
 
-  // Walk frequency heatmap (last 30 days)
+  // Walk frequency heatmap — only show days since onboarding (max 30)
+  const heatmapDays = Math.min(30, daysSinceOnboarding);
   const getFrequencyData = () => {
     const data: { date: string; walks: number; label: string }[] = [];
-    for (let i = 29; i >= 0; i--) {
+    for (let i = heatmapDays - 1; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
       const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -108,7 +123,7 @@ const Stats = () => {
   const weeklyData = getWeeklyData();
   const monthlyData = getMonthlyData();
   const frequencyData = getFrequencyData();
-  const maxWeeklySteps = Math.max(...weeklyData.map((d) => d.steps), 1);
+  const maxWeeklySteps = Math.max(...weeklyData.filter(d => d.steps >= 0).map((d) => d.steps), 1);
   const maxMonthlySteps = Math.max(...monthlyData.map((d) => d.steps), 1);
   const maxFreqWalks = Math.max(...frequencyData.map(d => d.walks), 1);
 
@@ -221,6 +236,25 @@ const Stats = () => {
           </motion.div>
         </div>
 
+        {/* Extra insights */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="glass-card p-3 text-center">
+            <Zap className="w-4 h-4 text-accent mx-auto mb-1" />
+            <p className="text-base font-bold text-foreground">{totalCalories.toLocaleString()}</p>
+            <p className="text-[10px] text-muted-foreground">Est. Calories</p>
+          </div>
+          <div className="glass-card p-3 text-center">
+            <Activity className="w-4 h-4 text-primary mx-auto mb-1" />
+            <p className="text-base font-bold text-foreground">{walksPerDay}</p>
+            <p className="text-[10px] text-muted-foreground">Walks/Day</p>
+          </div>
+          <div className="glass-card p-3 text-center">
+            <Clock className="w-4 h-4 text-primary mx-auto mb-1" />
+            <p className="text-base font-bold text-foreground">{avgDuration}m</p>
+            <p className="text-[10px] text-muted-foreground">Avg Duration</p>
+          </div>
+        </div>
+
         {/* Streaks */}
         <div className="grid grid-cols-2 gap-3">
           <div className="glass-card p-4 text-center">
@@ -321,7 +355,10 @@ const Stats = () => {
 
         {/* Walk frequency heatmap */}
         <div className="glass-card p-5">
-          <h3 className="text-sm font-semibold text-foreground mb-3">Walk Frequency (Last 30 Days)</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-1">Walk Frequency</h3>
+          <p className="text-[10px] text-muted-foreground mb-3">
+            {heatmapDays < 30 ? `Last ${heatmapDays} day${heatmapDays > 1 ? "s" : ""} (since you started)` : "Last 30 days"}
+          </p>
           <div className="flex flex-wrap gap-1">
             {frequencyData.map((d, i) => (
               <div
@@ -351,14 +388,21 @@ const Stats = () => {
         <div className="glass-card p-5">
           <h3 className="text-sm font-semibold text-foreground mb-4">Steps This Week</h3>
           <div className="flex items-end gap-2 h-32">
-            {weeklyData.map((d, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                <span className="text-[10px] text-muted-foreground">{d.steps > 0 ? d.steps : ""}</span>
-                <div className="w-full rounded-t-md bg-gradient-teal transition-all duration-500"
-                  style={{ height: `${(d.steps / maxWeeklySteps) * 100}%`, minHeight: d.steps > 0 ? "4px" : "2px" }} />
-                <span className="text-[10px] text-muted-foreground">{d.label}</span>
-              </div>
-            ))}
+            {weeklyData.map((d, i) => {
+              const isPreOnboarding = d.steps === -1;
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                  <span className="text-[10px] text-muted-foreground">{isPreOnboarding ? "" : d.steps > 0 ? d.steps : ""}</span>
+                  {isPreOnboarding ? (
+                    <div className="w-full rounded-t-md border border-dashed border-border transition-all" style={{ height: "2px" }} />
+                  ) : (
+                    <div className="w-full rounded-t-md bg-gradient-teal transition-all duration-500"
+                      style={{ height: `${(d.steps / maxWeeklySteps) * 100}%`, minHeight: d.steps > 0 ? "4px" : "2px" }} />
+                  )}
+                  <span className={`text-[10px] ${isPreOnboarding ? "text-muted-foreground/40" : "text-muted-foreground"}`}>{d.label}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
 

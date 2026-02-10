@@ -170,19 +170,23 @@ const ActiveWalk = () => {
     const id = navigator.geolocation.watchPosition(
       (pos) => {
         const newPos: Position = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        const accuracy = pos.coords.accuracy;
         setCurrentPosition(newPos);
         setPositions((prev) => {
           if (prev.length > 0) {
             const last = prev[prev.length - 1];
             const segmentDist = haversine(last.lat, last.lng, newPos.lat, newPos.lng);
-            if (segmentDist > 0.005) {
+            // Filter out GPS noise: ignore < 5m moves, jumps > 200m, and low accuracy > 50m
+            if (segmentDist > 0.005 && segmentDist < 0.2 && accuracy < 50) {
               distanceRef.current += segmentDist;
               setDistanceKm(distanceRef.current);
               return [...prev, newPos];
             }
             return prev;
           }
-          return [newPos];
+          // Only accept first position if accuracy is reasonable
+          if (accuracy < 50) return [newPos];
+          return prev;
         });
       },
       (err) => {

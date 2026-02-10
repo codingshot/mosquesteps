@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import logo from "@/assets/logo.png";
 
 const ONBOARDING_KEY = "mosquesteps_onboarded";
+const ONBOARDING_DATE_KEY = "mosquesteps_onboarded_date";
 
 export function hasCompletedOnboarding(): boolean {
   return localStorage.getItem(ONBOARDING_KEY) === "true";
@@ -16,6 +17,16 @@ export function hasCompletedOnboarding(): boolean {
 
 export function markOnboardingComplete() {
   localStorage.setItem(ONBOARDING_KEY, "true");
+  if (!localStorage.getItem(ONBOARDING_DATE_KEY)) {
+    localStorage.setItem(ONBOARDING_DATE_KEY, new Date().toISOString());
+  }
+}
+
+export function getOnboardingDate(): Date {
+  const stored = localStorage.getItem(ONBOARDING_DATE_KEY);
+  if (stored) return new Date(stored);
+  // Fallback: if no onboarding date but user is onboarded, use earliest walk or now
+  return new Date();
 }
 
 const ALL_PRAYERS = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"] as const;
