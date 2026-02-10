@@ -17,6 +17,9 @@ const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
 const Legal = lazy(() => import("./pages/Legal"));
 const Guides = lazy(() => import("./pages/Guides"));
+const FAQPage = lazy(() => import("./pages/FAQPage"));
+const HowItWorksPage = lazy(() => import("./pages/HowItWorksPage"));
+const SunnahPage = lazy(() => import("./pages/SunnahPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -49,6 +52,9 @@ const App = () => (
             <Route path="/terms" element={<Terms />} />
             <Route path="/legal" element={<Legal />} />
             <Route path="/guides" element={<Guides />} />
+            <Route path="/faq" element={<FAQPage />} />
+            <Route path="/how-it-works" element={<HowItWorksPage />} />
+            <Route path="/sunnah" element={<SunnahPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>

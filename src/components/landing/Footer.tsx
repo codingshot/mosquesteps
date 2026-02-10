@@ -47,11 +47,9 @@ const Footer = () => {
           <div>
             <h4 className="text-sm font-semibold text-foreground mb-3">Resources</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>
-                <a href="https://sunnah.com/search?q=walking+to+mosque" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">
-                  Sunnah References
-                </a>
-              </li>
+              <li><Link to="/sunnah" className="hover:text-primary transition-colors">Sunnah References</Link></li>
+              <li><Link to="/how-it-works" className="hover:text-primary transition-colors">How It Works</Link></li>
+              <li><Link to="/faq" className="hover:text-primary transition-colors">FAQ</Link></li>
               <li>
                 <a href="https://aladhan.com/prayer-times-api" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">
                   Prayer Times API

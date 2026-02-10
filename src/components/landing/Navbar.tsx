@@ -9,9 +9,9 @@ const Navbar = () => {
 
   const navLinks = [
     { label: "Features", href: "#features" },
-    { label: "Sunnah", href: "#sunnah" },
-    { label: "How It Works", href: "#how-it-works" },
-    { label: "FAQ", href: "#faq" },
+    { label: "Sunnah", href: "/sunnah", isRoute: true },
+    { label: "How It Works", href: "/how-it-works", isRoute: true },
+    { label: "FAQ", href: "/faq", isRoute: true },
     { label: "Guides", href: "/guides", isRoute: true },
   ];
 
