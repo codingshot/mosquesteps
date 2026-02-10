@@ -15,6 +15,7 @@ const Settings = () => {
   const [citySearch, setCitySearch] = useState("");
   const [notifPermission, setNotifPermission] = useState(getNotificationPermission());
   const [locating, setLocating] = useState(false);
+  const [homeLocating, setHomeLocating] = useState(false);
 
   const handleSave = () => {
     saveSettings(settings);
@@ -335,10 +336,56 @@ const Settings = () => {
               <span className="block mt-1 font-medium text-foreground">Current: {settings.homeAddress}</span>
             )}
           </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              if (!navigator.geolocation) {
+                toast({ title: "Not available", description: "Your browser doesn't support location.", variant: "destructive" });
+                return;
+              }
+              setHomeLocating(true);
+              navigator.geolocation.getCurrentPosition(
+                async (pos) => {
+                  try {
+                    const res = await fetch(
+                      `https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json&addressdetails=1`
+                    );
+                    const data = await res.json();
+                    const addr = data.display_name?.split(",").slice(0, 3).join(",") || "Current Location";
+                    setSettings((s) => ({
+                      ...s,
+                      homeAddress: addr,
+                      homeLat: pos.coords.latitude,
+                      homeLng: pos.coords.longitude,
+                    }));
+                    toast({ title: "Home address detected!", description: addr });
+                  } catch {
+                    setSettings((s) => ({
+                      ...s,
+                      homeAddress: "Current Location",
+                      homeLat: pos.coords.latitude,
+                      homeLng: pos.coords.longitude,
+                    }));
+                  }
+                  setHomeLocating(false);
+                },
+                () => {
+                  toast({ title: "Location denied", description: "Please enable location or search manually.", variant: "destructive" });
+                  setHomeLocating(false);
+                }
+              );
+            }}
+            disabled={homeLocating}
+            className="w-full"
+          >
+            <Locate className="w-4 h-4 mr-2" />
+            {homeLocating ? "Detecting..." : "Detect My Home Address"}
+          </Button>
           <div className="flex gap-2">
             <input
               type="text"
-              placeholder="Search home address..."
+              placeholder="Or search home address..."
               id="homeSearchInput"
               onKeyDown={async (e) => {
                 if (e.key !== "Enter") return;
