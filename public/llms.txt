@@ -1,0 +1,34 @@
+# MosqueSteps
+
+> Turn every step into a blessing. Track your walk to the mosque and discover the spiritual rewards.
+
+MosqueSteps is a free, privacy-first Progressive Web App (PWA) for Muslims who walk to the mosque. It tracks your walking journey using GPS and device sensors, shows accurate prayer times, calculates spiritual rewards (hasanat) based on authentic hadiths from Sahih Muslim and Sahih al-Bukhari, and helps you find nearby mosques via OpenStreetMap.
+
+## Features
+
+- **Step Tracking**: Real-time step counting using device accelerometer or GPS estimation
+- **Prayer Times**: Accurate prayer times based on your location via the Aladhan API
+- **Mosque Finder**: Discover nearby mosques using OpenStreetMap/Overpass API
+- **Spiritual Rewards**: Hasanat counter based on verified hadith references
+- **Walking Streaks**: Gamification with badges for consistency
+- **Notifications**: Prayer departure reminders based on walking distance
+- **Offline Support**: Full PWA with service worker caching
+
+## Hadith References
+
+All spiritual reward calculations are based on authenticated hadiths:
+- Sahih Muslim 666: Each step erases a sin and raises a degree
+- Sunan Abi Dawud 561: Walking in darkness promises complete light
+- Sahih al-Bukhari 636: Walk with calmness and tranquility
+- Sahih Muslim 662: Greater distance means greater reward
+
+## Technology
+
+Built with React, TypeScript, Tailwind CSS, Framer Motion, Leaflet, and the Aladhan Prayer Times API.
+
+## Links
+
+- Website: https://mosquesteps.com
+- Built by: https://ummah.build
+- Twitter/X: https://x.com/ummahbuild
+- LinkedIn: https://www.linkedin.com/company/ummah-build/
