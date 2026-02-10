@@ -17,18 +17,15 @@ const Rewards = () => {
   const [activeTab, setActiveTab] = useState<"badges" | "hadiths">("badges");
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-bottom-nav">
       <header className="bg-gradient-gold">
-        <div className="container py-4 flex items-center gap-2">
-          <Link to="/dashboard" className="flex items-center gap-2 text-foreground">
-            <ArrowLeft className="w-5 h-5" />
-            <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
-          </Link>
+        <div className="container py-3 flex items-center gap-2">
+          <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
           <span className="font-bold text-foreground">Spiritual Rewards</span>
         </div>
-        <div className="container pb-8 text-center">
-          <Star className="w-12 h-12 text-foreground mx-auto mb-2" />
-          <h1 className="text-2xl font-bold text-foreground">
+        <div className="container pb-6 text-center">
+          <Star className="w-10 h-10 text-foreground mx-auto mb-2" />
+          <h1 className="text-xl font-bold text-foreground">
             Every Step is a Blessing
           </h1>
           <p className="text-sm text-foreground/70 mt-2 max-w-md mx-auto">
@@ -36,7 +33,7 @@ const Rewards = () => {
               Each step toward the mosque earns you immense spiritual rewards — one step erases a sin, another raises you a degree.
             </HadithTooltip>
           </p>
-          <div className="flex justify-center gap-6 mt-4 text-sm text-foreground/80">
+          <div className="flex justify-center gap-6 mt-3 text-sm text-foreground/80">
             <span><Trophy className="w-4 h-4 inline mr-1" />{earned.length}/{allBadges.length} badges</span>
             <span><Star className="w-4 h-4 inline mr-1" />{stats.totalHasanat.toLocaleString()} hasanat</span>
           </div>

@@ -25,6 +25,7 @@ const Dashboard = () => {
   const [prayers, setPrayers] = useState<PrayerTime[]>([]);
   const [hijriDate, setHijriDate] = useState("");
   const [readableDate, setReadableDate] = useState("");
+  const [prayerError, setPrayerError] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const settings = getSettings();
@@ -75,6 +76,7 @@ const Dashboard = () => {
       }
     } catch (e) {
       console.error("Failed to fetch prayer times:", e);
+      setPrayerError(true);
     } finally {
       setLoading(false);
     }
@@ -107,27 +109,24 @@ const Dashboard = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="bg-gradient-teal text-primary-foreground">
-        <div className="container py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <ArrowLeft className="w-5 h-5" />
+        <div className="container py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
             <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
             <span className="font-bold">MosqueSteps</span>
-          </Link>
-          <div className="flex items-center gap-1">
-            <Link to="/settings">
-              <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10 w-9 h-9">
-                <Settings2 className="w-4 h-4" />
-              </Button>
-            </Link>
           </div>
+          <Link to="/settings">
+            <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10 w-9 h-9">
+              <Settings2 className="w-4 h-4" />
+            </Button>
+          </Link>
         </div>
 
-        <div className="container pb-8">
+        <div className="container pb-6">
           <p className="text-sm text-primary-foreground/70 mb-1">
             {readableDate} · {hijriDate}
             {settings.cityName && <span> · {settings.cityName}</span>}
           </p>
-          <h1 className="text-2xl font-bold mb-6">Today's Journey</h1>
+          <h1 className="text-xl font-bold mb-4">Today's Journey</h1>
 
           {/* Circular progress */}
           <motion.div
@@ -163,7 +162,7 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <div className="container py-6 space-y-6">
+      <div className="container py-6 space-y-6 pb-bottom-nav">
         {/* Notification prompt */}
         {isNotificationSupported() && getNotificationPermission() !== "granted" && (
           <button
@@ -178,25 +177,6 @@ const Dashboard = () => {
           </button>
         )}
 
-        {/* Quick actions */}
-        <div className="grid grid-cols-4 gap-2">
-          <Link to="/walk" className="glass-card p-3 text-center hover:shadow-teal transition-shadow">
-            <Play className="w-5 h-5 text-primary mx-auto mb-1" />
-            <p className="text-xs font-medium text-foreground">Walk</p>
-          </Link>
-          <Link to="/mosques" className="glass-card p-3 text-center hover:shadow-teal transition-shadow">
-            <MapPin className="w-5 h-5 text-primary mx-auto mb-1" />
-            <p className="text-xs font-medium text-foreground">Mosques</p>
-          </Link>
-          <Link to="/history" className="glass-card p-3 text-center hover:shadow-teal transition-shadow">
-            <History className="w-5 h-5 text-primary mx-auto mb-1" />
-            <p className="text-xs font-medium text-foreground">History</p>
-          </Link>
-          <Link to="/rewards" className="glass-card p-3 text-center hover:shadow-teal transition-shadow">
-            <Star className="w-5 h-5 text-gold mx-auto mb-1" />
-            <p className="text-xs font-medium text-foreground">Rewards</p>
-          </Link>
-        </div>
 
         {/* Streak & stats */}
         {stats.totalWalks > 0 && (
@@ -263,7 +243,18 @@ const Dashboard = () => {
             {settings.cityName && <span className="text-xs text-muted-foreground font-normal">({settings.cityName})</span>}
           </h2>
           {loading ? (
-            <div className="glass-card p-6 text-center text-muted-foreground">Loading prayer times...</div>
+            <div className="glass-card p-6 text-center">
+              <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">Loading prayer times...</p>
+            </div>
+          ) : prayerError ? (
+            <div className="glass-card p-6 text-center">
+              <p className="text-sm text-destructive mb-2">Failed to load prayer times</p>
+              <p className="text-xs text-muted-foreground mb-3">Check your internet connection or set your city in Settings.</p>
+              <Link to="/settings">
+                <Button variant="outline" size="sm">Set City</Button>
+              </Link>
+            </div>
           ) : (
             <div className="space-y-2">
               {prayers.map((p) => {
@@ -321,12 +312,6 @@ const Dashboard = () => {
           </a>
         </div>
 
-        {/* Start walk CTA */}
-        <Link to="/walk">
-          <Button variant="hero" size="lg" className="w-full text-base">
-            <Play className="w-5 h-5 mr-2" /> Start Walking to Mosque
-          </Button>
-        </Link>
       </div>
     </div>
   );

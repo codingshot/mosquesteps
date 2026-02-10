@@ -107,7 +107,11 @@ const ActiveWalk = () => {
 
   const startWalk = useCallback(async () => {
     if (!navigator.geolocation) {
-      toast({ title: "Location not available", description: "Please enable location services.", variant: "destructive" });
+      toast({
+        title: "Location not available",
+        description: "GPS is required to track your walk. Please enable location services in your browser settings.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -162,7 +166,22 @@ const ActiveWalk = () => {
           return [newPos];
         });
       },
-      (err) => console.error("GPS error:", err),
+      (err) => {
+        console.error("GPS error:", err);
+        if (err.code === 1) {
+          toast({
+            title: "Location access denied",
+            description: "Please enable location permissions to track your walk.",
+            variant: "destructive",
+          });
+        } else if (err.code === 2) {
+          toast({
+            title: "GPS unavailable",
+            description: "Your device couldn't determine your location. Distance may not update.",
+            variant: "destructive",
+          });
+        }
+      },
       { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
     );
     setWatchId(id);
@@ -215,14 +234,13 @@ const ActiveWalk = () => {
   const progressPercent = settings.selectedMosqueDistance > 0 ? Math.min(1, distanceKm / settings.selectedMosqueDistance) : 0;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col pb-bottom-nav">
       <header className={`${isWalking ? "bg-gradient-teal" : "bg-card border-b border-border"}`}>
-        <div className="container py-4 flex items-center justify-between">
-          <Link to="/dashboard" className={`flex items-center gap-2 ${isWalking ? "text-primary-foreground" : "text-foreground"}`}>
-            <ArrowLeft className="w-5 h-5" />
+        <div className="container py-3 flex items-center justify-between">
+          <div className={`flex items-center gap-2 ${isWalking ? "text-primary-foreground" : "text-foreground"}`}>
             <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
             <span className="font-bold">Active Walk</span>
-          </Link>
+          </div>
           {isWalking && sensorSource !== "none" && (
             <div className={`flex items-center gap-1.5 text-xs ${isWalking ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
               <Smartphone className="w-3 h-3" />

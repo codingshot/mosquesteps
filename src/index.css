@@ -146,6 +146,14 @@
   .glass-card {
     @apply bg-card/80 backdrop-blur-md border border-border/50 rounded-xl;
   }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .pb-bottom-nav {
+    padding-bottom: 5rem; /* 80px for bottom nav */
+  }
 }
 
 /* Leaflet overrides */
