@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Save, MapPin, Bell, BellOff, Locate, Download, Sun, Moon, Monitor, Ruler, Gauge, Footprints, Home } from "lucide-react";
+import { ArrowLeft, Save, MapPin, Bell, BellOff, Locate, Download, Sun, Moon, Monitor, Ruler, Gauge, Footprints, Home, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getSettings, saveSettings, getSavedMosques, fetchTimezone, type UserSettings } from "@/lib/walking-history";
 import { requestNotificationPermission, isNotificationSupported, getNotificationPermission } from "@/lib/notifications";
@@ -414,6 +414,49 @@ const Settings = () => {
               }}
               className="flex-1 px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
+          </div>
+        </div>
+
+        {/* Age & Gender (for health recommendations) */}
+        <div className="glass-card p-5 space-y-4">
+          <h2 className="font-semibold text-foreground flex items-center gap-2">
+            <User className="w-4 h-4 text-primary" /> Health Profile
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Used to calculate personalized daily step recommendations on the Stats page.
+          </p>
+          <div>
+            <label className="text-sm text-muted-foreground block mb-1">Age</label>
+            <input
+              type="number"
+              min="5"
+              max="120"
+              placeholder="e.g. 30"
+              value={settings.age || ""}
+              onChange={(e) => setSettings({ ...settings, age: parseInt(e.target.value) || undefined })}
+              className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div>
+            <label className="text-sm text-muted-foreground block mb-2">Gender</label>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { value: "male" as const, label: "Male" },
+                { value: "female" as const, label: "Female" },
+              ]).map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setSettings({ ...settings, gender: value })}
+                  className={`px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                    settings.gender === value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/50"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 

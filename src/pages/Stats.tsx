@@ -3,10 +3,11 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Footprints, Clock, Star, Flame, BarChart3,
-  TrendingUp, Route as RouteIcon, Target, Edit2, Check, ArrowLeft
+  TrendingUp, Route as RouteIcon, Target, Edit2, Check, ArrowLeft, Heart
 } from "lucide-react";
 import { getWalkHistory, getWalkingStats, getSettings } from "@/lib/walking-history";
 import { getGoals, saveGoals, type WalkingGoals } from "@/lib/goals";
+import { getStepRecommendation, getHealthAssessment } from "@/lib/health-recommendations";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo.png";
 
@@ -38,6 +39,17 @@ const Stats = () => {
   const remainingMinutes = totalMinutes % 60;
   const prayerCounts = Object.entries(stats.walksByPrayer).sort((a, b) => b[1] - a[1]);
   const topPrayer = prayerCounts[0];
+
+  // Health recommendations
+  const recommendation = getStepRecommendation(settings.age, settings.gender);
+  // Calculate average daily steps (last 30 days)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const recentWalks = history.filter(e => new Date(e.date) >= thirtyDaysAgo);
+  const totalRecentSteps = recentWalks.reduce((s, e) => s + e.steps, 0);
+  const activeDays = new Set(recentWalks.map(e => e.date.split("T")[0])).size;
+  const avgDailySteps = activeDays > 0 ? Math.round(totalRecentSteps / 30) : 0;
+  const assessment = getHealthAssessment(avgDailySteps, recommendation);
 
   // Goal progress calculations
   const today = new Date();
@@ -241,6 +253,71 @@ const Stats = () => {
             </div>
           </div>
         </div>
+
+        {/* Health Step Recommendation */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="glass-card p-5 space-y-4"
+        >
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+            <Heart className="w-4 h-4 text-destructive" /> Recommended Daily Steps
+          </h3>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground">{recommendation.label}{settings.age ? ` · Age ${settings.age}` : ""}{settings.gender ? ` · ${settings.gender === "male" ? "♂" : "♀"}` : ""}</p>
+              <p className="text-2xl font-bold text-foreground">{recommendation.dailySteps.toLocaleString()}</p>
+              <p className="text-[10px] text-muted-foreground">steps/day recommended</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground">Your avg (30d)</p>
+              <p className="text-xl font-bold text-foreground">{avgDailySteps.toLocaleString()}</p>
+              <p className="text-[10px] text-muted-foreground">steps/day</p>
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          <div>
+            <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+              <span>{Math.round((avgDailySteps / recommendation.dailySteps) * 100)}% of goal</span>
+              <span>{recommendation.dailySteps.toLocaleString()} target</span>
+            </div>
+            <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${Math.min(100, (avgDailySteps / recommendation.dailySteps) * 100)}%` }}
+                transition={{ duration: 1, ease: "easeOut" }}
+                className={`h-full rounded-full ${
+                  assessment.level === "excellent" ? "bg-gradient-gold" :
+                  assessment.level === "good" ? "bg-gradient-teal" :
+                  assessment.level === "fair" ? "bg-primary/60" :
+                  "bg-muted-foreground/40"
+                }`}
+              />
+            </div>
+          </div>
+
+          {/* Assessment */}
+          <div className={`rounded-lg p-3 text-xs ${
+            assessment.level === "excellent" ? "bg-gold/10 text-foreground" :
+            assessment.level === "good" ? "bg-primary/10 text-foreground" :
+            "bg-secondary text-secondary-foreground"
+          }`}>
+            <span className="mr-1">{assessment.emoji}</span>
+            {assessment.message}
+          </div>
+
+          <p className="text-[10px] text-muted-foreground italic">{recommendation.description}</p>
+          <p className="text-[10px] text-muted-foreground">Source: {recommendation.source}</p>
+
+          {(!settings.age || !settings.gender) && (
+            <Link to="/settings" className="text-xs text-primary hover:underline block">
+              Set your age & gender in Settings for personalized recommendations →
+            </Link>
+          )}
+        </motion.div>
 
         {/* Walk frequency heatmap */}
         <div className="glass-card p-5">
