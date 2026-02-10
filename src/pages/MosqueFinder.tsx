@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import SEOHead from "@/components/SEOHead";
 import { Button } from "@/components/ui/button";
-import { Search, MapPin, Footprints, Clock, Check, Star, Trash2, Home, Navigation, ArrowLeft, Route as RouteIcon } from "lucide-react";
+import { Search, MapPin, Footprints, Clock, Check, Star, Trash2, Home, Navigation, ArrowLeft, Route as RouteIcon, Play, Timer } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { estimateSteps, estimateWalkingTime } from "@/lib/prayer-times";
+import { estimateSteps, estimateWalkingTime, fetchPrayerTimes, type PrayerTime } from "@/lib/prayer-times";
 import { fetchWalkingRoute } from "@/lib/routing";
 import {
   saveSettings, getSettings,
@@ -70,6 +70,7 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 
 const MosqueFinder = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const settings = getSettings();
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -90,6 +91,38 @@ const MosqueFinder = () => {
   const [selectedMosqueId, setSelectedMosqueId] = useState<number | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeInfo, setRouteInfo] = useState<{ distanceKm: number; durationMin: number; steps: { instruction: string; distance: number }[] } | null>(null);
+
+  // Prayer time state
+  const [nextPrayer, setNextPrayer] = useState<PrayerTime | null>(null);
+  const [countdown, setCountdown] = useState("");
+
+  // Fetch next prayer time once
+  useEffect(() => {
+    const lat = settings.cityLat || defaultLat;
+    const lng = settings.cityLng || defaultLng;
+    fetchPrayerTimes(lat, lng).then((data) => {
+      const upcoming = data.prayers.find((p) => !p.isPast);
+      if (upcoming) setNextPrayer(upcoming);
+      else if (data.prayers.length > 0) setNextPrayer(data.prayers[0]); // wrap to Fajr
+    }).catch(() => {});
+  }, []);
+
+  // Update countdown every second
+  useEffect(() => {
+    if (!nextPrayer) return;
+    const update = () => {
+      const [h, m] = nextPrayer.time.split(":").map(Number);
+      const now = new Date();
+      let diffMin = h * 60 + m - (now.getHours() * 60 + now.getMinutes());
+      if (diffMin < 0) diffMin += 24 * 60;
+      const hrs = Math.floor(diffMin / 60);
+      const mins = diffMin % 60;
+      setCountdown(hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`);
+    };
+    update();
+    const interval = setInterval(update, 30_000);
+    return () => clearInterval(interval);
+  }, [nextPrayer]);
 
   // Initialize map
   useEffect(() => {
@@ -356,7 +389,7 @@ const MosqueFinder = () => {
   const selectedMosque = mosques.find((m) => m.id === selectedMosqueId);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col pb-bottom-nav">
+    <div className="min-h-screen bg-background flex flex-col pb-bottom-nav relative">
       <SEOHead title="Find Mosques Near You" description="Discover nearby mosques with walking routes, distance estimates, and step counts. Powered by OpenStreetMap." path="/mosques" />
       <header className="bg-card border-b border-border">
         <div className="container py-3 flex items-center gap-2">
@@ -400,7 +433,7 @@ const MosqueFinder = () => {
         )}
       </div>
 
-      {/* Route info panel */}
+      {/* Route info panel with prayer + walk action */}
       {selectedMosque && routeInfo && (
         <div className="container py-2">
           <div className="glass-card p-3 space-y-2">
@@ -416,6 +449,33 @@ const MosqueFinder = () => {
               <span className="flex items-center gap-1"><Clock className="w-3 h-3 text-primary" /> {routeInfo.durationMin} min</span>
               <span className="flex items-center gap-1"><Footprints className="w-3 h-3 text-primary" /> {estimateSteps(routeInfo.distanceKm).toLocaleString()} steps</span>
             </div>
+
+            {/* Next prayer + countdown */}
+            {nextPrayer && (
+              <div className="flex items-center justify-between bg-primary/5 rounded-lg px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <Timer className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-xs font-medium text-foreground">
+                    {nextPrayer.name} at {nextPrayer.time}
+                  </span>
+                </div>
+                <span className="text-xs font-bold text-primary">{countdown}</span>
+              </div>
+            )}
+
+            {/* Walk Now button */}
+            <Button
+              variant="hero"
+              className="w-full"
+              onClick={() => {
+                // Save as primary if not already saved
+                handleSaveMosque(selectedMosque, true);
+                navigate("/walk");
+              }}
+            >
+              <Play className="w-4 h-4 mr-1.5" /> Walk There Now
+            </Button>
+
             {routeInfo.steps.length > 0 && (
               <div className="max-h-20 overflow-y-auto space-y-1 pt-1 border-t border-border/50">
                 {routeInfo.steps.slice(0, 6).map((s, i) => (
@@ -427,6 +487,14 @@ const MosqueFinder = () => {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Prayer countdown corner badge (when no mosque selected) */}
+      {!selectedMosque && nextPrayer && (
+        <div className="absolute top-[calc(35vh+4rem)] right-3 z-[1000] bg-card/90 backdrop-blur-sm border border-border rounded-lg px-2.5 py-1.5 shadow-md">
+          <p className="text-[10px] text-muted-foreground">{nextPrayer.name}</p>
+          <p className="text-sm font-bold text-primary">{countdown}</p>
         </div>
       )}
 
@@ -457,7 +525,18 @@ const MosqueFinder = () => {
         {activeTab === "nearby" && (
           <>
             {loading && (
-              <p className="text-sm text-muted-foreground text-center py-4">Searching nearby mosques...</p>
+              <div className="space-y-2">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="glass-card p-3 flex items-center gap-3 animate-pulse">
+                    <div className="w-9 h-9 rounded-lg bg-muted flex-shrink-0" />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-3.5 bg-muted rounded w-3/4" />
+                      <div className="h-2.5 bg-muted rounded w-1/2" />
+                    </div>
+                    <div className="h-7 w-16 bg-muted rounded" />
+                  </div>
+                ))}
+              </div>
             )}
             {searchError && (
               <div className="glass-card p-4 text-center">
