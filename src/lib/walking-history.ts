@@ -45,6 +45,8 @@ export interface UserSettings {
   cityTimezone?: string; // IANA timezone e.g. "Europe/London"
   distanceUnit?: "km" | "mi";
   speedUnit?: "kmh" | "mph";
+  smallDistanceUnit?: "m" | "ft";
+  timeFormat?: "12h" | "24h";
   strideLength?: number; // meters
   homeAddress?: string;
   homeLat?: number;
