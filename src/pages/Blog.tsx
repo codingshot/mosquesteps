@@ -9,12 +9,16 @@ const categoryLabels: Record<BlogPost["category"], string> = {
   sunnah: "Sunnah & Hadith",
   guide: "App Guides",
   tips: "Tips & Motivation",
+  health: "Health & Exercise",
+  community: "Community",
 };
 
 const categoryColors: Record<BlogPost["category"], string> = {
   sunnah: "bg-primary/10 text-primary",
   guide: "bg-accent/10 text-accent-foreground",
   tips: "bg-secondary text-secondary-foreground",
+  health: "bg-destructive/10 text-destructive",
+  community: "bg-gold/10 text-foreground",
 };
 
 const Blog = () => {

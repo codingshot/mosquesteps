@@ -9,6 +9,8 @@ const categoryLabels: Record<BlogPostType["category"], string> = {
   sunnah: "Sunnah & Hadith",
   guide: "App Guides",
   tips: "Tips & Motivation",
+  health: "Health & Exercise",
+  community: "Community",
 };
 
 const BlogPostPage = () => {
