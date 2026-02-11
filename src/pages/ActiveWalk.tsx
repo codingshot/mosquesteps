@@ -756,6 +756,48 @@ const ActiveWalk = () => {
               </div>
             </div>
 
+            {/* Prayer countdown while walking */}
+            {selectedPrayer && timeUntilPrayer && (
+              <div className={`rounded-xl px-4 py-2.5 flex items-center justify-between ${
+                (() => {
+                  const prayer = prayerTimes.find(pt => pt.name === selectedPrayer);
+                  if (!prayer) return "bg-muted";
+                  const walkTime = routeInfo?.durationMin || estimateWalkingTime(mosqueDist, settings.walkingSpeed);
+                  const ml = minutesUntilLeave(prayer.time, walkTime);
+                  if (ml <= 0) return "bg-destructive/15 ring-1 ring-destructive/30";
+                  if (ml <= 5) return "bg-destructive/10";
+                  if (ml <= 15) return "bg-gold/10";
+                  return "bg-primary/5";
+                })()
+              }`}>
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-gold" />
+                  <div className="text-left">
+                    <p className="text-xs font-semibold text-foreground">
+                      {selectedPrayer} in <span className="text-gold">{timeUntilPrayer}</span>
+                    </p>
+                    {(() => {
+                      const prayer = prayerTimes.find(pt => pt.name === selectedPrayer);
+                      if (!prayer) return null;
+                      const walkTime = routeInfo?.durationMin || estimateWalkingTime(mosqueDist, settings.walkingSpeed);
+                      const remainingWalkMin = routeInfo?.steps
+                        ? Math.round((routeInfo.steps.slice(currentDirectionIdx).reduce((sum, s) => sum + s.distance, 0) / 1000) / (settings.walkingSpeed || 5) * 60)
+                        : walkTime;
+                      const ml = minutesUntilLeave(prayer.time, walkTime);
+                      return (
+                        <p className={`text-[10px] font-medium ${ml <= 0 ? "text-destructive" : ml <= 5 ? "text-destructive" : ml <= 15 ? "text-amber-500" : "text-muted-foreground"}`}>
+                          {ml <= 0 ? "⚠️ You should be there by now!" : `~${remainingWalkMin}m walk left · ${ml}m margin`}
+                        </p>
+                      );
+                    })()}
+                  </div>
+                </div>
+                <span className="text-sm font-bold text-foreground tabular-nums">
+                  {prayerTimes.find(pt => pt.name === selectedPrayer)?.time || ""}
+                </span>
+              </div>
+            )}
+
             {/* Live map with overlays */}
             {showMap && (
               <WalkMap
