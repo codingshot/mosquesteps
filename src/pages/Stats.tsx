@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import {
   Footprints, Clock, Star, Flame, BarChart3,
   TrendingUp, Route as RouteIcon, Target, Edit2, Check, ArrowLeft, Heart, Zap, Activity,
-  MapPin, Calendar, Car, ChevronDown, ChevronUp
+  MapPin, Calendar, Car, ChevronDown, ChevronUp, Info
 } from "lucide-react";
 import { getWalkHistory, getWalkingStats, getSettings } from "@/lib/walking-history";
 import { getGoals, saveGoals, type WalkingGoals } from "@/lib/goals";
@@ -12,6 +12,11 @@ import { getStepRecommendation, getHealthAssessment } from "@/lib/health-recomme
 import { getOnboardingDate } from "@/pages/Onboarding";
 import { getDayLog, getRecentLogs, updatePrayerLog, TRANSPORT_LABELS, type TransportMode } from "@/lib/prayer-log";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import logo from "@/assets/logo.png";
 
 // Recent walks history component
@@ -394,26 +399,54 @@ const Stats = () => {
 
         {/* Key metrics */}
         <div className="grid grid-cols-2 gap-3">
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-4 text-center">
-            <Footprints className="w-5 h-5 text-primary mx-auto mb-1" />
-            <p className="text-2xl font-bold text-foreground">{stats.totalSteps.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground">Total Steps</p>
-          </motion.div>
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="glass-card p-4 text-center">
-            <Star className="w-5 h-5 text-gold mx-auto mb-1" />
-            <p className="text-2xl font-bold text-gradient-gold">{stats.totalHasanat.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground">Total Hasanat</p>
-          </motion.div>
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card p-4 text-center">
-            <RouteIcon className="w-5 h-5 text-primary mx-auto mb-1" />
-            <p className="text-2xl font-bold text-foreground">{formatDist(stats.totalDistance)}</p>
-            <p className="text-xs text-muted-foreground">Total Distance</p>
-          </motion.div>
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="glass-card p-4 text-center">
-            <Clock className="w-5 h-5 text-primary mx-auto mb-1" />
-            <p className="text-2xl font-bold text-foreground">{totalHours}h {remainingMinutes}m</p>
-            <p className="text-xs text-muted-foreground">Time Walking</p>
-          </motion.div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-4 text-center cursor-help">
+                <Footprints className="w-5 h-5 text-primary mx-auto mb-1" />
+                <p className="text-2xl font-bold text-foreground">{stats.totalSteps.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Total Steps</p>
+              </motion.div>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-[220px] p-2.5" side="bottom">
+              <p className="text-xs text-popover-foreground">Total steps walked across all {stats.totalWalks} trips to the mosque since you started.</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="glass-card p-4 text-center cursor-help">
+                <Star className="w-5 h-5 text-gold mx-auto mb-1" />
+                <p className="text-2xl font-bold text-gradient-gold">{stats.totalHasanat.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Total Hasanat</p>
+              </motion.div>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-[220px] p-2.5" side="bottom">
+              <p className="text-xs text-popover-foreground">Spiritual rewards earned — 2 hasanat per step (Sahih Muslim 666). One sin erased + one degree raised per step.</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card p-4 text-center cursor-help">
+                <RouteIcon className="w-5 h-5 text-primary mx-auto mb-1" />
+                <p className="text-2xl font-bold text-foreground">{formatDist(stats.totalDistance)}</p>
+                <p className="text-xs text-muted-foreground">Total Distance</p>
+              </motion.div>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-[220px] p-2.5" side="bottom">
+              <p className="text-xs text-popover-foreground">Cumulative distance walked to and from the mosque across all sessions.</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="glass-card p-4 text-center cursor-help">
+                <Clock className="w-5 h-5 text-primary mx-auto mb-1" />
+                <p className="text-2xl font-bold text-foreground">{totalHours}h {remainingMinutes}m</p>
+                <p className="text-xs text-muted-foreground">Time Walking</p>
+              </motion.div>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-[220px] p-2.5" side="bottom">
+              <p className="text-xs text-popover-foreground">Total active walking time — {totalMinutes} minutes spent walking to the mosque.</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
 
         {/* Extra insights */}
@@ -601,20 +634,143 @@ const Stats = () => {
           </div>
         </div>
 
+        {/* Weekly Prayer Consistency */}
+        <div className="glass-card p-5">
+          <h3 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-1.5">
+            <Calendar className="w-4 h-4 text-primary" /> Weekly Prayer Consistency
+          </h3>
+          <p className="text-[10px] text-muted-foreground mb-4">Last 7 days — how you got to each prayer</p>
+          {(() => {
+            const PRAYERS = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
+            const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+            const days: { label: string; date: string; log: ReturnType<typeof getDayLog> }[] = [];
+            for (let i = 6; i >= 0; i--) {
+              const d = new Date(today);
+              d.setDate(d.getDate() - i);
+              const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+              days.push({ label: DAYS_SHORT[d.getDay()], date: dateStr, log: getDayLog(dateStr) });
+            }
+
+            const totalPrayed = days.reduce((s, d) => s + d.log.prayers.filter(p => p.prayed).length, 0);
+            const totalWalked = days.reduce((s, d) => s + d.log.prayers.filter(p => p.goMethod === "walked").length, 0);
+            const totalDriven = days.reduce((s, d) => s + d.log.prayers.filter(p => p.goMethod === "car" || p.goMethod === "taxi" || p.goMethod === "bus").length, 0);
+
+            return (
+              <>
+                {/* Summary row */}
+                <div className="grid grid-cols-3 gap-2 mb-4">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="bg-primary/5 rounded-lg p-2.5 text-center cursor-help">
+                        <p className="text-lg font-bold text-foreground">{totalPrayed}<span className="text-xs text-muted-foreground font-normal">/35</span></p>
+                        <p className="text-[10px] text-muted-foreground">Prayed</p>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-[200px] p-2.5" side="bottom">
+                      <p className="text-xs text-popover-foreground">Total prayers prayed out of 35 possible (5 daily × 7 days)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <div className="bg-primary/5 rounded-lg p-2.5 text-center">
+                    <p className="text-lg font-bold text-primary">{totalWalked}</p>
+                    <p className="text-[10px] text-muted-foreground">🚶 Walked</p>
+                  </div>
+                  <div className="bg-primary/5 rounded-lg p-2.5 text-center">
+                    <p className="text-lg font-bold text-muted-foreground">{totalDriven}</p>
+                    <p className="text-[10px] text-muted-foreground">🚗 Drove</p>
+                  </div>
+                </div>
+
+                {/* Stacked bar chart */}
+                <div className="flex items-end gap-1.5 h-28 mb-2">
+                  {days.map((d, i) => {
+                    const prayed = d.log.prayers.filter(p => p.prayed).length;
+                    const walked = d.log.prayers.filter(p => p.goMethod === "walked").length;
+                    const driven = d.log.prayers.filter(p => p.goMethod === "car" || p.goMethod === "taxi" || p.goMethod === "bus").length;
+                    const otherPrayed = prayed - walked - driven;
+                    return (
+                      <Tooltip key={i}>
+                        <TooltipTrigger asChild>
+                          <div className="flex-1 flex flex-col items-center gap-0.5 cursor-help h-full justify-end">
+                            {/* Stacked segments */}
+                            <div className="w-full flex flex-col gap-px justify-end" style={{ height: `${(prayed / 5) * 100}%` }}>
+                              {walked > 0 && (
+                                <div className="w-full bg-gradient-teal rounded-t-sm" style={{ height: `${(walked / prayed) * 100}%`, minHeight: "4px" }} />
+                              )}
+                              {driven > 0 && (
+                                <div className="w-full bg-muted-foreground/40 rounded-sm" style={{ height: `${(driven / prayed) * 100}%`, minHeight: "4px" }} />
+                              )}
+                              {otherPrayed > 0 && (
+                                <div className="w-full bg-primary/20 rounded-b-sm" style={{ height: `${(otherPrayed / prayed) * 100}%`, minHeight: "4px" }} />
+                              )}
+                            </div>
+                            <span className="text-[9px] text-muted-foreground">{d.label}</span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent className="p-2" side="top">
+                          <p className="text-xs font-medium text-popover-foreground">{d.label} — {prayed}/5 prayed</p>
+                          {walked > 0 && <p className="text-[10px] text-popover-foreground/80">🚶 {walked} walked</p>}
+                          {driven > 0 && <p className="text-[10px] text-popover-foreground/80">🚗 {driven} drove</p>}
+                          {otherPrayed > 0 && <p className="text-[10px] text-popover-foreground/80">📍 {otherPrayed} other</p>}
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+                </div>
+
+                {/* Legend */}
+                <div className="flex items-center gap-4 text-[10px] text-muted-foreground justify-center">
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-gradient-teal inline-block" /> Walked</span>
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-muted-foreground/40 inline-block" /> Drove</span>
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-primary/20 inline-block" /> Other</span>
+                </div>
+
+                {/* Prayer-Walking Correlation insight */}
+                {totalPrayed > 0 && (
+                  <div className={`mt-4 rounded-lg p-3 text-xs ${
+                    totalWalked / totalPrayed > 0.6 ? "bg-primary/10 text-foreground" :
+                    totalWalked / totalPrayed > 0.3 ? "bg-gold/10 text-foreground" :
+                    "bg-secondary text-secondary-foreground"
+                  }`}>
+                    <p className="font-medium mb-1">
+                      {totalWalked / totalPrayed > 0.6 ? "🚶‍♂️ Strong walking habit!" :
+                       totalWalked / totalPrayed > 0.3 ? "📈 Building momentum" :
+                       "💡 Room to walk more"}
+                    </p>
+                    <p className="text-[11px] leading-relaxed opacity-80">
+                      You walked to <strong>{Math.round((totalWalked / totalPrayed) * 100)}%</strong> of your {totalPrayed} prayers this week.
+                      {totalDriven > 0 && ` You drove to ${totalDriven} prayer${totalDriven > 1 ? "s" : ""}.`}
+                      {totalWalked > 0 && ` Walking earned you ~${(totalWalked * 2 * (settings.selectedMosqueDistance || 0.8) * 1312).toLocaleString()} hasanat.`}
+                    </p>
+                  </div>
+                )}
+              </>
+            );
+          })()}
+        </div>
+
         {/* Prayer distribution */}
         {prayerCounts.length > 0 && (
           <div className="glass-card p-5">
             <h3 className="text-sm font-semibold text-foreground mb-4">Prayer Distribution</h3>
             <div className="space-y-3">
               {prayerCounts.map(([prayer, count]) => (
-                <div key={prayer} className="flex items-center gap-3">
-                  <span className="text-sm text-foreground w-16 font-medium">{prayer}</span>
-                  <div className="flex-1 bg-muted rounded-full h-3 overflow-hidden">
-                    <div className="h-full bg-gradient-teal rounded-full transition-all duration-500"
-                      style={{ width: `${(count / stats.totalWalks) * 100}%` }} />
-                  </div>
-                  <span className="text-xs text-muted-foreground w-8 text-right">{count}</span>
-                </div>
+                <Tooltip key={prayer}>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-3 cursor-help">
+                      <span className="text-sm text-foreground w-16 font-medium">{prayer}</span>
+                      <div className="flex-1 bg-muted rounded-full h-3 overflow-hidden">
+                        <div className="h-full bg-gradient-teal rounded-full transition-all duration-500"
+                          style={{ width: `${(count / stats.totalWalks) * 100}%` }} />
+                      </div>
+                      <span className="text-xs text-muted-foreground w-8 text-right">{count}</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="p-2" side="top">
+                    <p className="text-xs text-popover-foreground">
+                      Walked to <strong>{prayer}</strong> {count} time{count !== 1 ? "s" : ""} — {Math.round((count / stats.totalWalks) * 100)}% of all walks
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
               ))}
             </div>
             {topPrayer && (
