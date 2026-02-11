@@ -100,6 +100,7 @@ const ActiveWalk = () => {
   const [offRoute, setOffRoute] = useState(false);
   const [eta, setEta] = useState<string>("");
   const prevDirectionIdx = useRef(-1);
+  const prayerMarginAlerted = useRef(false);
 
   const stepCounterRef = useRef<StepCounter | null>(null);
   const distanceRef = useRef(0);
@@ -376,7 +377,33 @@ const ActiveWalk = () => {
     if (!isWalking && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
+    if (!isWalking) prayerMarginAlerted.current = false;
   }, [isWalking]);
+
+  // Voice alert when prayer margin drops below 5 minutes
+  useEffect(() => {
+    if (!isWalking || !voiceEnabled || !selectedPrayer || !prayerTimes.length) return;
+    if (prayerMarginAlerted.current) return;
+
+    const prayer = prayerTimes.find(pt => pt.name === selectedPrayer);
+    if (!prayer) return;
+
+    const walkTime = routeInfo?.durationMin || estimateWalkingTime(mosqueDist, settings.walkingSpeed);
+    const ml = minutesUntilLeave(prayer.time, walkTime);
+
+    if (ml <= 5 && ml > -10) {
+      prayerMarginAlerted.current = true;
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(
+          "Prayer time is approaching, pick up your pace."
+        );
+        utterance.rate = 1.0;
+        utterance.volume = 1.0;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+  }, [isWalking, voiceEnabled, selectedPrayer, prayerTimes, elapsedSeconds, routeInfo, mosqueDist]);
 
   const startWalk = useCallback(async () => {
     if (!navigator.geolocation) {
