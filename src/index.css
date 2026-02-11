@@ -144,7 +144,7 @@
   }
 
   .glass-card {
-    @apply bg-card/80 backdrop-blur-md border border-border/50 rounded-xl;
+    @apply bg-card border border-border/60 rounded-xl shadow-sm;
   }
 
   .safe-area-bottom {
@@ -152,7 +152,7 @@
   }
 
   .pb-bottom-nav {
-    padding-bottom: 5rem; /* 80px for bottom nav */
+    padding-bottom: 5.5rem; /* 88px for bottom nav + breathing room */
   }
 }
 
@@ -160,4 +160,35 @@
 .leaflet-container {
   @apply rounded-xl;
   font-family: 'Plus Jakarta Sans', sans-serif !important;
+}
+
+.mosque-marker, .user-marker, .step-marker, .dist-label {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Smoother transitions */
+.glass-card {
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+.glass-card:hover {
+  box-shadow: 0 4px 16px -4px hsl(var(--primary) / 0.08);
+}
+
+/* Active walk pulse animation */
+@keyframes pulse-glow-ring {
+  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--gold) / 0.4); }
+  50% { box-shadow: 0 0 0 8px hsl(var(--gold) / 0); }
+}
+.animate-pulse-glow {
+  animation: pulse-glow-ring 2s ease-in-out infinite;
+}
+
+/* Step bounce for walking */
+@keyframes step-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+.animate-step-bounce {
+  animation: step-bounce 0.6s ease-in-out infinite;
 }

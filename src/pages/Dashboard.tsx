@@ -419,7 +419,7 @@ const Dashboard = () => {
                 const minsLeft = !isNextDay && walksToThis ? minutesUntilLeave(p.time, pWalkMin) : null;
 
                 return (
-                  <div key={p.name} className={`glass-card p-4 ${isNext ? "ring-2 ring-gold shadow-gold" : ""}`}>
+                  <div key={p.name} className={`glass-card p-4 transition-all ${isNext ? "ring-2 ring-gold shadow-gold" : "hover:shadow-md"}`}>
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="font-semibold text-foreground flex items-center gap-1.5">
