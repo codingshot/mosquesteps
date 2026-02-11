@@ -104,6 +104,21 @@ export function markAsRead(id: string): void {
   }
 }
 
+export function markAsUnread(id: string): void {
+  const all = getNotifications();
+  const n = all.find((x) => x.id === id);
+  if (n) {
+    n.read = false;
+    persist(all);
+  }
+}
+
+export function markTypeAsRead(type: NotificationType): void {
+  const all = getNotifications();
+  all.forEach((n) => { if (n.type === type) n.read = true; });
+  persist(all);
+}
+
 export function markAllAsRead(): void {
   const all = getNotifications();
   all.forEach((n) => (n.read = true));

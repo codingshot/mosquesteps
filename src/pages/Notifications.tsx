@@ -5,27 +5,34 @@ import {
   ArrowLeft, Bell, BellOff, Check, CheckCheck, Trash2, Filter,
   SortAsc, SortDesc, Settings2, ChevronDown, Clock,
   Footprints, Star, Trophy, BarChart3, MapPin, Heart, Zap, Info,
-  X,
+  X, MailOpen, Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { getSettings } from "@/lib/walking-history";
+import {
   AppNotification, NotificationType, NotificationSettings,
-  getNotifications, markAsRead, markAllAsRead, deleteNotification, clearAllNotifications,
+  getNotifications, markAsRead, markAsUnread, markAllAsRead, markTypeAsRead,
+  deleteNotification, clearAllNotifications,
   getNotificationSettings, saveNotificationSettings, seedDemoNotifications, getUnreadCount,
 } from "@/lib/notification-store";
 
 // ---- Icon map for each notification type ----
 const typeConfig: Record<NotificationType, { icon: typeof Bell; label: string; color: string }> = {
   prayer_reminder: { icon: Clock, label: "Prayer", color: "text-primary" },
-  walk_complete:   { icon: Footprints, label: "Walk", color: "text-emerald-500" },
-  streak:          { icon: Zap, label: "Streak", color: "text-orange-500" },
+  walk_complete:   { icon: Footprints, label: "Walk", color: "text-primary" },
+  streak:          { icon: Zap, label: "Streak", color: "text-destructive" },
   badge:           { icon: Trophy, label: "Badge", color: "text-gold" },
-  weekly_summary:  { icon: BarChart3, label: "Summary", color: "text-blue-500" },
+  weekly_summary:  { icon: BarChart3, label: "Summary", color: "text-primary" },
   checkin:         { icon: MapPin, label: "Check-in", color: "text-primary" },
   goal:            { icon: Star, label: "Goal", color: "text-gold" },
-  health_tip:      { icon: Heart, label: "Health", color: "text-rose-500" },
+  health_tip:      { icon: Heart, label: "Health", color: "text-destructive" },
   system:          { icon: Info, label: "System", color: "text-muted-foreground" },
 };
 
@@ -41,6 +48,7 @@ export default function Notifications() {
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
   const [filterType, setFilterType] = useState<FilterType>("all");
   const [readFilter, setReadFilter] = useState<ReadFilter>("all");
+  const userSettings = getSettings();
 
   const reload = () => setNotifications(getNotifications());
 
@@ -61,9 +69,28 @@ export default function Notifications() {
 
   const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
 
+  // Count by type
+  const typeCounts = useMemo(() => {
+    const counts: Partial<Record<NotificationType, number>> = {};
+    notifications.forEach((n) => {
+      counts[n.type] = (counts[n.type] || 0) + 1;
+    });
+    return counts;
+  }, [notifications]);
+
+  const unreadByType = useMemo(() => {
+    const counts: Partial<Record<NotificationType, number>> = {};
+    notifications.filter(n => !n.read).forEach((n) => {
+      counts[n.type] = (counts[n.type] || 0) + 1;
+    });
+    return counts;
+  }, [notifications]);
+
   // ---- Actions ----
   const handleMarkRead = (id: string) => { markAsRead(id); reload(); };
+  const handleMarkUnread = (id: string) => { markAsUnread(id); reload(); };
   const handleMarkAllRead = () => { markAllAsRead(); reload(); };
+  const handleMarkTypeRead = (type: NotificationType) => { markTypeAsRead(type); reload(); };
   const handleDelete = (id: string) => { deleteNotification(id); reload(); };
   const handleClearAll = () => { clearAllNotifications(); reload(); };
   const handleSettingToggle = (key: keyof NotificationSettings) => {
@@ -83,6 +110,18 @@ export default function Notifications() {
     const days = Math.floor(hrs / 24);
     if (days < 7) return `${days}d ago`;
     return new Date(ts).toLocaleDateString();
+  };
+
+  const exactDateTime = (ts: number) => {
+    const opts: Intl.DateTimeFormatOptions = {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      ...(userSettings.cityTimezone ? { timeZone: userSettings.cityTimezone } : {}),
+    };
+    return new Date(ts).toLocaleString(undefined, opts);
   };
 
   return (
@@ -107,11 +146,11 @@ export default function Notifications() {
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowFilters(!showFilters)}>
-              <Filter className="w-4 h-4" />
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setShowFilters(!showFilters); setShowSettings(false); }}>
+              <Filter className={`w-4 h-4 ${showFilters ? "text-primary" : ""}`} />
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowSettings(!showSettings)}>
-              <Settings2 className="w-4 h-4" />
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setShowSettings(!showSettings); setShowFilters(false); }}>
+              <Settings2 className={`w-4 h-4 ${showSettings ? "text-primary" : ""}`} />
             </Button>
           </div>
         </div>
@@ -149,22 +188,36 @@ export default function Notifications() {
               <div>
                 <p className="text-xs font-semibold text-muted-foreground mb-2">By type</p>
                 <div className="flex flex-wrap gap-1.5">
-                  <FilterChip active={filterType === "all"} onClick={() => setFilterType("all")}>All</FilterChip>
-                  {(Object.keys(typeConfig) as NotificationType[]).map((t) => (
-                    <FilterChip key={t} active={filterType === t} onClick={() => setFilterType(t)}>
-                      {typeConfig[t].label}
-                    </FilterChip>
-                  ))}
+                  <FilterChip active={filterType === "all"} onClick={() => setFilterType("all")} count={notifications.length}>All</FilterChip>
+                  {(Object.keys(typeConfig) as NotificationType[]).map((t) => {
+                    const count = typeCounts[t] || 0;
+                    if (count === 0) return null;
+                    const unread = unreadByType[t] || 0;
+                    return (
+                      <FilterChip key={t} active={filterType === t} onClick={() => setFilterType(t)} count={count} unread={unread}>
+                        {typeConfig[t].label}
+                      </FilterChip>
+                    );
+                  })}
                 </div>
               </div>
               <div>
                 <p className="text-xs font-semibold text-muted-foreground mb-2">By status</p>
                 <div className="flex gap-1.5">
                   <FilterChip active={readFilter === "all"} onClick={() => setReadFilter("all")}>All</FilterChip>
-                  <FilterChip active={readFilter === "unread"} onClick={() => setReadFilter("unread")}>Unread</FilterChip>
+                  <FilterChip active={readFilter === "unread"} onClick={() => setReadFilter("unread")} count={unreadCount}>Unread</FilterChip>
                   <FilterChip active={readFilter === "read"} onClick={() => setReadFilter("read")}>Read</FilterChip>
                 </div>
               </div>
+              {/* Mark type as read */}
+              {filterType !== "all" && (unreadByType[filterType as NotificationType] || 0) > 0 && (
+                <Button
+                  variant="outline" size="sm" className="text-xs h-7"
+                  onClick={() => handleMarkTypeRead(filterType as NotificationType)}
+                >
+                  <CheckCheck className="w-3 h-3 mr-1" /> Mark all {typeConfig[filterType as NotificationType]?.label} as read
+                </Button>
+              )}
             </div>
           </motion.div>
         )}
@@ -178,7 +231,7 @@ export default function Notifications() {
             className="overflow-hidden border-b border-border bg-card/50"
           >
             <div className="px-4 py-3 space-y-2.5">
-              <p className="text-xs font-semibold text-muted-foreground">Quick Settings</p>
+              <p className="text-xs font-semibold text-muted-foreground">Notification Preferences</p>
               <SettingRow label="Prayer reminders" icon={Clock} checked={settings.prayerReminders} onChange={() => handleSettingToggle("prayerReminders")} />
               <SettingRow label="Walk updates" icon={Footprints} checked={settings.walkUpdates} onChange={() => handleSettingToggle("walkUpdates")} />
               <SettingRow label="Streak alerts" icon={Zap} checked={settings.streakAlerts} onChange={() => handleSettingToggle("streakAlerts")} />
@@ -242,7 +295,14 @@ export default function Notifications() {
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.body}</p>
                         <div className="flex items-center gap-2 mt-1.5">
-                          <span className="text-[10px] text-muted-foreground/60">{timeAgo(n.timestamp)}</span>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="text-[10px] text-muted-foreground/60 cursor-help">{timeAgo(n.timestamp)}</span>
+                            </TooltipTrigger>
+                            <TooltipContent className="p-2" side="bottom">
+                              <p className="text-xs text-popover-foreground">{exactDateTime(n.timestamp)}</p>
+                            </TooltipContent>
+                          </Tooltip>
                           <Badge variant="outline" className="text-[9px] px-1 py-0 h-[14px] border-border/50">
                             {config.label}
                           </Badge>
@@ -252,9 +312,13 @@ export default function Notifications() {
 
                     {/* Actions */}
                     <div className="flex items-center gap-1 mt-2 justify-end">
-                      {!n.read && (
+                      {n.read ? (
+                        <Button variant="ghost" size="sm" className="text-[10px] h-6 px-2" onClick={() => handleMarkUnread(n.id)}>
+                          <Mail className="w-3 h-3 mr-0.5" /> Unread
+                        </Button>
+                      ) : (
                         <Button variant="ghost" size="sm" className="text-[10px] h-6 px-2" onClick={() => handleMarkRead(n.id)}>
-                          <Check className="w-3 h-3 mr-0.5" /> Read
+                          <MailOpen className="w-3 h-3 mr-0.5" /> Read
                         </Button>
                       )}
                       <Button variant="ghost" size="sm" className="text-[10px] h-6 px-2 text-destructive hover:text-destructive" onClick={() => handleDelete(n.id)}>
@@ -274,17 +338,25 @@ export default function Notifications() {
 
 // ---- Sub-components ----
 
-function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function FilterChip({ active, onClick, children, count, unread }: { active: boolean; onClick: () => void; children: React.ReactNode; count?: number; unread?: number }) {
   return (
     <button
       onClick={onClick}
-      className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors font-medium ${
+      className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors font-medium flex items-center gap-1 ${
         active
           ? "bg-primary text-primary-foreground border-primary"
           : "bg-card border-border text-muted-foreground hover:bg-muted"
       }`}
     >
       {children}
+      {count !== undefined && count > 0 && (
+        <span className={`text-[9px] ${active ? "text-primary-foreground/70" : "text-muted-foreground/50"}`}>
+          {count}
+        </span>
+      )}
+      {unread !== undefined && unread > 0 && !active && (
+        <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+      )}
     </button>
   );
 }
