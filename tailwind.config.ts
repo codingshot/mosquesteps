@@ -102,6 +102,10 @@ export default {
           "0%, 100%": { transform: "translateY(0) scale(1)" },
           "50%": { transform: "translateY(-5px) scale(1.05)" },
         },
+        "confetti-fall": {
+          "0%": { transform: "translateY(-10vh) rotate(0deg)", opacity: "1" },
+          "100%": { transform: "translateY(110vh) rotate(720deg)", opacity: "0" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -109,6 +113,7 @@ export default {
         "float": "float 3s ease-in-out infinite",
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
         "step-bounce": "step-bounce 0.6s ease-in-out",
+        "confetti-fall": "confetti-fall 3s ease-in forwards",
       },
     },
   },
