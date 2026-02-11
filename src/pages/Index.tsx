@@ -2,6 +2,7 @@ import Navbar from "@/components/landing/Navbar";
 import Hero from "@/components/landing/Hero";
 import ProblemSolution from "@/components/landing/ProblemSolution";
 import Features from "@/components/landing/Features";
+import GuidesCarousel from "@/components/landing/GuidesCarousel";
 import CTA from "@/components/landing/CTA";
 import Footer from "@/components/landing/Footer";
 
@@ -13,6 +14,7 @@ const Index = () => {
         <Hero />
         <ProblemSolution />
         <Features />
+        <GuidesCarousel />
         <CTA />
       </main>
       <Footer />
