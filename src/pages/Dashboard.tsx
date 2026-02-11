@@ -135,13 +135,13 @@ const Dashboard = () => {
 
   const loadPrayers = async (lat: number, lng: number) => {
     try {
-      let data = await fetchPrayerTimes(lat, lng);
+      let data = await fetchPrayerTimes(lat, lng, undefined, settings.cityTimezone);
 
       // If all prayers have passed, fetch tomorrow's times
       if (data.isNextDay) {
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
-        data = await fetchPrayerTimes(lat, lng, tomorrow);
+        data = await fetchPrayerTimes(lat, lng, tomorrow, settings.cityTimezone);
         setIsNextDay(true);
       }
 
@@ -416,7 +416,7 @@ const Dashboard = () => {
                 const pWalkMin = estimateWalkingTime(pMosqueDist, walkingSpeed);
                 const leaveBy = calculateLeaveByTime(p.time, pWalkMin);
                 const walksToThis = prayerPrefs.includes(p.name);
-                const minsLeft = !isNextDay && walksToThis ? minutesUntilLeave(p.time, pWalkMin) : null;
+                const minsLeft = !isNextDay && walksToThis ? minutesUntilLeave(p.time, pWalkMin, settings.cityTimezone) : null;
 
                 return (
                   <div key={p.name} className={`glass-card p-4 transition-all ${isNext ? "ring-2 ring-gold shadow-gold" : "hover:shadow-md"}`}>

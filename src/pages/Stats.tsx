@@ -3,14 +3,194 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Footprints, Clock, Star, Flame, BarChart3,
-  TrendingUp, Route as RouteIcon, Target, Edit2, Check, ArrowLeft, Heart, Zap, Activity
+  TrendingUp, Route as RouteIcon, Target, Edit2, Check, ArrowLeft, Heart, Zap, Activity,
+  MapPin, Calendar, Car, ChevronDown, ChevronUp
 } from "lucide-react";
 import { getWalkHistory, getWalkingStats, getSettings } from "@/lib/walking-history";
 import { getGoals, saveGoals, type WalkingGoals } from "@/lib/goals";
 import { getStepRecommendation, getHealthAssessment } from "@/lib/health-recommendations";
 import { getOnboardingDate } from "@/pages/Onboarding";
+import { getDayLog, getRecentLogs, updatePrayerLog, TRANSPORT_LABELS, type TransportMode } from "@/lib/prayer-log";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo.png";
+
+// Recent walks history component
+const RecentWalksSection = ({ history, formatDist }: { history: any[]; formatDist: (km: number) => string }) => {
+  const [showAll, setShowAll] = useState(false);
+  const recent = showAll ? history.slice(0, 30) : history.slice(0, 5);
+
+  return (
+    <div className="glass-card p-5">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+          <MapPin className="w-4 h-4 text-primary" /> Recent Walks
+        </h3>
+        {history.length > 5 && (
+          <button onClick={() => setShowAll(!showAll)} className="text-xs text-primary flex items-center gap-0.5">
+            {showAll ? <>Show less <ChevronUp className="w-3 h-3" /></> : <>Show all <ChevronDown className="w-3 h-3" /></>}
+          </button>
+        )}
+      </div>
+      <div className="space-y-2">
+        {recent.map((walk: any, i: number) => {
+          const date = new Date(walk.date);
+          const isToday = date.toDateString() === new Date().toDateString();
+          const isYesterday = date.toDateString() === new Date(Date.now() - 86400000).toDateString();
+          const dateLabel = isToday ? "Today" : isYesterday ? "Yesterday" : date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+          return (
+            <div key={walk.id || i} className="flex items-center gap-3 py-2 border-b border-border/30 last:border-0">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Footprints className="w-4 h-4 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-foreground truncate">{walk.mosqueName}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {walk.prayer} · {dateLabel} · {date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </p>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <p className="text-xs font-medium text-foreground">{walk.steps.toLocaleString()} steps</p>
+                <p className="text-[10px] text-muted-foreground">{formatDist(walk.distanceKm)} · {walk.walkingTimeMin}m</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// Daily prayer log component
+const PRAYERS_LIST = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
+const TRANSPORT_OPTIONS: { id: TransportMode; label: string }[] = [
+  { id: "walked", label: "🚶" },
+  { id: "car", label: "🚗" },
+  { id: "taxi", label: "🚕" },
+  { id: "bus", label: "🚌" },
+  { id: "bike", label: "🚲" },
+];
+
+const DailyPrayerLog = () => {
+  const [dayOffset, setDayOffset] = useState(0);
+  const getDateStr = (offset: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - offset);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  const dateStr = getDateStr(dayOffset);
+  const [dayLog, setDayLog] = useState(getDayLog(dateStr));
+  const isToday = dayOffset === 0;
+  const targetDate = new Date();
+  targetDate.setDate(targetDate.getDate() - dayOffset);
+  const dateLabel = isToday ? "Today" : dayOffset === 1 ? "Yesterday" : targetDate.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+
+  const refreshLog = (offset: number) => {
+    setDayLog(getDayLog(getDateStr(offset)));
+  };
+
+  const handleTogglePrayed = (prayer: string) => {
+    const entry = dayLog.prayers.find(p => p.prayer === prayer);
+    const newVal = !entry?.prayed;
+    updatePrayerLog(dateStr, prayer, { prayed: newVal });
+    refreshLog(dayOffset);
+  };
+
+  const handleSetTransport = (prayer: string, field: "goMethod" | "returnMethod", mode: TransportMode) => {
+    updatePrayerLog(dateStr, prayer, { [field]: mode });
+    refreshLog(dayOffset);
+  };
+
+  const changeDay = (offset: number) => {
+    const newOffset = Math.max(0, Math.min(30, dayOffset + offset));
+    setDayOffset(newOffset);
+    refreshLog(newOffset);
+  };
+
+  const prayedCount = dayLog.prayers.filter(p => p.prayed).length;
+  const walkedCount = dayLog.prayers.filter(p => p.goMethod === "walked").length;
+
+  return (
+    <div className="glass-card p-5">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+          <Calendar className="w-4 h-4 text-primary" /> Daily Prayer Log
+        </h3>
+        <div className="flex items-center gap-2">
+          <button onClick={() => changeDay(1)} className="p-1 rounded hover:bg-muted text-muted-foreground">
+            <ChevronDown className="w-4 h-4 rotate-90" />
+          </button>
+          <span className="text-xs font-medium text-foreground min-w-[70px] text-center">{dateLabel}</span>
+          <button onClick={() => changeDay(-1)} disabled={isToday} className="p-1 rounded hover:bg-muted text-muted-foreground disabled:opacity-30">
+            <ChevronDown className="w-4 h-4 -rotate-90" />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 mb-3 text-xs text-muted-foreground">
+        <span>{prayedCount}/5 prayed</span>
+        <span>·</span>
+        <span>{walkedCount} walked to</span>
+      </div>
+
+      <div className="space-y-2">
+        {dayLog.prayers.map((entry) => (
+          <div key={entry.prayer} className={`rounded-lg p-2.5 transition-all ${entry.prayed ? "bg-primary/5" : "bg-muted/30"}`}>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleTogglePrayed(entry.prayer)}
+                className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                  entry.prayed ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/30"
+                }`}
+              >
+                {entry.prayed && <Check className="w-3 h-3" />}
+              </button>
+
+              <span className={`text-xs font-medium flex-1 ${entry.prayed ? "text-foreground" : "text-muted-foreground"}`}>
+                {entry.prayer}
+              </span>
+
+              {entry.prayed && (
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] text-muted-foreground mr-0.5">Go:</span>
+                  {TRANSPORT_OPTIONS.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => handleSetTransport(entry.prayer, "goMethod", t.id)}
+                      className={`w-6 h-6 rounded text-[11px] flex items-center justify-center transition-all ${
+                        entry.goMethod === t.id ? "bg-primary/20 ring-1 ring-primary/30" : "hover:bg-muted"
+                      }`}
+                      title={TRANSPORT_LABELS[t.id]}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {entry.prayed && entry.goMethod && (
+              <div className="flex items-center gap-1 mt-1.5 ml-7">
+                <span className="text-[9px] text-muted-foreground mr-0.5">Back:</span>
+                {TRANSPORT_OPTIONS.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => handleSetTransport(entry.prayer, "returnMethod", t.id)}
+                    className={`w-6 h-6 rounded text-[11px] flex items-center justify-center transition-all ${
+                      entry.returnMethod === t.id ? "bg-gold/20 ring-1 ring-gold/30" : "hover:bg-muted"
+                    }`}
+                    title={TRANSPORT_LABELS[t.id]}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 const Stats = () => {
   const stats = getWalkingStats();
@@ -444,6 +624,14 @@ const Stats = () => {
             )}
           </div>
         )}
+
+        {/* Recent Walk History */}
+        {history.length > 0 && (
+          <RecentWalksSection history={history} formatDist={formatDist} />
+        )}
+
+        {/* Daily Prayer Log */}
+        <DailyPrayerLog />
 
         {/* Empty state */}
         {stats.totalWalks === 0 && (
