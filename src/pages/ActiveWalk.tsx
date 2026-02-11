@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Play, Square, Pause, MapPin, Footprints, Clock, Star, Navigation, AlertTriangle, Smartphone, Share2, Map, Image, CheckCircle, ArrowUp, CornerDownLeft, CornerDownRight, ArrowRight, ChevronDown, Volume2, VolumeX, Route, Download, Copy } from "lucide-react";
+import { ArrowLeft, Play, Square, Pause, MapPin, Footprints, Clock, Star, Navigation, AlertTriangle, Smartphone, Share2, Map, Image, CheckCircle, ArrowUp, CornerDownLeft, CornerDownRight, ArrowRight, ChevronDown, Volume2, VolumeX, Route, Download, Copy, ExternalLink, Award, Flame, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { estimateSteps, estimateWalkingTime, calculateHasanat, fetchPrayerTimes, calculateLeaveByTime, minutesUntilLeave, getIPGeolocation, type PrayerTime } from "@/lib/prayer-times";
@@ -11,6 +11,9 @@ import { getCachedRoute, setCachedRoute, isOnline } from "@/lib/offline-cache";
 import { useToast } from "@/hooks/use-toast";
 import { generateShareCard, shareOrDownload } from "@/lib/share-card";
 import { isNearMosque, addCheckIn, hasCheckedInToday } from "@/lib/checkin";
+import { getNewlyEarnedBadges } from "@/lib/badges";
+import { getWalkingStats } from "@/lib/walking-history";
+import Confetti from "@/components/Confetti";
 import logo from "@/assets/logo.png";
 import WalkMap from "@/components/WalkMap";
 
@@ -99,6 +102,8 @@ const ActiveWalk = () => {
   const [showDirections, setShowDirections] = useState(true);
   const [offRoute, setOffRoute] = useState(false);
   const [eta, setEta] = useState<string>("");
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [newBadges, setNewBadges] = useState<{ id: string; name: string; icon: string; description: string }[]>([]);
   const prevDirectionIdx = useRef(-1);
   const prayerMarginAlerted = useRef(false);
 
@@ -473,6 +478,7 @@ const ActiveWalk = () => {
     if (watchId !== null) { navigator.geolocation.clearWatch(watchId); setWatchId(null); }
     if (stepCounterRef.current) { stepCounterRef.current.stop(); stepCounterRef.current = null; }
     setCompleted(true);
+    setShowCelebration(true);
 
     const walkTimeMin = Math.round(elapsedSeconds / 60);
     addWalkEntry({
@@ -484,7 +490,34 @@ const ActiveWalk = () => {
       hasanat,
       prayer: selectedPrayer,
     });
+
+    // Check for newly earned badges
+    const stats = getWalkingStats();
+    const earned = getNewlyEarnedBadges(stats);
+    if (earned.length > 0) setNewBadges(earned);
+
     toast({ title: "Walk completed! 🎉", description: `${displaySteps.toLocaleString()} steps · ${hasanat.toLocaleString()} hasanat earned.` });
+
+    // Hide confetti after 4 seconds
+    setTimeout(() => setShowCelebration(false), 4000);
+  };
+
+  const openInMaps = () => {
+    if (!mosquePosition) return;
+    const dest = `${mosquePosition.lat},${mosquePosition.lng}`;
+    const origin = currentPosition ? `${currentPosition.lat},${currentPosition.lng}` : "";
+    // Try Apple Maps on iOS, Google Maps otherwise
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (isIOS) {
+      window.open(`maps://maps.apple.com/?daddr=${dest}&dirflg=w`, "_blank");
+    } else {
+      window.open(`https://www.google.com/maps/dir/?api=1&destination=${dest}&origin=${origin}&travelmode=walking`, "_blank");
+    }
+  };
+
+  const estimateCalories = (steps: number): number => {
+    // Rough estimate: ~0.04 kcal per step for average person
+    return Math.round(steps * 0.04);
   };
 
   const formatTime = (seconds: number) => {
@@ -751,6 +784,11 @@ const ActiveWalk = () => {
             <Button variant="hero" size="lg" className="w-full text-base" onClick={startWalk}>
               <Play className="w-5 h-5 mr-2" /> Start Walking
             </Button>
+            {mosquePosition && (
+              <Button variant="outline" size="sm" className="w-full text-xs gap-1.5" onClick={openInMaps}>
+                <ExternalLink className="w-3.5 h-3.5" /> Open Directions in Maps App
+              </Button>
+            )}
           </motion.div>
         )}
 
@@ -1091,25 +1129,142 @@ const ActiveWalk = () => {
           </motion.div>
         )}
 
-        {/* Completion screen */}
+        {/* Completion celebration screen */}
         {completed && !isWalking && (
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center space-y-5 max-w-sm w-full">
-            <div className="w-20 h-20 rounded-full bg-gradient-gold flex items-center justify-center mx-auto animate-pulse-glow">
-              <Star className="w-10 h-10 text-foreground" />
-            </div>
-            <h1 className="text-2xl font-bold text-foreground">Walk Complete! 🎉</h1>
-            <p className="text-sm text-muted-foreground">May Allah accept your {selectedPrayer} prayer and multiply your rewards.</p>
+            {showCelebration && <Confetti duration={4000} />}
 
-            {/* Walk map replay — always show */}
+            {/* Hero celebration */}
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.2 }}
+              className="w-24 h-24 rounded-full bg-gradient-gold flex items-center justify-center mx-auto animate-pulse-glow relative"
+            >
+              <Star className="w-12 h-12 text-foreground" />
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: [0, 1.3, 1] }}
+                transition={{ delay: 0.6, duration: 0.5 }}
+                className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-primary flex items-center justify-center"
+              >
+                <span className="text-primary-foreground text-xs font-bold">✓</span>
+              </motion.div>
+            </motion.div>
+
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+              <h1 className="text-2xl font-bold text-foreground">MashaAllah! 🎉</h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                May Allah accept your {selectedPrayer} prayer and multiply your rewards.
+              </p>
+            </motion.div>
+
+            {/* Hasanat highlight */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+              className="bg-gradient-teal rounded-2xl p-5 text-primary-foreground"
+            >
+              <p className="text-xs opacity-70 uppercase tracking-wider mb-1">Spiritual Rewards Earned</p>
+              <p className="text-4xl font-black text-gradient-gold">{hasanat.toLocaleString()}</p>
+              <p className="text-xs opacity-70 mt-1">hasanat (2 per step)</p>
+              <div className="mt-3 pt-3 border-t border-primary-foreground/10 grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <p className="text-lg font-bold">{displaySteps.toLocaleString()}</p>
+                  <p className="text-[10px] opacity-60">steps</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold">{distanceKm.toFixed(2)}</p>
+                  <p className="text-[10px] opacity-60">km</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold">{formatTime(elapsedSeconds)}</p>
+                  <p className="text-[10px] opacity-60">time</p>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Calories & extra stats */}
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.7 }}
+              className="grid grid-cols-3 gap-2"
+            >
+              <div className="glass-card p-3 text-center">
+                <Flame className="w-4 h-4 text-destructive mx-auto mb-1" />
+                <p className="text-sm font-bold text-foreground">{estimateCalories(displaySteps)}</p>
+                <p className="text-[10px] text-muted-foreground">kcal burned</p>
+              </div>
+              <div className="glass-card p-3 text-center">
+                <Navigation className="w-4 h-4 text-primary mx-auto mb-1" />
+                <p className="text-sm font-bold text-foreground">
+                  {elapsedSeconds > 30 ? (distanceKm / (elapsedSeconds / 3600)).toFixed(1) : "—"}
+                </p>
+                <p className="text-[10px] text-muted-foreground">avg km/h</p>
+              </div>
+              <div className="glass-card p-3 text-center">
+                <Clock className="w-4 h-4 text-primary mx-auto mb-1" />
+                <p className="text-sm font-bold text-foreground">{Math.round(elapsedSeconds / 60)}</p>
+                <p className="text-[10px] text-muted-foreground">min active</p>
+              </div>
+            </motion.div>
+
+            {/* Newly earned badges */}
+            {newBadges.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.8, type: "spring" }}
+                className="glass-card p-4 space-y-2"
+              >
+                <div className="flex items-center gap-2 justify-center">
+                  <Trophy className="w-5 h-5 text-gold" />
+                  <p className="text-sm font-bold text-foreground">New Badge{newBadges.length > 1 ? "s" : ""} Earned!</p>
+                </div>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {newBadges.map((badge) => (
+                    <motion.div
+                      key={badge.id}
+                      initial={{ scale: 0, rotate: -180 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                      className="flex items-center gap-2 bg-gold/10 rounded-full px-3 py-1.5"
+                    >
+                      <span className="text-lg">{badge.icon}</span>
+                      <div className="text-left">
+                        <p className="text-xs font-bold text-foreground">{badge.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{badge.description}</p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Walk map — with "Open in Maps" button */}
             {(currentPosition || mosquePosition || positions.length > 1) && (
-              <WalkMap
-                userPosition={currentPosition}
-                mosquePosition={mosquePosition}
-                walkPath={positions}
-                routeCoords={routeCoords}
-                isWalking={false}
-                className="shadow-md"
-              />
+              <div className="relative">
+                <WalkMap
+                  userPosition={currentPosition}
+                  mosquePosition={mosquePosition}
+                  walkPath={positions}
+                  routeCoords={routeCoords}
+                  isWalking={false}
+                  className="shadow-md"
+                />
+                {mosquePosition && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="absolute bottom-3 right-3 shadow-lg text-xs gap-1"
+                    onClick={openInMaps}
+                  >
+                    <ExternalLink className="w-3 h-3" /> Open in Maps
+                  </Button>
+                )}
+              </div>
             )}
 
             {/* Completed route directions summary */}
@@ -1132,33 +1287,13 @@ const ActiveWalk = () => {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="glass-card p-3 text-center">
-                <Footprints className="w-5 h-5 text-primary mx-auto mb-1" />
-                <p className="text-xl font-bold text-foreground">{displaySteps.toLocaleString()}</p>
-                <p className="text-xs text-muted-foreground">Steps {useRealSteps ? "(sensor)" : "(est.)"}</p>
-              </div>
-              <div className="glass-card p-3 text-center">
-                <Star className="w-5 h-5 text-gold mx-auto mb-1" />
-                <p className="text-xl font-bold text-gradient-gold">{hasanat.toLocaleString()}</p>
-                <p className="text-xs text-muted-foreground">Hasanat</p>
-              </div>
-              <div className="glass-card p-3 text-center">
-                <Navigation className="w-5 h-5 text-primary mx-auto mb-1" />
-                <p className="text-xl font-bold text-foreground">{distanceKm.toFixed(2)} km</p>
-                <p className="text-xs text-muted-foreground">Distance</p>
-              </div>
-              <div className="glass-card p-3 text-center">
-                <Clock className="w-5 h-5 text-primary mx-auto mb-1" />
-                <p className="text-xl font-bold text-foreground">{formatTime(elapsedSeconds)}</p>
-                <p className="text-xs text-muted-foreground">Duration</p>
-              </div>
+            {/* Walk details */}
+            <div className="glass-card p-3 text-xs text-muted-foreground flex items-center justify-between">
+              <span>{selectedPrayer} · {mosqueName}</span>
+              <span>{useRealSteps ? "Sensor" : "GPS est."}</span>
             </div>
 
-            <div className="glass-card p-3 text-xs text-muted-foreground">
-              {selectedPrayer} · {mosqueName} · {useRealSteps ? "Sensor steps" : "GPS estimated"}
-            </div>
-
+            {/* Share buttons */}
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1" onClick={async () => {
                 setSharingCard(true);
@@ -1176,7 +1311,6 @@ const ActiveWalk = () => {
                   });
                   await shareOrDownload(blob, `${displaySteps.toLocaleString()} steps to ${selectedPrayer} — ${hasanat.toLocaleString()} hasanat earned!`);
                 } catch {
-                  // Fallback to text share
                   const text = `🕌 Walk to ${selectedPrayer} complete!\n👣 ${displaySteps.toLocaleString()} steps\n⭐ ${hasanat.toLocaleString()} hasanat\n📏 ${distanceKm.toFixed(2)} km`;
                   if (navigator.share) { navigator.share({ title: "MosqueSteps Walk", text }).catch(() => {}); }
                   else { navigator.clipboard.writeText(text); toast({ title: "Copied! 📋" }); }
@@ -1186,7 +1320,7 @@ const ActiveWalk = () => {
                 <Image className="w-4 h-4 mr-1" /> {sharingCard ? "Generating..." : "Share Card"}
               </Button>
               <Button variant="outline" className="flex-1" onClick={() => {
-                const text = `🕌 Walk to ${selectedPrayer} complete!\n👣 ${displaySteps.toLocaleString()} steps\n⭐ ${hasanat.toLocaleString()} hasanat\n📏 ${distanceKm.toFixed(2)} km\n⏱️ ${formatTime(elapsedSeconds)}`;
+                const text = `🕌 Walk to ${selectedPrayer} complete!\n👣 ${displaySteps.toLocaleString()} steps\n⭐ ${hasanat.toLocaleString()} hasanat\n📏 ${distanceKm.toFixed(2)} km\n⏱️ ${formatTime(elapsedSeconds)}\n🔥 ${estimateCalories(displaySteps)} kcal`;
                 if (navigator.share) { navigator.share({ title: "MosqueSteps Walk", text }).catch(() => {}); }
                 else { navigator.clipboard.writeText(text); toast({ title: "Copied! 📋" }); }
               }}>
@@ -1232,7 +1366,7 @@ const ActiveWalk = () => {
             )}
 
             <div className="flex gap-3">
-              <Button variant="hero" className="flex-1" onClick={() => { setCompleted(false); setDistanceKm(0); setSensorSteps(0); setCheckedIn(false); }}>
+              <Button variant="hero" className="flex-1" onClick={() => { setCompleted(false); setDistanceKm(0); setSensorSteps(0); setCheckedIn(false); setNewBadges([]); }}>
                 <Play className="w-4 h-4 mr-1" /> New Walk
               </Button>
               <Link to="/history" className="flex-1">
