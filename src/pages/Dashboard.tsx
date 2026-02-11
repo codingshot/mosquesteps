@@ -278,8 +278,34 @@ const Dashboard = () => {
           </motion.div>
 
           <div className="flex justify-center gap-6 mt-4 text-sm">
-            <span>{(mosqueDistance * 2).toFixed(1)} km</span>
-            <span>{walkMin * 2} min</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="flex items-center gap-1 cursor-help">
+                  {(mosqueDistance * 2).toFixed(1)} km
+                  <Info className="w-2.5 h-2.5 opacity-50" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[200px] p-2.5" side="bottom">
+                <p className="text-xs text-popover-foreground">
+                  <strong>Round-trip distance</strong> — {mosqueDistance.toFixed(1)} km to your mosque × 2 (there and back).
+                  Based on your selected mosque distance.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="flex items-center gap-1 cursor-help">
+                  {formatMinutes(walkMin * 2)}
+                  <Info className="w-2.5 h-2.5 opacity-50" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[200px] p-2.5" side="bottom">
+                <p className="text-xs text-popover-foreground">
+                  <strong>Estimated round-trip walk time</strong> — {formatMinutes(walkMin)} each way at {settings.walkingSpeed} km/h walking speed.
+                  Change pace in Settings.
+                </p>
+              </TooltipContent>
+            </Tooltip>
             <Tooltip open={hasanatTooltipOpen} onOpenChange={setHasanatTooltipOpen}>
               <TooltipTrigger asChild>
                 <button
@@ -334,10 +360,32 @@ const Dashboard = () => {
         {stats.totalWalks > 0 && (
           <div className="glass-card p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Flame className="w-8 h-8 text-destructive" />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="cursor-help">
+                    <Flame className="w-8 h-8 text-destructive" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[220px] p-2.5" side="bottom">
+                  <p className="text-xs text-popover-foreground">
+                    <strong>Walking Streak</strong> — consecutive days you've walked to the mosque. Your best streak is {stats.longestStreak} days.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
               <div>
                 <p className="font-semibold text-foreground">{stats.currentStreak} day streak</p>
-                <p className="text-xs text-muted-foreground">{stats.totalWalks} total walks · {stats.totalSteps.toLocaleString()} steps</p>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <p className="text-xs text-muted-foreground cursor-help">
+                      {stats.totalWalks} total walks · {stats.totalSteps.toLocaleString()} steps
+                    </p>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[240px] p-2.5" side="bottom">
+                    <p className="text-xs text-popover-foreground">
+                      You've walked to the mosque <strong>{stats.totalWalks} times</strong> totaling <strong>{stats.totalSteps.toLocaleString()} steps</strong> and <strong>{stats.totalDistance.toFixed(1)} km</strong> since you started.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
             </div>
             <Link to="/stats" className="text-xs text-primary font-medium hover:underline">View stats →</Link>
@@ -357,22 +405,45 @@ const Dashboard = () => {
             </div>
             <div className="flex gap-2 flex-wrap">
               {earnedBadges.slice(0, 6).map((bp) => (
-                <span key={bp.badge.id} className="text-xl" title={bp.badge.name}>{bp.badge.icon}</span>
+                <Tooltip key={bp.badge.id}>
+                  <TooltipTrigger asChild>
+                    <button className="text-xl cursor-help">{bp.badge.icon}</button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[200px] p-2.5" side="bottom">
+                    <p className="text-xs font-semibold text-popover-foreground">{bp.badge.name}</p>
+                    <p className="text-[10px] text-popover-foreground/80 mt-0.5">{bp.badge.description}</p>
+                    {bp.badge.earnedDate && (
+                      <p className="text-[10px] text-popover-foreground/60 mt-1">Earned {new Date(bp.badge.earnedDate).toLocaleDateString()}</p>
+                    )}
+                  </TooltipContent>
+                </Tooltip>
               ))}
               {earnedBadges.length > 6 && (
                 <span className="text-xs text-muted-foreground self-center">+{earnedBadges.length - 6} more</span>
               )}
             </div>
             {nextBadge && (
-              <div className="mt-3">
-                <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                  <span>Next: {nextBadge.badge.icon} {nextBadge.badge.name}</span>
-                  <span>{Math.round(nextBadge.percent)}%</span>
-                </div>
-                <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
-                  <div className="h-full bg-gradient-gold rounded-full transition-all" style={{ width: `${nextBadge.percent}%` }} />
-                </div>
-              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="mt-3 cursor-help">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                      <span>Next: {nextBadge.badge.icon} {nextBadge.badge.name}</span>
+                      <span>{Math.round(nextBadge.percent)}%</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                      <div className="h-full bg-gradient-gold rounded-full transition-all" style={{ width: `${nextBadge.percent}%` }} />
+                    </div>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[220px] p-2.5" side="bottom">
+                  <p className="text-xs text-popover-foreground">
+                    <strong>{nextBadge.badge.name}</strong> — {nextBadge.badge.description}
+                  </p>
+                  <p className="text-[10px] text-popover-foreground/80 mt-1">
+                    Progress: {nextBadge.current}/{nextBadge.target} ({nextBadge.badge.requirement})
+                  </p>
+                </TooltipContent>
+              </Tooltip>
             )}
           </div>
         )}
@@ -483,16 +554,34 @@ const Dashboard = () => {
 
         {/* Quick stats */}
         <div className="grid grid-cols-3 gap-3">
-          <div className="glass-card p-4 text-center">
-            <Footprints className="w-5 h-5 text-primary mx-auto mb-1" />
-            <p className="text-lg font-bold text-foreground">{steps.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground">Est. Steps</p>
-          </div>
-          <div className="glass-card p-4 text-center">
-            <Clock className="w-5 h-5 text-primary mx-auto mb-1" />
-            <p className="text-lg font-bold text-foreground">{walkMin * 2} min</p>
-            <p className="text-xs text-muted-foreground">Round Trip</p>
-          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="glass-card p-4 text-center cursor-help">
+                <Footprints className="w-5 h-5 text-primary mx-auto mb-1" />
+                <p className="text-lg font-bold text-foreground">{steps.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Est. Steps</p>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-[200px] p-2.5" side="top">
+              <p className="text-xs text-popover-foreground">
+                Estimated steps for a <strong>round trip</strong> to {settings.selectedMosqueName} ({(mosqueDistance * 2).toFixed(1)} km total).
+              </p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="glass-card p-4 text-center cursor-help">
+                <Clock className="w-5 h-5 text-primary mx-auto mb-1" />
+                <p className="text-lg font-bold text-foreground">{formatMinutes(walkMin * 2)}</p>
+                <p className="text-xs text-muted-foreground">Round Trip</p>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-[200px] p-2.5" side="top">
+              <p className="text-xs text-popover-foreground">
+                Walk time there and back at <strong>{settings.walkingSpeed} km/h</strong>. {formatMinutes(walkMin)} each way.
+              </p>
+            </TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <div className="glass-card p-4 text-center cursor-help">
@@ -501,9 +590,9 @@ const Dashboard = () => {
                 <p className="text-xs text-muted-foreground">Hasanat ⓘ</p>
               </div>
             </TooltipTrigger>
-            <TooltipContent className="max-w-xs p-3">
-              <p className="text-xs">
-                <strong>Hasanat</strong> = spiritual rewards. Each step earns 2 hasanat (1 sin erased + 1 degree raised). Based on Sahih Muslim 666.
+            <TooltipContent className="max-w-xs p-3" side="top">
+              <p className="text-xs text-popover-foreground">
+                <strong>Hasanat</strong> = spiritual rewards. Each step earns 2 hasanat (1 sin erased + 1 degree raised). Based on <a href="https://sunnah.com/muslim:666" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Sahih Muslim 666</a>.
               </p>
             </TooltipContent>
           </Tooltip>
