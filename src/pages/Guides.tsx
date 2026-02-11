@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, BookOpen, Download, Smartphone } from "lucide-react";
 import { motion } from "framer-motion";
 import SEOHead from "@/components/SEOHead";
@@ -8,6 +8,7 @@ import { usePWAInstall } from "@/hooks/use-pwa-install";
 import logo from "@/assets/logo.png";
 
 const Guides = () => {
+  const navigate = useNavigate();
   const { canInstall, isInstalled, install } = usePWAInstall();
 
   return (
@@ -15,10 +16,10 @@ const Guides = () => {
       <SEOHead title="User Guides" description="Step-by-step guides for MosqueSteps — setup, tracking walks, finding mosques, prayer reminders, and earning rewards." path="/guides" />
       <header className="bg-gradient-teal text-primary-foreground">
         <div className="container py-4 flex items-center gap-2">
-          <Link to="/" className="flex items-center gap-2 text-primary-foreground">
+          <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-primary-foreground hover:opacity-80 transition-opacity">
             <ArrowLeft className="w-5 h-5" />
             <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
-          </Link>
+          </button>
           <span className="font-bold">User Guides</span>
         </div>
         <div className="container pb-8 text-center">

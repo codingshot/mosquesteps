@@ -1,5 +1,5 @@
-import { useParams, Link, Navigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, ChevronRight, Download, Smartphone } from "lucide-react";
+import { useParams, Link, Navigate, useNavigate } from "react-router-dom";
+import { ArrowLeft, ArrowRight, ChevronRight, Download, Smartphone, ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
 import SEOHead from "@/components/SEOHead";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import logo from "@/assets/logo.png";
 
 const GuidePage = () => {
   const { guideId } = useParams<{ guideId: string }>();
+  const navigate = useNavigate();
   const guide = getGuideById(guideId || "");
   const { canInstall, isInstalled, install } = usePWAInstall();
 
@@ -28,11 +29,11 @@ const GuidePage = () => {
 
       <header className="bg-gradient-teal text-primary-foreground">
         <div className="container py-4 flex items-center gap-2">
-          <Link to="/guides" className="flex items-center gap-2 text-primary-foreground">
+          <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-primary-foreground hover:opacity-80 transition-opacity">
             <ArrowLeft className="w-5 h-5" />
             <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
-          </Link>
-          <span className="font-bold text-sm">Guides</span>
+          </button>
+          <Link to="/guides" className="font-bold text-sm hover:underline">Guides</Link>
           <ChevronRight className="w-4 h-4 text-primary-foreground/50" />
           <span className="font-bold text-sm truncate">{guide.title}</span>
         </div>
@@ -74,7 +75,17 @@ const GuidePage = () => {
                 <span className="w-7 h-7 rounded-full bg-gradient-gold text-foreground text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
                   {j + 1}
                 </span>
-                <span className="text-muted-foreground leading-relaxed pt-1">{step}</span>
+                <div className="pt-1 flex-1">
+                  <span className="text-muted-foreground leading-relaxed">{step.text}</span>
+                  {step.link && (
+                    <Link
+                      to={step.link}
+                      className="inline-flex items-center gap-1 ml-2 text-primary text-xs font-medium hover:underline"
+                    >
+                      {step.linkLabel || "Go →"}
+                    </Link>
+                  )}
+                </div>
               </li>
             ))}
           </ol>
@@ -86,9 +97,20 @@ const GuidePage = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
-            className="bg-secondary rounded-xl p-4 text-sm text-secondary-foreground"
+            className="bg-secondary rounded-xl p-4 text-sm text-secondary-foreground space-y-3"
           >
-            <span className="font-semibold">💡 Tip:</span> {guide.tip}
+            <p><span className="font-semibold">💡 Tip:</span> {guide.tip}</p>
+            {guide.tipCTA && (
+              <a
+                href={guide.tipCTA.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+              >
+                <ExternalLink className="w-4 h-4" />
+                {guide.tipCTA.label}
+              </a>
+            )}
           </motion.div>
         )}
 
