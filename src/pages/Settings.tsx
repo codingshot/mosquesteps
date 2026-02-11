@@ -53,6 +53,11 @@ const Settings = () => {
         const tz = await fetchTimezone(loc.lat, loc.lng);
         const cityName = data[0].display_name?.split(",")[0] || citySearch;
         const defaults = getRegionalDefaults(cityName, tz || undefined);
+
+        // Detect if this is a different timezone than current
+        const oldTz = settings.cityTimezone;
+        const isNewTimezone = tz && oldTz && tz !== oldTz;
+
         setSettings((s) => ({
           ...s,
           cityName,
@@ -64,8 +69,10 @@ const Settings = () => {
           ...(!s.smallDistanceUnit ? { smallDistanceUnit: defaults.smallDistanceUnit } : {}),
         }));
         toast({
-          title: "City set!",
-          description: `Prayer times will be calculated for ${cityName}${tz ? ` (${tz})` : ""}`,
+          title: isNewTimezone ? `📍 Location changed to ${cityName}` : "City set!",
+          description: isNewTimezone
+            ? `Timezone updated: ${oldTz} → ${tz}. All prayer times and clocks now use ${cityName} local time.`
+            : `Prayer times will be calculated for ${cityName}${tz ? ` (${tz})` : ""}`,
         });
       }
     } catch {
@@ -90,8 +97,15 @@ const Settings = () => {
           const data = await res.json();
           const city = data.address?.city || data.address?.town || data.address?.village || "Current Location";
           const tz = await fetchTimezone(lat, lng);
-          setSettings((s) => ({ ...s, cityName: city, cityLat: lat, cityLng: lng, ...(tz ? { cityTimezone: tz } : {}) }));
-          toast({ title: `Location set: ${city}`, description: `Prayer times will use your current location.${tz ? ` (${tz})` : ""}` });
+          const defaults = getRegionalDefaults(city, tz || undefined);
+          setSettings((s) => ({
+            ...s,
+            cityName: city, cityLat: lat, cityLng: lng,
+            ...(tz ? { cityTimezone: tz } : {}),
+            ...(!s.timeFormat ? { timeFormat: defaults.timeFormat } : {}),
+            ...(!s.smallDistanceUnit ? { smallDistanceUnit: defaults.smallDistanceUnit } : {}),
+          }));
+          toast({ title: `Location set: ${city}`, description: `Prayer times and clock now use ${city} local time.${tz ? ` (${tz})` : ""}` });
         } catch {
           setSettings((s) => ({ ...s, cityName: "Current Location", cityLat: lat, cityLng: lng }));
         }

@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import SEOHead from "@/components/SEOHead";
 import { hasCompletedOnboarding } from "./Onboarding";
 import { Button } from "@/components/ui/button";
-import { MapPin, Clock, Footprints, Star, Navigation, Settings2, Flame, Bell, Trophy, Info, Play } from "lucide-react";
+import { MapPin, Clock, Footprints, Star, Navigation, Settings2, Flame, Bell, Trophy, Info, Play, ChevronDown, Locate, AlertTriangle } from "lucide-react";
 import { motion } from "framer-motion";
 import {
   fetchPrayerTimes,
@@ -15,8 +15,9 @@ import {
   getIPGeolocation,
   type PrayerTime,
 } from "@/lib/prayer-times";
-import { getSettings, saveSettings, getWalkingStats, getWalkHistory, getSavedMosques, fetchTimezone } from "@/lib/walking-history";
+import { getSettings, saveSettings, getWalkingStats, getWalkHistory, getSavedMosques, fetchTimezone, type WalkEntry } from "@/lib/walking-history";
 import { formatTime as formatTimeStr, formatMinutes } from "@/lib/regional-defaults";
+import { getRegionalDefaults } from "@/lib/regional-defaults";
 import { requestNotificationPermission, isNotificationSupported, getNotificationPermission, schedulePrayerReminder, checkAndSendWeeklyInsight } from "@/lib/notifications";
 import { getUnreadCount } from "@/lib/notification-store";
 import { getStepRecommendation } from "@/lib/health-recommendations";
@@ -41,11 +42,24 @@ const Dashboard = () => {
   const [isNextDay, setIsNextDay] = useState(false);
   const [hasanatTooltipOpen, setHasanatTooltipOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [summaryPeriod, setSummaryPeriod] = useState<"daily" | "weekly" | "monthly">("daily");
+  const [periodDropdownOpen, setPeriodDropdownOpen] = useState(false);
+  const [locationStatus, setLocationStatus] = useState<"unknown" | "granted" | "denied" | "prompt">("unknown");
 
   // Live clock
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  // Check location permission
+  useEffect(() => {
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: "geolocation" as PermissionName }).then((result) => {
+        setLocationStatus(result.state as any);
+        result.onchange = () => setLocationStatus(result.state as any);
+      }).catch(() => {});
+    }
   }, []);
 
   // Weekly health insight notification
@@ -72,6 +86,7 @@ const Dashboard = () => {
 
   const settings = getSettings();
   const stats = getWalkingStats();
+  const history = getWalkHistory();
   const badges = getBadges(stats);
   const savedMosques = getSavedMosques();
   const earnedBadges = badges.filter((b) => b.badge.earned);
@@ -83,6 +98,73 @@ const Dashboard = () => {
   const walkMin = estimateWalkingTime(mosqueDistance, walkingSpeed);
   const hasanat = calculateHasanat(steps);
   const notifyMinBefore = settings.notifyMinutesBefore ?? 5;
+
+  // Summary period data
+  const onboardingDate = getOnboardingDate();
+  const daysSinceOnboarding = Math.max(1, Math.ceil((Date.now() - onboardingDate.getTime()) / (1000 * 60 * 60 * 24)));
+  const canShowMonthly = daysSinceOnboarding >= 14;
+
+  const summaryData = useMemo(() => {
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
+    let periodWalks: WalkEntry[];
+    let periodLabel: string;
+
+    if (summaryPeriod === "daily") {
+      periodWalks = history.filter(e => e.date.startsWith(todayStr));
+      periodLabel = "Today";
+    } else if (summaryPeriod === "weekly") {
+      const weekAgo = new Date(now);
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      periodWalks = history.filter(e => new Date(e.date) >= weekAgo);
+      periodLabel = "This Week";
+    } else {
+      const monthAgo = new Date(now);
+      monthAgo.setDate(monthAgo.getDate() - 30);
+      periodWalks = history.filter(e => new Date(e.date) >= monthAgo);
+      periodLabel = "This Month";
+    }
+
+    const totalSteps = periodWalks.reduce((s, e) => s + e.steps, 0);
+    const totalDist = periodWalks.reduce((s, e) => s + e.distanceKm, 0);
+    const totalHasanat = periodWalks.reduce((s, e) => s + e.hasanat, 0);
+    const totalMinutes = periodWalks.reduce((s, e) => s + e.walkingTimeMin, 0);
+
+    return { walks: periodWalks.length, totalSteps, totalDist, totalHasanat, totalMinutes, periodLabel };
+  }, [summaryPeriod, history]);
+
+  const handleEnableLocation = () => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+          const data = await res.json();
+          const city = data.address?.city || data.address?.town || data.address?.village || "Current Location";
+          const tz = await fetchTimezone(lat, lng);
+          const defaults = getRegionalDefaults(city, tz || undefined);
+          saveSettings({
+            cityName: city, cityLat: lat, cityLng: lng,
+            ...(tz ? { cityTimezone: tz } : {}),
+            timeFormat: defaults.timeFormat,
+            smallDistanceUnit: defaults.smallDistanceUnit,
+          });
+          setLocationStatus("granted");
+          toast({ title: `Location set: ${city}`, description: tz ? `Timezone: ${tz}` : "Prayer times updated." });
+          window.location.reload();
+        } catch {
+          setLocationStatus("granted");
+        }
+      },
+      () => {
+        setLocationStatus("denied");
+        toast({ title: "Location denied", description: "Go to Settings to search for your city manually.", variant: "destructive" });
+      }
+    );
+  };
 
   // Filter prayers to only ones user walks to
   const prayerPrefs = settings.prayerPreferences || ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
@@ -342,6 +424,21 @@ const Dashboard = () => {
       </header>
 
       <div className="container py-6 space-y-6 pb-bottom-nav">
+        {/* Location permission prompt */}
+        {locationStatus !== "granted" && !settings.cityLat && (
+          <button
+            onClick={handleEnableLocation}
+            className="w-full glass-card p-4 flex items-center gap-3 hover:shadow-teal transition-shadow text-left border-primary/20"
+          >
+            <Locate className="w-8 h-8 text-primary flex-shrink-0" />
+            <div className="flex-1">
+              <p className="font-medium text-foreground text-sm">Enable Location</p>
+              <p className="text-xs text-muted-foreground">Required for accurate prayer times, mosque finder, timezone, and walking routes</p>
+            </div>
+            <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+          </button>
+        )}
+
         {/* Notification prompt */}
         {isNotificationSupported() && getNotificationPermission() !== "granted" && (
           <button
@@ -355,6 +452,77 @@ const Dashboard = () => {
             </div>
           </button>
         )}
+
+        {/* Activity Summary — 1 trip vs done */}
+        <div className="glass-card p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-foreground">Activity Summary</h3>
+            <div className="relative">
+              <button
+                onClick={() => setPeriodDropdownOpen(!periodDropdownOpen)}
+                className="flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-lg"
+              >
+                {summaryData.periodLabel} <ChevronDown className="w-3 h-3" />
+              </button>
+              {periodDropdownOpen && (
+                <div className="absolute right-0 top-8 z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[120px]">
+                  {(["daily", "weekly", "monthly"] as const).map((p) => {
+                    const disabled = p === "monthly" && !canShowMonthly;
+                    return (
+                      <button
+                        key={p}
+                        disabled={disabled}
+                        onClick={() => { setSummaryPeriod(p); setPeriodDropdownOpen(false); }}
+                        className={`w-full text-left px-3 py-1.5 text-xs capitalize ${
+                          summaryPeriod === p ? "text-primary font-medium bg-primary/5" :
+                          disabled ? "text-muted-foreground/40 cursor-not-allowed" :
+                          "text-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {p}{disabled ? " (too soon)" : ""}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 1 trip estimate vs actual */}
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <div className="bg-muted/50 rounded-lg p-3">
+              <p className="text-[10px] text-muted-foreground mb-0.5">1 Round Trip</p>
+              <p className="text-sm font-bold text-foreground">{steps.toLocaleString()} steps</p>
+              <p className="text-[10px] text-muted-foreground">{(mosqueDistance * 2).toFixed(1)} km · {formatMinutes(walkMin * 2)} · {hasanat.toLocaleString()} hasanat</p>
+            </div>
+            <div className="bg-primary/5 rounded-lg p-3 border border-primary/10">
+              <p className="text-[10px] text-primary font-medium mb-0.5">{summaryData.periodLabel} Done</p>
+              <p className="text-sm font-bold text-foreground">{summaryData.totalSteps.toLocaleString()} steps</p>
+              <p className="text-[10px] text-muted-foreground">
+                {summaryData.walks} walk{summaryData.walks !== 1 ? "s" : ""} · {summaryData.totalDist.toFixed(1)} km · {summaryData.totalHasanat.toLocaleString()} hasanat
+              </p>
+            </div>
+          </div>
+
+          {/* Comparison bar */}
+          {steps > 0 && (
+            <div>
+              <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+                <span>{summaryData.walks}× trips walked</span>
+                <span>{summaryData.totalSteps > 0 ? `${(summaryData.totalSteps / steps).toFixed(1)}× of 1 trip` : "No walks yet"}</span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-teal rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, (summaryData.totalSteps / (steps * 5)) * 100)}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1 text-right">
+                Goal: 5 round trips ({(steps * 5).toLocaleString()} steps)
+              </p>
+            </div>
+          )}
+        </div>
 
         {/* Streak & stats */}
         {stats.totalWalks > 0 && (
