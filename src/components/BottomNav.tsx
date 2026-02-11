@@ -19,8 +19,8 @@ const BottomNav = () => {
   if (hiddenPaths.includes(currentPath)) return null;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-lg border-t border-border safe-area-bottom">
-      <div className="flex items-end justify-around px-1 pt-1 pb-1">
+    <nav className="fixed bottom-0 left-0 right-0 z-[9999] bg-card border-t border-border shadow-[0_-4px_20px_rgba(0,0,0,0.08)] safe-area-bottom dark:shadow-[0_-4px_20px_rgba(0,0,0,0.3)]">
+      <div className="flex items-end justify-around px-2 pt-2 pb-2">
         {tabs.map((tab) => {
           const isActive = currentPath === tab.path;
           const Icon = tab.icon;
@@ -30,13 +30,13 @@ const BottomNav = () => {
               <Link
                 key={tab.path}
                 to={tab.path}
-                className="flex flex-col items-center -mt-5"
+                className="flex flex-col items-center -mt-6"
               >
                 <div
-                  className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-all ${
+                  className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 ${
                     isActive
-                      ? "bg-gradient-teal shadow-teal scale-110"
-                      : "bg-gradient-teal shadow-teal/50"
+                      ? "bg-gradient-teal shadow-teal scale-110 ring-4 ring-background"
+                      : "bg-gradient-teal shadow-teal/50 ring-4 ring-background"
                   }`}
                 >
                   <Icon className="w-6 h-6 text-primary-foreground" />
