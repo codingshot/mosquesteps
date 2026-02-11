@@ -220,11 +220,10 @@ const Dashboard = () => {
     try {
       let data = await fetchPrayerTimes(lat, lng, undefined, settings.cityTimezone);
 
-      // If all prayers have passed, fetch tomorrow's times
+      // If all prayers have passed, fetch next day's times (in city timezone)
       if (data.isNextDay) {
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        data = await fetchPrayerTimes(lat, lng, tomorrow, settings.cityTimezone);
+        const nextDay = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        data = await fetchPrayerTimes(lat, lng, nextDay, settings.cityTimezone);
         setIsNextDay(true);
       }
 

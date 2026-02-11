@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Play, Square, Pause, MapPin, Footprints, Clock, Star, Navigation, AlertTriangle, Smartphone, Share2, Map, Image, CheckCircle, ArrowUp, CornerDownLeft, CornerDownRight, ArrowRight, ChevronDown, Volume2, VolumeX, Route, Download, Copy, ExternalLink, Award, Flame, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { estimateSteps, estimateWalkingTime, calculateHasanat, fetchPrayerTimes, calculateLeaveByTime, minutesUntilLeave, getIPGeolocation, type PrayerTime } from "@/lib/prayer-times";
+import { estimateSteps, estimateWalkingTime, calculateHasanat, fetchPrayerTimes, calculateLeaveByTime, minutesUntilLeave, getNowInTimezone, getIPGeolocation, type PrayerTime } from "@/lib/prayer-times";
 import { addWalkEntry, getSettings, getSavedMosques } from "@/lib/walking-history";
 import { markPrayerWalked, updatePrayerLog, getTodayStr } from "@/lib/prayer-log";
 import { StepCounter, isStepCountingAvailable, getPaceCategory } from "@/lib/step-counter";
@@ -142,7 +142,7 @@ const ActiveWalk = () => {
           if (ipGeo) { lat = ipGeo.lat; lng = ipGeo.lng; }
           else { lat = 21.42; lng = 39.83; }
         }
-        const data = await fetchPrayerTimes(lat, lng);
+        const data = await fetchPrayerTimes(lat, lng, undefined, settings.cityTimezone);
         setPrayerTimes(data.prayers);
         
         // Auto-select next upcoming prayer if none specified
@@ -231,16 +231,16 @@ const ActiveWalk = () => {
     }).catch(() => {});
   }, [mosquePosition?.lat, mosquePosition?.lng]);
 
-  // Countdown to selected prayer
+  // Countdown to selected prayer (use city timezone so it matches prayer times)
   useEffect(() => {
     if (!selectedPrayer || !prayerTimes.length) return;
     const prayer = prayerTimes.find((p) => p.name === selectedPrayer);
     if (!prayer) { setTimeUntilPrayer(""); return; }
-    
+    const tz = settings.cityTimezone;
     const update = () => {
       const [h, m] = prayer.time.split(":").map(Number);
-      const now = new Date();
-      let diffMin = (h * 60 + m) - (now.getHours() * 60 + now.getMinutes());
+      const { hours: nowH, minutes: nowM } = getNowInTimezone(tz);
+      let diffMin = (h * 60 + m) - (nowH * 60 + nowM);
       if (diffMin < 0) diffMin += 24 * 60;
       if (diffMin <= 0) { setTimeUntilPrayer("Now"); return; }
       const hours = Math.floor(diffMin / 60);
@@ -250,7 +250,7 @@ const ActiveWalk = () => {
     update();
     const interval = setInterval(update, 30000);
     return () => clearInterval(interval);
-  }, [selectedPrayer, prayerTimes]);
+  }, [selectedPrayer, prayerTimes, settings.cityTimezone]);
 
   // Show pace warning
   useEffect(() => {
@@ -397,7 +397,7 @@ const ActiveWalk = () => {
     if (!prayer) return;
 
     const walkTime = routeInfo?.durationMin || estimateWalkingTime(mosqueDist, settings.walkingSpeed);
-    const ml = minutesUntilLeave(prayer.time, walkTime);
+    const ml = minutesUntilLeave(prayer.time, walkTime, settings.cityTimezone);
 
     if (ml <= 5 && ml > -10) {
       prayerMarginAlerted.current = true;
@@ -415,7 +415,7 @@ const ActiveWalk = () => {
         window.speechSynthesis.speak(utterance);
       }
     }
-  }, [isWalking, voiceEnabled, selectedPrayer, prayerTimes, elapsedSeconds, routeInfo, mosqueDist]);
+  }, [isWalking, voiceEnabled, selectedPrayer, prayerTimes, elapsedSeconds, routeInfo, mosqueDist, settings.cityTimezone]);
 
   const startWalk = useCallback(async () => {
     if (!navigator.geolocation) {
@@ -633,7 +633,7 @@ const ActiveWalk = () => {
                     if (!prayerData) return null;
                     const walkTime = routeInfo?.durationMin || estimateWalkingTime(mosqueDist, settings.walkingSpeed);
                     const leaveBy = calculateLeaveByTime(prayerData.time, walkTime);
-                    const minsLeft = minutesUntilLeave(prayerData.time, walkTime);
+                    const minsLeft = minutesUntilLeave(prayerData.time, walkTime, settings.cityTimezone);
                     return (
                       <span className={`text-xs ml-auto font-medium ${minsLeft <= 5 ? "text-destructive" : minsLeft <= 15 ? "text-gold" : "text-primary"}`}>
                         Leave by {leaveBy}
@@ -844,7 +844,7 @@ const ActiveWalk = () => {
                   const prayer = prayerTimes.find(pt => pt.name === selectedPrayer);
                   if (!prayer) return "bg-muted";
                   const walkTime = routeInfo?.durationMin || estimateWalkingTime(mosqueDist, settings.walkingSpeed);
-                  const ml = minutesUntilLeave(prayer.time, walkTime);
+                  const ml = minutesUntilLeave(prayer.time, walkTime, settings.cityTimezone);
                   if (ml <= 0) return "bg-destructive/15 ring-1 ring-destructive/30";
                   if (ml <= 5) return "bg-destructive/10";
                   if (ml <= 15) return "bg-gold/10";
@@ -876,12 +876,12 @@ const ActiveWalk = () => {
                   const currentSpeed = elapsedSeconds > 30 ? distanceKm / (elapsedSeconds / 3600) : (settings.walkingSpeed || 5);
                   const remainingWalkMin = currentSpeed > 0 ? Math.round((remainingDist / currentSpeed) * 60) : 0;
 
-                  const now = new Date();
-                  const arrivalTotalMin = now.getHours() * 60 + now.getMinutes() + remainingWalkMin;
+                  const { hours: nowH, minutes: nowM } = getNowInTimezone(settings.cityTimezone);
+                  const arrivalTotalMin = nowH * 60 + nowM + remainingWalkMin;
                   const diffMin = prayerTotalMin - arrivalTotalMin;
 
                   const walkTime = routeInfo?.durationMin || estimateWalkingTime(mosqueDist, settings.walkingSpeed);
-                  const ml = minutesUntilLeave(prayer.time, walkTime);
+                  const ml = minutesUntilLeave(prayer.time, walkTime, settings.cityTimezone);
 
                   return (
                     <div className="mt-2 space-y-1">

@@ -41,13 +41,36 @@ interface PrayerCache {
   timestamp: number;
 }
 
-function getCacheKey(lat: number, lng: number, date: Date): string {
-  // Round coords to 2 decimals (~1km precision) to increase cache hits
+/**
+ * Get date parts (dd, mm, yyyy) as they are in the given timezone (or device local if none).
+ * Ensures API and isPast use the same "day" as the city.
+ */
+export function getDatePartsInTimezone(date: Date, timezone?: string): { dd: string; mm: string; yyyy: string } {
+  if (timezone) {
+    try {
+      const f = new Intl.DateTimeFormat("en-CA", {
+        timeZone: timezone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+      const s = f.format(date);
+      const [yyyy, mm, dd] = s.split("-");
+      return { dd: dd!, mm: mm!, yyyy: yyyy! };
+    } catch {}
+  }
+  return {
+    dd: String(date.getDate()).padStart(2, "0"),
+    mm: String(date.getMonth() + 1).padStart(2, "0"),
+    yyyy: String(date.getFullYear()),
+  };
+}
+
+function getCacheKey(lat: number, lng: number, dd: string, mm: string, yyyy: string, timezone?: string): string {
   const rLat = Math.round(lat * 100) / 100;
   const rLng = Math.round(lng * 100) / 100;
-  const dd = String(date.getDate()).padStart(2, "0");
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  return `${rLat}|${rLng}|${dd}-${mm}-${date.getFullYear()}`;
+  const tz = timezone || "device";
+  return `${rLat}|${rLng}|${dd}-${mm}-${yyyy}|${tz}`;
 }
 
 function getPrayerCache(key: string): PrayerCache | null {
@@ -160,17 +183,20 @@ export async function fetchPrayerTimes(
   dateOverride?: Date,
   timezone?: string
 ): Promise<{ prayers: PrayerTime[]; hijriDate: string; readableDate: string; isNextDay: boolean }> {
-  const target = dateOverride || new Date();
-  const cacheKey = getCacheKey(latitude, longitude, target);
+  const now = new Date();
+  const dateToFetch = dateOverride ?? now;
+  const { dd, mm, yyyy } = getDatePartsInTimezone(dateToFetch, timezone);
+  const cacheKey = getCacheKey(latitude, longitude, dd, mm, yyyy, timezone);
 
   const { hours: nowH, minutes: nowM } = getNowInTimezone(timezone);
   const currentMinutes = nowH * 60 + nowM;
 
+  const todayParts = getDatePartsInTimezone(now, timezone);
+  const isToday = dd === todayParts.dd && mm === todayParts.mm && yyyy === todayParts.yyyy;
+
   // Check cache first
   const cached = getPrayerCache(cacheKey);
   if (cached) {
-    const now = new Date();
-    const isToday = !dateOverride || target.toDateString() === now.toDateString();
     const prayers = cached.data.prayers.map((p) => {
       const [h, m] = p.time.split(":").map(Number);
       return { ...p, isPast: isToday ? h * 60 + m <= currentMinutes : false };
@@ -179,18 +205,11 @@ export async function fetchPrayerTimes(
     return { ...cached.data, prayers, isNextDay: allPast };
   }
 
-  const dd = String(target.getDate()).padStart(2, "0");
-  const mm = String(target.getMonth() + 1).padStart(2, "0");
-  const yyyy = target.getFullYear();
-
   const res = await fetch(
     `https://api.aladhan.com/v1/timings/${dd}-${mm}-${yyyy}?latitude=${latitude}&longitude=${longitude}&method=2`
   );
   const data = await res.json();
   const d: PrayerTimesData = data.data;
-
-  const now = new Date();
-  const isToday = !dateOverride || target.toDateString() === now.toDateString();
 
   const prayers: PrayerTime[] = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"].map(
     (name) => {

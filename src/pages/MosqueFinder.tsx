@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Search, MapPin, Footprints, Clock, Check, Star, Trash2, Home, Navigation, ArrowLeft, Route as RouteIcon, Play, Timer, Share2, Copy, X, ExternalLink, CornerDownLeft, CornerDownRight, ArrowUp } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { estimateSteps, estimateWalkingTime, fetchPrayerTimes, calculateLeaveByTime, minutesUntilLeave, type PrayerTime } from "@/lib/prayer-times";
+import { estimateSteps, estimateWalkingTime, fetchPrayerTimes, calculateLeaveByTime, minutesUntilLeave, getNowInTimezone, type PrayerTime } from "@/lib/prayer-times";
 import { fetchWalkingRoute } from "@/lib/routing";
 import { getCachedMosques, setCachedMosques, getCachedRoute, setCachedRoute, isOnline } from "@/lib/offline-cache";
 import { formatTime as formatTimeStr, formatSmallDistance, formatMinutes } from "@/lib/regional-defaults";
@@ -101,24 +101,25 @@ const MosqueFinder = () => {
   const [nextPrayer, setNextPrayer] = useState<PrayerTime | null>(null);
   const [countdown, setCountdown] = useState("");
 
-  // Fetch next prayer time once
+  // Fetch next prayer time once (use city timezone so upcoming matches city time)
   useEffect(() => {
     const lat = settings.cityLat || defaultLat;
     const lng = settings.cityLng || defaultLng;
-    fetchPrayerTimes(lat, lng).then((data) => {
+    fetchPrayerTimes(lat, lng, undefined, settings.cityTimezone).then((data) => {
       const upcoming = data.prayers.find((p) => !p.isPast);
       if (upcoming) setNextPrayer(upcoming);
       else if (data.prayers.length > 0) setNextPrayer(data.prayers[0]); // wrap to Fajr
     }).catch(() => {});
-  }, []);
+  }, [settings.cityTimezone]);
 
-  // Update countdown every second
+  // Update countdown (use city time so it matches prayer times)
   useEffect(() => {
     if (!nextPrayer) return;
+    const tz = settings.cityTimezone;
     const update = () => {
       const [h, m] = nextPrayer.time.split(":").map(Number);
-      const now = new Date();
-      let diffMin = h * 60 + m - (now.getHours() * 60 + now.getMinutes());
+      const { hours: nowH, minutes: nowM } = getNowInTimezone(tz);
+      let diffMin = h * 60 + m - (nowH * 60 + nowM);
       if (diffMin < 0) diffMin += 24 * 60;
       const hrs = Math.floor(diffMin / 60);
       const mins = diffMin % 60;
@@ -127,7 +128,7 @@ const MosqueFinder = () => {
     update();
     const interval = setInterval(update, 30_000);
     return () => clearInterval(interval);
-  }, [nextPrayer]);
+  }, [nextPrayer, settings.cityTimezone]);
 
   // Track online status
   const [online, setOnline] = useState(isOnline());
