@@ -1,4 +1,11 @@
-export const faqs = [
+export interface FAQItem {
+  q: string;
+  a: string;
+  link?: string;
+  linkLabel?: string;
+}
+
+export const faqs: FAQItem[] = [
   {
     q: "How does MosqueSteps estimate my steps?",
     a: "MosqueSteps calculates the distance between your location and the mosque using GPS coordinates, then estimates steps based on average stride length (~0.75m per step). For more accurate tracking, we use your device's motion sensors when available.",

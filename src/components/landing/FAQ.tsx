@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import {
   Accordion,
   AccordionContent,
@@ -32,6 +33,13 @@ const FAQ = () => {
                 </AccordionTrigger>
                 <AccordionContent className="text-muted-foreground leading-relaxed">
                   {f.a}
+                  {f.link && (
+                    <p className="mt-2">
+                      <Link to={f.link} className="text-primary font-medium hover:underline">
+                        {f.linkLabel ?? "Learn more"}
+                      </Link>
+                    </p>
+                  )}
                 </AccordionContent>
               </AccordionItem>
             ))}

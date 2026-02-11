@@ -55,7 +55,6 @@ const Settings = () => {
         const cityName = data[0].display_name?.split(",")[0] || citySearch;
         const defaults = getRegionalDefaults(cityName, tz || undefined);
 
-        // Detect if this is a different timezone than current
         const oldTz = settings.cityTimezone;
         const isNewTimezone = tz && oldTz && tz !== oldTz;
 
@@ -65,7 +64,6 @@ const Settings = () => {
           cityLat: loc.lat,
           cityLng: loc.lng,
           ...(tz ? { cityTimezone: tz } : {}),
-          // Apply regional defaults only if not explicitly set
           ...(!s.timeFormat ? { timeFormat: defaults.timeFormat } : {}),
           ...(!s.smallDistanceUnit ? { smallDistanceUnit: defaults.smallDistanceUnit } : {}),
         }));
