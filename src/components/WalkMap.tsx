@@ -17,7 +17,10 @@ interface WalkMapProps {
   routeSteps?: RouteStep[];
   currentStepIdx?: number;
   isWalking: boolean;
+  offRoute?: boolean;
+  eta?: string;
   className?: string;
+  onRecenter?: () => void;
 }
 
 // Fix default marker icons
@@ -50,7 +53,10 @@ export default function WalkMap({
   routeSteps,
   currentStepIdx = 0,
   isWalking,
+  offRoute,
+  eta,
   className = "",
+  onRecenter,
 }: WalkMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -241,10 +247,40 @@ export default function WalkMap({
   }, [userPosition, mosquePosition, isWalking]);
 
   return (
-    <div
-      ref={containerRef}
-      className={`rounded-xl overflow-hidden border border-border ${className}`}
-      style={{ height: "220px" }}
-    />
+    <div className="relative">
+      <div
+        ref={containerRef}
+        className={`rounded-xl overflow-hidden border border-border ${className}`}
+        style={{ height: "220px" }}
+      />
+      {/* Map overlays */}
+      {isWalking && (
+        <div className="absolute top-2 right-2 flex flex-col gap-1.5 z-[1000]">
+          {/* Re-center button */}
+          {onRecenter && (
+            <button
+              onClick={onRecenter}
+              className="w-8 h-8 rounded-lg bg-background/90 backdrop-blur border border-border shadow-md flex items-center justify-center text-foreground hover:bg-muted transition-colors"
+              title="Re-center map"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>
+            </button>
+          )}
+        </div>
+      )}
+      {/* ETA badge */}
+      {isWalking && eta && (
+        <div className="absolute top-2 left-2 z-[1000] bg-background/90 backdrop-blur rounded-lg px-2.5 py-1 border border-border shadow-sm">
+          <p className="text-[10px] text-muted-foreground">ETA</p>
+          <p className="text-xs font-bold text-foreground">{eta}</p>
+        </div>
+      )}
+      {/* Off-route warning */}
+      {isWalking && offRoute && (
+        <div className="absolute bottom-2 left-2 right-2 z-[1000] bg-destructive/90 backdrop-blur rounded-lg px-3 py-2 text-destructive-foreground text-xs font-medium text-center">
+          ⚠️ You're off route — recalculating...
+        </div>
+      )}
+    </div>
   );
 }
