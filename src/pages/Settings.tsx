@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, MapPin, Bell, BellOff, Locate, Download, Sun, Moon, Monitor, Ruler, Gauge, Footprints, Home, User, Globe, CheckCircle } from "lucide-react";
+import { ArrowLeft, MapPin, Bell, BellOff, Locate, Download, Sun, Moon, Monitor, Ruler, Gauge, Footprints, Home, User, Globe, CheckCircle, Clock } from "lucide-react";
 import { useLocale } from "@/hooks/use-locale";
 import { getAvailableLocales, type Locale } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { getSettings, saveSettings, getSavedMosques, fetchTimezone, type UserSettings } from "@/lib/walking-history";
 import { requestNotificationPermission, isNotificationSupported, getNotificationPermission } from "@/lib/notifications";
+import { getRegionalDefaults } from "@/lib/regional-defaults";
 import { useTheme } from "@/hooks/use-theme";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
@@ -50,16 +51,21 @@ const Settings = () => {
       if (data.length > 0) {
         const loc = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
         const tz = await fetchTimezone(loc.lat, loc.lng);
+        const cityName = data[0].display_name?.split(",")[0] || citySearch;
+        const defaults = getRegionalDefaults(cityName, tz || undefined);
         setSettings((s) => ({
           ...s,
-          cityName: data[0].display_name?.split(",")[0] || citySearch,
+          cityName,
           cityLat: loc.lat,
           cityLng: loc.lng,
           ...(tz ? { cityTimezone: tz } : {}),
+          // Apply regional defaults only if not explicitly set
+          ...(!s.timeFormat ? { timeFormat: defaults.timeFormat } : {}),
+          ...(!s.smallDistanceUnit ? { smallDistanceUnit: defaults.smallDistanceUnit } : {}),
         }));
         toast({
           title: "City set!",
-          description: `Prayer times will be calculated for ${data[0].display_name?.split(",")[0]}${tz ? ` (${tz})` : ""}`,
+          description: `Prayer times will be calculated for ${cityName}${tz ? ` (${tz})` : ""}`,
         });
       }
     } catch {
@@ -228,7 +234,56 @@ const Settings = () => {
               <span>Short (0.5m)</span>
               <span>Avg (0.75m)</span>
               <span>Long (1.0m)</span>
+
+
+          {/* Time Format */}
+          <div>
+            <label className="text-sm text-muted-foreground block mb-2">
+              <Clock className="w-3.5 h-3.5 inline mr-1" />Time Format
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { value: "12h" as const, label: "12-hour (AM/PM)" },
+                { value: "24h" as const, label: "24-hour" },
+              ]).map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setSettings({ ...settings, timeFormat: value })}
+                  className={`px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                    (settings.timeFormat || "24h") === value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/50"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
+          </div>
+
+          {/* Small distance unit */}
+          <div>
+            <label className="text-sm text-muted-foreground block mb-2">Small Distances</label>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { value: "m" as const, label: "Meters (m)" },
+                { value: "ft" as const, label: "Feet (ft)" },
+              ]).map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setSettings({ ...settings, smallDistanceUnit: value })}
+                  className={`px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                    (settings.smallDistanceUnit || "m") === value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/50"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
           </div>
         </div>
 

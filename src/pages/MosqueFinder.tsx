@@ -2,12 +2,13 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import SEOHead from "@/components/SEOHead";
 import { Button } from "@/components/ui/button";
-import { Search, MapPin, Footprints, Clock, Check, Star, Trash2, Home, Navigation, ArrowLeft, Route as RouteIcon, Play, Timer, Share2, Copy, X } from "lucide-react";
+import { Search, MapPin, Footprints, Clock, Check, Star, Trash2, Home, Navigation, ArrowLeft, Route as RouteIcon, Play, Timer, Share2, Copy, X, ExternalLink, CornerDownLeft, CornerDownRight, ArrowUp } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { estimateSteps, estimateWalkingTime, fetchPrayerTimes, type PrayerTime } from "@/lib/prayer-times";
+import { estimateSteps, estimateWalkingTime, fetchPrayerTimes, calculateLeaveByTime, minutesUntilLeave, type PrayerTime } from "@/lib/prayer-times";
 import { fetchWalkingRoute } from "@/lib/routing";
 import { getCachedMosques, setCachedMosques, getCachedRoute, setCachedRoute, isOnline } from "@/lib/offline-cache";
+import { formatTime as formatTimeStr, formatSmallDistance, formatMinutes } from "@/lib/regional-defaults";
 import {
   saveSettings, getSettings,
   saveMosque, getSavedMosques, removeSavedMosque, setPrimaryMosque,
@@ -28,18 +29,18 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-const mosqueIcon = L.divIcon({
-  html: '<div style="font-size:22px;text-align:center;line-height:1">🕌</div>',
+const createMosqueIcon = (name?: string) => L.divIcon({
+  html: `<div style="text-align:center;line-height:1"><div style="font-size:22px">🕌</div>${name ? `<div style="font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80px;background:rgba(255,255,255,0.9);border-radius:3px;padding:0 3px;margin-top:-2px;color:#333;font-weight:600">${name.length > 12 ? name.slice(0, 12) + "…" : name}</div>` : ""}</div>`,
   className: "mosque-marker",
-  iconSize: [28, 28],
-  iconAnchor: [14, 14],
+  iconSize: [80, 40],
+  iconAnchor: [40, 20],
 });
 
-const selectedMosqueIcon = L.divIcon({
-  html: '<div style="font-size:28px;text-align:center;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4))">🕌</div>',
+const createSelectedMosqueIcon = (name?: string) => L.divIcon({
+  html: `<div style="text-align:center;line-height:1"><div style="font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4))">🕌</div>${name ? `<div style="font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100px;background:hsl(174,80%,26%);color:white;border-radius:4px;padding:1px 5px;margin-top:-2px;font-weight:700">${name.length > 15 ? name.slice(0, 15) + "…" : name}</div>` : ""}</div>`,
   className: "mosque-marker-selected",
-  iconSize: [36, 36],
-  iconAnchor: [18, 18],
+  iconSize: [100, 48],
+  iconAnchor: [50, 24],
 });
 
 const homeIcon = L.divIcon({
@@ -189,7 +190,7 @@ const MosqueFinder = () => {
 
     mosques.forEach((m) => {
       const isSelected = m.id === selectedMosqueId;
-      const marker = L.marker([m.lat, m.lon], { icon: isSelected ? selectedMosqueIcon : mosqueIcon })
+      const marker = L.marker([m.lat, m.lon], { icon: isSelected ? createSelectedMosqueIcon(m.name) : createMosqueIcon(m.name) })
         .addTo(mapRef.current!)
         .bindPopup(
           `<div style="font-size:13px"><strong>${m.name}</strong><br/>${formatDistance(m.distance || 0)} · ~${estimateSteps(m.distance || 0)} steps</div>`
@@ -577,19 +578,18 @@ const MosqueFinder = () => {
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <div className="flex items-center gap-3">
                 <span className="flex items-center gap-1"><Navigation className="w-3 h-3 text-primary" /> {formatDistance(routeInfo.distanceKm)}</span>
-                <span className="flex items-center gap-1"><Clock className="w-3 h-3 text-primary" /> {routeInfo.durationMin} min</span>
+                <span className="flex items-center gap-1"><Clock className="w-3 h-3 text-primary" /> {formatMinutes(routeInfo.durationMin)}</span>
                 <span className="flex items-center gap-1"><Footprints className="w-3 h-3 text-primary" /> {estimateSteps(routeInfo.distanceKm).toLocaleString()} steps</span>
               </div>
-              {/* Export directions */}
+              {/* Action buttons */}
               <div className="flex gap-0.5">
                 <button
                   onClick={() => {
-                    const text = generateDirectionsText();
-                    navigator.clipboard.writeText(text);
-                    toast({ title: "Directions copied! 📋" });
+                    const addr = `${selectedMosque.name}, ${selectedMosque.lat.toFixed(6)}, ${selectedMosque.lon.toFixed(6)}`;
+                    navigator.clipboard.writeText(addr);
+                    toast({ title: "Address copied! 📋" });
                   }}
-                  className="p-1.5 rounded hover:bg-muted"
-                  title="Copy directions"
+                  className="p-1.5 rounded hover:bg-muted" title="Copy address"
                 >
                   <Copy className="w-3.5 h-3.5" />
                 </button>
@@ -603,10 +603,24 @@ const MosqueFinder = () => {
                       toast({ title: "Directions copied! 📋" });
                     }
                   }}
-                  className="p-1.5 rounded hover:bg-muted"
-                  title="Share directions"
+                  className="p-1.5 rounded hover:bg-muted" title="Share directions"
                 >
                   <Share2 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => {
+                    const dest = `${selectedMosque.lat},${selectedMosque.lon}`;
+                    const origin = settings.homeLat ? `${settings.homeLat},${settings.homeLng}` : "";
+                    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                    if (isIOS) {
+                      window.open(`maps://maps.apple.com/?daddr=${dest}&dirflg=w`, "_blank");
+                    } else {
+                      window.open(`https://www.google.com/maps/dir/?api=1&destination=${dest}&origin=${origin}&travelmode=walking`, "_blank");
+                    }
+                  }}
+                  className="p-1.5 rounded hover:bg-muted text-primary" title="Open in Maps app"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
@@ -620,16 +634,33 @@ const MosqueFinder = () => {
               </div>
             )}
 
-            {/* Next prayer + countdown */}
+            {/* Next prayer + leave-by time */}
             {nextPrayer && (
-              <div className="flex items-center justify-between bg-primary/5 rounded-lg px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <Timer className="w-3.5 h-3.5 text-primary" />
-                  <span className="text-xs font-medium text-foreground">
-                    {nextPrayer.name} at {nextPrayer.time}
-                  </span>
+              <div className="bg-primary/5 rounded-lg px-3 py-2 space-y-1">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Timer className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-xs font-medium text-foreground">
+                      {nextPrayer.name} at {formatTimeStr(nextPrayer.time, settings.timeFormat || "24h")}
+                    </span>
+                  </div>
+                  <span className="text-xs font-bold text-primary">{countdown}</span>
                 </div>
-                <span className="text-xs font-bold text-primary">{countdown}</span>
+                {(() => {
+                  const walkMin = estimateWalkingTime(routeInfo.distanceKm, settings.walkingSpeed);
+                  const leaveBy = calculateLeaveByTime(nextPrayer.time, walkMin);
+                  const minsLeft = minutesUntilLeave(nextPrayer.time, walkMin, settings.cityTimezone);
+                  return (
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className={`font-medium ${minsLeft <= 5 ? "text-destructive" : minsLeft <= 15 ? "text-amber-500" : "text-primary"}`}>
+                        Leave by {formatTimeStr(leaveBy, settings.timeFormat || "24h")} ({formatMinutes(minsLeft)} left)
+                      </span>
+                      <span className="text-muted-foreground">
+                        {minsLeft <= 0 ? "⚠️ You should leave now!" : minsLeft <= 5 ? "⚠️ Hurry!" : minsLeft <= walkMin ? `✅ Arrive ${minsLeft - walkMin > 0 ? formatMinutes(minsLeft - walkMin) + " early" : "just in time"}` : `✅ ${formatMinutes(minsLeft)} margin`}
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
@@ -649,20 +680,28 @@ const MosqueFinder = () => {
               <div className="max-h-24 overflow-y-auto space-y-1 pt-1 border-t border-border/50">
                 {routeInfo.steps.map((s, i) => {
                   const isLast = i === routeInfo.steps.length - 1;
+                  const lower = s.instruction.toLowerCase();
+                  const getIcon = () => {
+                    if (lower.includes("left")) return <CornerDownLeft className="w-3 h-3 text-primary" />;
+                    if (lower.includes("right")) return <CornerDownRight className="w-3 h-3 text-primary" />;
+                    if (lower.includes("arrive") || lower.includes("destination")) return <MapPin className="w-3 h-3 text-gold" />;
+                    return <ArrowUp className="w-3 h-3 text-primary" />;
+                  };
+                  const distUnit = settings.smallDistanceUnit || "m";
                   return (
                     <div key={i} className="flex items-start gap-2 text-[10px] text-muted-foreground">
                       <div className="flex flex-col items-center flex-shrink-0">
-                        <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold ${
-                          isLast ? "bg-gold/20 text-gold" : "bg-primary/10 text-primary"
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                          isLast ? "bg-gold/20" : "bg-primary/10"
                         }`}>
-                          {isLast ? "🕌" : i + 1}
+                          {isLast ? "🕌" : getIcon()}
                         </div>
                         {!isLast && <div className="w-px h-2 bg-border mt-0.5" />}
                       </div>
                       <span className="capitalize">
                         {s.instruction}
                         <span className="text-muted-foreground/50 ml-1">
-                          ({s.distance > 1000 ? `${(s.distance / 1000).toFixed(1)}km` : `${Math.round(s.distance)}m`})
+                          ({formatSmallDistance(s.distance, distUnit)})
                         </span>
                       </span>
                     </div>

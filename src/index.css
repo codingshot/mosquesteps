@@ -156,6 +156,14 @@
   }
 }
 
+/* Toast positioning above bottom nav */
+[data-sonner-toaster] {
+  bottom: 6rem !important;
+}
+[data-radix-toast-viewport] {
+  bottom: 6rem !important;
+}
+
 /* Leaflet overrides */
 .leaflet-container {
   @apply rounded-xl;

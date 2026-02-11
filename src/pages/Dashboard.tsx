@@ -16,6 +16,7 @@ import {
   type PrayerTime,
 } from "@/lib/prayer-times";
 import { getSettings, saveSettings, getWalkingStats, getWalkHistory, getSavedMosques, fetchTimezone } from "@/lib/walking-history";
+import { formatTime as formatTimeStr, formatMinutes } from "@/lib/regional-defaults";
 import { requestNotificationPermission, isNotificationSupported, getNotificationPermission, schedulePrayerReminder, checkAndSendWeeklyInsight } from "@/lib/notifications";
 import { getUnreadCount } from "@/lib/notification-store";
 import { getStepRecommendation } from "@/lib/health-recommendations";
@@ -429,10 +430,10 @@ const Dashboard = () => {
                         <p className="text-xs font-arabic text-muted-foreground">{p.arabicName}</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold text-foreground">{p.time}</p>
+                        <p className="font-semibold text-foreground">{formatTimeStr(p.time, settings.timeFormat || "24h")}</p>
                         {walksToThis && (
                           <p className={`text-xs flex items-center gap-1 justify-end font-medium ${minsLeft !== null && minsLeft <= 5 ? "text-destructive" : minsLeft !== null && minsLeft <= 15 ? "text-amber-500" : "text-muted-foreground"}`}>
-                            <Navigation className="w-3 h-3" /> Leave by {leaveBy}
+                            <Navigation className="w-3 h-3" /> Leave by {formatTimeStr(leaveBy, settings.timeFormat || "24h")}
                             {minsLeft !== null && (
                               <span className="ml-1 opacity-80">
                                 ({minsLeft <= 0 ? "now!" : `${minsLeft}m left`})
