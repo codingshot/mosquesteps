@@ -33,6 +33,7 @@ const BrandPage = lazy(() => import("./pages/BrandPage"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const Contribute = lazy(() => import("./pages/Contribute"));
 const Changelog = lazy(() => import("./pages/Changelog"));
+const Content = lazy(() => import("./pages/Content"));
 
 const queryClient = new QueryClient();
 
@@ -90,6 +91,7 @@ const App = () => (
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/contribute" element={<Contribute />} />
             <Route path="/changelog" element={<Changelog />} />
+            <Route path="/content" element={<Content />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
             <BottomNav />
