@@ -22,6 +22,7 @@ export interface AppNotification {
   read: boolean;
   timestamp: number; // ms
   data?: Record<string, string | number>;
+  issueUrl?: string; // GitHub issue template link for error-type notifications
 }
 
 export interface NotificationSettings {
@@ -74,11 +75,24 @@ function persist(notifications: AppNotification[]): void {
   localStorage.setItem(STORE_KEY, JSON.stringify(notifications.slice(0, 200)));
 }
 
+// ---- GitHub issue URL helpers ----
+
+const GITHUB_REPO = "https://github.com/codingshot/mosquesteps";
+
+export const ISSUE_URLS = {
+  bug: `${GITHUB_REPO}/issues/new?template=bug_report.md`,
+  feature: `${GITHUB_REPO}/issues/new?template=feature_request.md`,
+  mosque: `${GITHUB_REPO}/issues/new?template=mosque_data.md`,
+  content: `${GITHUB_REPO}/issues/new?template=content_issue.md`,
+  prayer_times: `${GITHUB_REPO}/issues/new?template=prayer_times.md`,
+} as const;
+
 export function addNotification(
   type: NotificationType,
   title: string,
   body: string,
-  data?: Record<string, string | number>
+  data?: Record<string, string | number>,
+  issueUrl?: string
 ): AppNotification {
   const n: AppNotification = {
     id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
@@ -88,6 +102,7 @@ export function addNotification(
     read: false,
     timestamp: Date.now(),
     data,
+    issueUrl,
   };
   const all = getNotifications();
   all.unshift(n);

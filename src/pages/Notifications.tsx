@@ -5,7 +5,7 @@ import {
   ArrowLeft, Bell, BellOff, Check, CheckCheck, Trash2, Filter,
   SortAsc, SortDesc, Settings2, ChevronDown, Clock,
   Footprints, Star, Trophy, BarChart3, MapPin, Heart, Zap, Info,
-  X, MailOpen, Mail,
+  X, MailOpen, Mail, ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -311,7 +311,17 @@ export default function Notifications() {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center gap-1 mt-2 justify-end">
+                    <div className="flex items-center gap-1 mt-2 justify-end flex-wrap">
+                      {n.issueUrl && (
+                        <a
+                          href={n.issueUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-0.5 text-[10px] h-6 px-2 font-medium text-primary hover:underline"
+                        >
+                          <ExternalLink className="w-3 h-3 mr-0.5" /> Report Issue
+                        </a>
+                      )}
                       {n.read ? (
                         <Button variant="ghost" size="sm" className="text-[10px] h-6 px-2" onClick={() => handleMarkUnread(n.id)}>
                           <Mail className="w-3 h-3 mr-0.5" /> Unread
