@@ -1,7 +1,13 @@
 import LegalLayout from "@/components/LegalLayout";
+import SEOHead from "@/components/SEOHead";
 
 const Privacy = () => (
   <LegalLayout title="Privacy Policy">
+    <SEOHead
+      title="Privacy Policy"
+      description="How MosqueSteps handles your data. Location and step data stay on your device. No trackers."
+      path="/privacy"
+    />
     <p className="text-sm text-muted-foreground">Last updated: February 2026</p>
 
     <section>

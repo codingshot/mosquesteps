@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { hasCompletedOnboarding } from "./pages/Onboarding";
 import BottomNav from "./components/BottomNav";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import Index from "./pages/Index";
 
 // Lazy-load non-critical routes for performance
@@ -30,6 +31,7 @@ const Onboarding = lazy(() => import("./pages/Onboarding"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const BrandPage = lazy(() => import("./pages/BrandPage"));
 const Notifications = lazy(() => import("./pages/Notifications"));
+const Contribute = lazy(() => import("./pages/Contribute"));
 
 const queryClient = new QueryClient();
 
@@ -37,7 +39,7 @@ const PageLoader = () => (
   <div className="min-h-screen bg-background flex items-center justify-center">
     <div className="text-center space-y-3">
       <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-      <p className="text-sm text-muted-foreground">Loading...</p>
+      <p className="text-sm text-muted-foreground">Loading…</p>
     </div>
   </div>
 );
@@ -61,8 +63,9 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
+        <ErrorBoundary>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/dashboard" element={<Dashboard />} />
@@ -84,10 +87,12 @@ const App = () => (
             <Route path="/blogs/:slug" element={<BlogPost />} />
             <Route path="/brand" element={<BrandPage />} />
             <Route path="/notifications" element={<Notifications />} />
+            <Route path="/contribute" element={<Contribute />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
-          <BottomNav />
-        </Suspense>
+            <BottomNav />
+          </Suspense>
+        </ErrorBoundary>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

@@ -43,7 +43,7 @@ describe("Landing Page Components", () => {
     expect(screen.getByText(/MosqueSteps/i)).toBeInTheDocument();
     expect(screen.getByText("Privacy Policy")).toBeInTheDocument();
     expect(screen.getByText("Terms of Service")).toBeInTheDocument();
-    expect(screen.getByText("Legal Info")).toBeInTheDocument();
+    expect(screen.getByText("Legal")).toBeInTheDocument();
   });
 
   it("ProblemSolution renders both sections", () => {

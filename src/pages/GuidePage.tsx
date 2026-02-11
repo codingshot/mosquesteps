@@ -1,10 +1,11 @@
 import { useParams, Link, Navigate, useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, ChevronRight, Download, Smartphone, ExternalLink } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronRight, Copy, Download, Smartphone, ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
 import SEOHead from "@/components/SEOHead";
 import { Button } from "@/components/ui/button";
 import { guides, getGuideById } from "@/lib/guides-data";
 import { usePWAInstall } from "@/hooks/use-pwa-install";
+import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
 
 const GuidePage = () => {
@@ -12,12 +13,19 @@ const GuidePage = () => {
   const navigate = useNavigate();
   const guide = getGuideById(guideId || "");
   const { canInstall, isInstalled, install } = usePWAInstall();
+  const { toast } = useToast();
 
   if (!guide) return <Navigate to="/guides" replace />;
 
   const currentIndex = guides.findIndex((g) => g.id === guide.id);
   const prevGuide = currentIndex > 0 ? guides[currentIndex - 1] : null;
   const nextGuide = currentIndex < guides.length - 1 ? guides[currentIndex + 1] : null;
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(window.location.href).then(() => {
+      toast({ title: "Link copied", description: "Share this guide with anyone." });
+    });
+  };
 
   return (
     <div className="min-h-screen bg-background pb-bottom-nav">
@@ -41,6 +49,9 @@ const GuidePage = () => {
           <span className="text-4xl mb-2 block">{guide.iconEmoji}</span>
           <h1 className="text-2xl font-bold">{guide.title}</h1>
           <p className="text-sm text-primary-foreground/70 mt-1 max-w-md mx-auto">{guide.description}</p>
+          <Button variant="ghost" size="sm" className="mt-3 gap-2 text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10" onClick={copyLink} aria-label="Copy link to this guide">
+            <Copy className="w-4 h-4" /> Copy link
+          </Button>
         </div>
       </header>
 

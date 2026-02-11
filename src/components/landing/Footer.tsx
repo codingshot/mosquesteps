@@ -59,9 +59,10 @@ const Footer = () => {
               <li><Link to="/sunnah" className="hover:text-primary transition-colors">Sunnah References</Link></li>
               <li><Link to="/how-it-works" className="hover:text-primary transition-colors">How It Works</Link></li>
               <li><Link to="/faq" className="hover:text-primary transition-colors">FAQ</Link></li>
+              <li><Link to="/contribute" className="hover:text-primary transition-colors">Contribute</Link></li>
               <li>
-                <a href={`${GITHUB_REPO}/blob/main/CONTRIBUTING.md`} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">
-                  Contributing Guide
+                <a href={GITHUB_REPO} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">
+                  GitHub
                 </a>
               </li>
             </ul>

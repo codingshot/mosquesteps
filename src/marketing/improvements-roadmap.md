@@ -95,7 +95,7 @@
 
 - [ ] Refactor `prayer-times.ts` (256 lines) into smaller modules
 - [ ] Add E2E tests with Playwright
-- [ ] Implement proper error boundaries per route
+- [x] Implement error boundary for app (ErrorBoundary with "Back to home" fallback)
 - [ ] Add Sentry or similar error tracking
 - [ ] Optimize bundle size (analyze with `vite-bundle-visualizer`)
 - [ ] Add proper loading skeletons instead of spinners

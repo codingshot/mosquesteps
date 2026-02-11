@@ -1,8 +1,10 @@
 import { useParams, Link, Navigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Copy } from "lucide-react";
 import { motion } from "framer-motion";
 import { getBlogBySlug, getRelatedPosts, BlogPost as BlogPostType } from "@/lib/blog-data";
 import SEOHead from "@/components/SEOHead";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
 
 const categoryLabels: Record<BlogPostType["category"], string> = {
@@ -16,10 +18,18 @@ const categoryLabels: Record<BlogPostType["category"], string> = {
 const BlogPostPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const post = slug ? getBlogBySlug(slug) : undefined;
+  const { toast } = useToast();
 
   if (!post) return <Navigate to="/blogs" replace />;
 
   const related = getRelatedPosts(post.slug, 3);
+
+  const copyLink = () => {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url).then(() => {
+      toast({ title: "Link copied", description: "Share this article with anyone." });
+    });
+  };
 
   // Simple markdown-like rendering
   const renderContent = (content: string) => {
@@ -38,13 +48,34 @@ const BlogPostPage = () => {
     });
   };
 
-  const renderInline = (text: string) => {
-    // Bold **text**
+  const renderBold = (text: string) => {
     const parts = text.split(/(\*\*[^*]+\*\*)/g);
     return parts.map((part, i) => {
       if (part.startsWith("**") && part.endsWith("**"))
         return <strong key={i} className="font-semibold text-foreground">{part.slice(2, -2)}</strong>;
       return <span key={i}>{part}</span>;
+    });
+  };
+
+  const renderInline = (text: string) => {
+    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    const segments: { type: "text" | "link"; content: string; url?: string }[] = [];
+    let lastIndex = 0;
+    let m;
+    while ((m = linkRegex.exec(text)) !== null) {
+      if (m.index > lastIndex) segments.push({ type: "text", content: text.slice(lastIndex, m.index) });
+      segments.push({ type: "link", content: m[1], url: m[2] });
+      lastIndex = linkRegex.lastIndex;
+    }
+    if (lastIndex < text.length) segments.push({ type: "text", content: text.slice(lastIndex) });
+    return segments.map((seg, i) => {
+      if (seg.type === "link" && seg.url)
+        return (
+          <a key={i} href={seg.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">
+            {seg.content}
+          </a>
+        );
+      return <span key={i}>{renderBold(seg.content)}</span>;
     });
   };
 
@@ -81,6 +112,9 @@ const BlogPostPage = () => {
             <span className="text-xs font-semibold text-primary">{categoryLabels[post.category]} · {post.readTime}</span>
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground mt-2 leading-tight">{post.title}</h1>
             <p className="text-muted-foreground text-sm mt-3 max-w-lg mx-auto">{post.excerpt}</p>
+            <Button variant="ghost" size="sm" className="mt-3 gap-2 text-muted-foreground" onClick={copyLink} aria-label="Copy link to this article">
+              <Copy className="w-4 h-4" /> Copy link
+            </Button>
           </div>
 
           <div className="space-y-1">

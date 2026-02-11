@@ -897,6 +897,72 @@ The Sunnah understood habit psychology 1,400 years before the science caught up.
     image: "🧩",
     readTime: "7 min read",
   },
+  {
+    slug: "contributing-to-mosquesteps",
+    title: "How to Contribute to MosqueSteps",
+    excerpt: "MosqueSteps is fully open source. Learn how to report bugs, suggest features, improve docs, add translations, or submit code — with direct links to GitHub.",
+    content: `
+Jazak Allahu Khairan for your interest in contributing. MosqueSteps is community-driven and **completely open source**. You don't need to write code to help — there are many ways to contribute, and every one of them matters.
+
+## Why contribute?
+
+MosqueSteps helps Muslims see the spiritual reward of every step to the mosque, based on authentic hadiths. The more people who report issues, suggest ideas, fix mosque data, or improve the code, the better the app becomes for the whole ummah. Everything is built in the open on [GitHub](https://github.com/codingshot/mosquesteps).
+
+## Report an issue
+
+We use **GitHub Issues** with templates so we get the right information quickly. Each link below opens in a new tab so you can file an issue and come back.
+
+- **Something broken?** Open a [bug report](https://github.com/codingshot/mosquesteps/issues/new?template=bug_report.md). Include device, browser, and steps to reproduce.
+- **Have an idea?** Open a [feature request](https://github.com/codingshot/mosquesteps/issues/new?template=feature_request.md). Describe the problem and your suggested solution.
+- **Missing or wrong mosque?** Open a [mosque data issue](https://github.com/codingshot/mosquesteps/issues/new?template=mosque_data.md). You can also add or fix mosques directly on [OpenStreetMap](https://www.openstreetmap.org/edit) — the app uses OSM data.
+- **Hadith, translation, or guide error?** Open a [content issue](https://github.com/codingshot/mosquesteps/issues/new?template=content_issue.md).
+- **Wrong prayer times for your location?** Open a [prayer times issue](https://github.com/codingshot/mosquesteps/issues/new?template=prayer_times.md).
+
+You can also [browse all open issues](https://github.com/codingshot/mosquesteps/issues) and comment or help triage.
+
+## Contribute code
+
+If you want to submit code:
+
+1. **Fork** the repo: [github.com/codingshot/mosquesteps](https://github.com/codingshot/mosquesteps)
+2. **Clone** your fork, create a branch, and make your changes
+3. **Run tests:** \`npx vitest run\`
+4. **Open a Pull Request** against \`main\`
+
+We use [Conventional Commits](https://www.conventionalcommits.org/) (e.g. \`feat:\`, \`fix:\`, \`docs:\`) and ask that new features and bug fixes include tests. The full guide is in the repo: [CONTRIBUTING.md](https://github.com/codingshot/mosquesteps/blob/main/CONTRIBUTING.md). It covers code style, architecture, Islamic content guidelines, and the PR process.
+
+## Improve docs and content
+
+You can contribute without touching app code:
+
+- **README and CONTRIBUTING** — fix typos or clarify steps in the [repository](https://github.com/codingshot/mosquesteps)
+- **In-app guides** — the user guides (Getting started, Find mosque, etc.) live in the codebase and can be edited via a PR
+- **Blog and marketing** — articles and marketing copy are in the repo; open an issue or PR to suggest changes
+- **Translations** — we want MosqueSteps in more languages (Arabic, Turkish, Urdu, Malay, Indonesian, French). Translation keys and locale logic are in the codebase; see [CONTRIBUTING.md](https://github.com/codingshot/mosquesteps/blob/main/CONTRIBUTING.md#translations)
+
+## Mosque data (OpenStreetMap)
+
+MosqueSteps does **not** store mosque data. We use [OpenStreetMap](https://www.openstreetmap.org/). To add or fix a mosque, edit the map at [openstreetmap.org](https://www.openstreetmap.org/edit) and tag the place correctly (\`amenity=place_of_worship\`, \`religion=muslim\`). Your change will appear in the app once OSM updates. If you can't edit OSM, you can still [report a mosque issue](https://github.com/codingshot/mosquesteps/issues/new?template=mosque_data.md) on GitHub.
+
+## Code of conduct and community
+
+We expect respectful, constructive communication. Our [Code of Conduct](https://github.com/codingshot/mosquesteps/blob/main/.github/CODE_OF_CONDUCT.md) is on GitHub. Questions or ideas? Open a [GitHub Discussion](https://github.com/codingshot/mosquesteps/discussions) (if enabled) or an issue, or reach out on [X (@ummahbuild)](https://x.com/ummahbuild) or [LinkedIn](https://www.linkedin.com/company/ummah-build/).
+
+## Quick links (all open in new tab)
+
+- **Repository:** [github.com/codingshot/mosquesteps](https://github.com/codingshot/mosquesteps)
+- **Issues:** [View all issues](https://github.com/codingshot/mosquesteps/issues)
+- **Contributing guide:** [CONTRIBUTING.md](https://github.com/codingshot/mosquesteps/blob/main/CONTRIBUTING.md)
+- **Code of conduct:** [.github/CODE_OF_CONDUCT.md](https://github.com/codingshot/mosquesteps/blob/main/.github/CODE_OF_CONDUCT.md)
+- **In-app Contribute page:** [mosquesteps.com/contribute](https://mosquesteps.com/contribute)
+
+Barak Allahu feek for helping make every step to the mosque count.
+    `,
+    category: "guide",
+    tags: ["contributing", "open-source", "github", "community", "documentation"],
+    image: "🤝",
+    readTime: "5 min read",
+  },
 ];
 
 export function getBlogsByCategory(category: BlogPost["category"]): BlogPost[] {

@@ -26,6 +26,26 @@ All spiritual reward calculations are based on authenticated hadiths:
 
 Built with React, TypeScript, Tailwind CSS, Framer Motion, Leaflet, and the Aladhan Prayer Times API.
 
+## Site Structure (for AI and crawlers)
+
+- **Home**: https://mosquesteps.com — Landing page, hero, features, CTA
+- **Blog**: https://mosquesteps.com/blogs — Articles on Sunnah, guides, health, community
+- **FAQ**: https://mosquesteps.com/faq — Frequently asked questions about steps, privacy, hadiths
+- **How it works**: https://mosquesteps.com/how-it-works — How MosqueSteps tracks walks (GPS, sensors, prayer times)
+- **Guides**: https://mosquesteps.com/guides — User guides (getting started, find mosque, track walk, stats, notifications, rewards, history)
+- **Mosque finder**: https://mosquesteps.com/mosques — Find nearby mosques, walking routes, distance
+- **Rewards**: https://mosquesteps.com/rewards — Hasanat and badges based on hadith
+- **Sunnah**: https://mosquesteps.com/sunnah — Hadiths about walking to the mosque
+- **Privacy**: https://mosquesteps.com/privacy — Privacy policy; data stays on device
+- **Terms**: https://mosquesteps.com/terms — Terms of service
+- **Legal**: https://mosquesteps.com/legal — Attributions (OpenStreetMap, Aladhan, Sunnah.com)
+- **Brand**: https://mosquesteps.com/brand — Brand guidelines and marketing assets
+- **Onboarding**: https://mosquesteps.com/onboarding — First-time setup flow
+- **Contribute**: https://mosquesteps.com/contribute — How to contribute (issues, code, docs, OSM, translations)
+
+Blog post URLs follow /blogs/{slug}, e.g. /blogs/virtues-of-walking-to-mosque, /blogs/health-benefits-walking-mosque.
+Guide URLs follow /guides/{id}, e.g. /guides/getting-started, /guides/find-mosque, /guides/active-walk.
+
 ## Links
 
 - Website: https://mosquesteps.com

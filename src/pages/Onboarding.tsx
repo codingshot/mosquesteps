@@ -6,6 +6,7 @@ import { saveSettings, getSettings, fetchTimezone } from "@/lib/walking-history"
 import { requestNotificationPermission, isNotificationSupported } from "@/lib/notifications";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
+import SEOHead from "@/components/SEOHead";
 import logo from "@/assets/logo.png";
 
 const ONBOARDING_KEY = "mosquesteps_onboarded";
@@ -171,6 +172,11 @@ const Onboarding = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <SEOHead
+        title="Get Started"
+        description="Set up MosqueSteps: location, mosque, and prayer reminders in a few steps."
+        path="/onboarding"
+      />
       {/* Progress bar */}
       <div className="w-full h-1 bg-muted">
         <div

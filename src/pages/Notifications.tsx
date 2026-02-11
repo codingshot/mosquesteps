@@ -15,6 +15,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import SEOHead from "@/components/SEOHead";
 import { getSettings } from "@/lib/walking-history";
 import {
   AppNotification, NotificationType, NotificationSettings,
@@ -126,6 +127,12 @@ export default function Notifications() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
+      <SEOHead
+        title="Notifications"
+        description="Prayer reminders, walk summaries, and streak notifications. MosqueSteps."
+        path="/notifications"
+        noindex
+      />
       {/* Header */}
       <header className="sticky top-0 z-40 bg-card/95 backdrop-blur-lg border-b border-border px-4 py-3">
         <div className="flex items-center justify-between">
@@ -247,12 +254,12 @@ export default function Notifications() {
       <div className="px-4 py-3">
         {filtered.length === 0 ? (
           <div className="text-center py-16 space-y-3">
-            <BellOff className="w-12 h-12 text-muted-foreground/30 mx-auto" />
-            <p className="text-sm font-medium text-muted-foreground">No notifications</p>
-            <p className="text-xs text-muted-foreground/60">
+            <BellOff className="w-12 h-12 text-muted-foreground/30 mx-auto" aria-hidden />
+            <p className="text-sm font-medium text-foreground">No notifications yet</p>
+            <p className="text-xs text-muted-foreground max-w-xs mx-auto">
               {filterType !== "all" || readFilter !== "all"
-                ? "Try adjusting your filters."
-                : "You're all caught up!"}
+                ? "Try adjusting your filters to see more."
+                : "When you enable prayer reminders or complete walks, they’ll show up here. You’re all caught up for now!"}
             </p>
           </div>
         ) : (

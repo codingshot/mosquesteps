@@ -17,6 +17,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import SEOHead from "@/components/SEOHead";
 import logo from "@/assets/logo.png";
 
 // Recent walks history component
@@ -319,6 +320,12 @@ const Stats = () => {
 
   return (
     <div className="min-h-screen bg-background pb-bottom-nav">
+      <SEOHead
+        title="Stats & Goals"
+        description="Your walking stats, goals, health insights, and prayer attendance. MosqueSteps."
+        path="/stats"
+        noindex
+      />
       <header className="bg-gradient-teal text-primary-foreground">
         <div className="container py-3 flex items-center gap-2">
           <Link to="/dashboard" className="flex items-center gap-2">

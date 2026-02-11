@@ -9,6 +9,7 @@ import { requestNotificationPermission, isNotificationSupported, getNotification
 import { getRegionalDefaults } from "@/lib/regional-defaults";
 import { useTheme } from "@/hooks/use-theme";
 import { useToast } from "@/hooks/use-toast";
+import SEOHead from "@/components/SEOHead";
 import logo from "@/assets/logo.png";
 
 const Settings = () => {
@@ -140,6 +141,12 @@ const Settings = () => {
 
   return (
     <div className="min-h-screen bg-background pb-bottom-nav">
+      <SEOHead
+        title="Settings"
+        description="Configure location, prayer times, units, and notifications. MosqueSteps."
+        path="/settings"
+        noindex
+      />
       <header className="bg-card border-b border-border">
         <div className="container py-3 flex items-center gap-2">
           <Link to="/dashboard">

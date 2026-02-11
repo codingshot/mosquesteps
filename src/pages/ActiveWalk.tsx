@@ -15,6 +15,7 @@ import { isNearMosque, addCheckIn, hasCheckedInToday } from "@/lib/checkin";
 import { getNewlyEarnedBadges } from "@/lib/badges";
 import { getWalkingStats } from "@/lib/walking-history";
 import Confetti from "@/components/Confetti";
+import SEOHead from "@/components/SEOHead";
 import logo from "@/assets/logo.png";
 import WalkMap from "@/components/WalkMap";
 
@@ -547,6 +548,12 @@ const ActiveWalk = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col pb-bottom-nav">
+      <SEOHead
+        title="Track Your Walk"
+        description="Track your walk to the mosque in real time. Steps, distance, hasanat, and turn-by-turn guidance. MosqueSteps."
+        path="/walk"
+        noindex
+      />
       <header className={`${isWalking ? "bg-gradient-teal" : "bg-card border-b border-border"}`}>
         <div className="container py-3 flex items-center justify-between">
           <div className={`flex items-center gap-2 ${isWalking ? "text-primary-foreground" : "text-foreground"}`}>
@@ -1068,8 +1075,8 @@ const ActiveWalk = () => {
               </div>
             </div>
 
-            {/* Live stats */}
-            <div className="grid grid-cols-4 gap-2">
+            {/* Live stats — announced to screen readers when values update */}
+            <div className="grid grid-cols-4 gap-2" role="status" aria-live="polite" aria-atomic="true" aria-label={`Walk progress: ${displaySteps.toLocaleString()} steps, ${(distanceKm * 1000).toFixed(0)} meters, ${hasanat.toLocaleString()} hasanat, ${formatTime(elapsedSeconds)} elapsed`}>
               <div className="glass-card p-2 text-center">
                 <p className="text-sm font-bold text-foreground">{(distanceKm * 1000).toFixed(0)}</p>
                 <p className="text-[10px] text-muted-foreground">meters</p>

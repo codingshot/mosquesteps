@@ -287,7 +287,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <SEOHead title="Dashboard — Track Your Walk" description="View prayer times, walking distance, and spiritual rewards. Start your blessed walk to the mosque." path="/dashboard" />
+      <SEOHead title="Dashboard — Track Your Walk" description="View prayer times, walking distance, and spiritual rewards. Start your blessed walk to the mosque." path="/dashboard" noindex />
       {/* Header */}
       <header className="bg-gradient-teal text-primary-foreground">
         <div className="container py-3 flex items-center justify-between">

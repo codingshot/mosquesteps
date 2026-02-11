@@ -90,7 +90,7 @@ src/
 │   ├── blog-data      # SEO blog content (health, community, sunnah)
 │   └── guides-data    # User guide content
 ├── pages/             # Route-level components (lazy loaded)
-├── marketing/         # Marketing docs, research, campaign ideas
+├── marketing/         # Marketing docs, research, campaigns (see src/marketing/README.md)
 ├── test/              # Vitest test suites
 └── assets/            # Images and static assets
 ```
@@ -135,9 +135,13 @@ src/
 1. **Blogs** for SEO articles, **Guides** for step-by-step tutorials
 2. **Sunnah** page for hadith references
 
+## Improvement Prompts
+
+**[IMPROVEMENT_PROMPTS.md](IMPROVEMENT_PROMPTS.md)** — Copy-paste prompts for product, marketing, SEO, tests, and technical improvements. Use with Cursor, ChatGPT, or your dev process.
+
 ## Contributing
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+We welcome contributions! See **[CONTRIBUTING.md](CONTRIBUTING.md)** for full guidelines, or the in-app **[Contribute](https://mosquesteps.com/contribute)** page for a quick overview and issue links.
 
 ### Quick Links for Issues
 

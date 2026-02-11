@@ -1,7 +1,13 @@
 import LegalLayout from "@/components/LegalLayout";
+import SEOHead from "@/components/SEOHead";
 
 const Terms = () => (
   <LegalLayout title="Terms of Service">
+    <SEOHead
+      title="Terms of Service"
+      description="Terms of use for MosqueSteps. Free app for tracking walks to the mosque and spiritual rewards."
+      path="/terms"
+    />
     <p className="text-sm text-muted-foreground">Last updated: February 2026</p>
 
     <section>

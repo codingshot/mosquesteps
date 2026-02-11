@@ -4,6 +4,7 @@ import { ArrowLeft, Footprints, Clock, Star, Flame, Trash2, Calendar, BarChart3 
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { getWalkHistory, getWalkingStats, deleteWalkEntry, getSettings, type WalkEntry } from "@/lib/walking-history";
+import SEOHead from "@/components/SEOHead";
 import logo from "@/assets/logo.png";
 import {
   AlertDialog,
@@ -80,6 +81,12 @@ const History = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead
+        title="Walking History"
+        description="View your walking history to the mosque, weekly charts, and total steps. MosqueSteps."
+        path="/history"
+        noindex
+      />
       <header className="bg-card border-b border-border">
         <div className="container py-3 flex items-center gap-2">
           <Link to="/dashboard" className="flex items-center gap-2">
@@ -209,10 +216,11 @@ const History = () => {
           <div>
             {history.length === 0 ? (
               <div className="glass-card p-8 text-center">
-                <Footprints className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground">No walks recorded yet.</p>
+                <span className="text-4xl mb-3 block" aria-hidden>👣</span>
+                <p className="font-medium text-foreground">Your walking history will appear here</p>
+                <p className="text-sm text-muted-foreground mt-1">Every walk you complete is saved so you can see your progress and rewards over time.</p>
                 <Link to="/walk">
-                  <Button variant="hero" size="sm" className="mt-4">Start Your First Walk</Button>
+                  <Button variant="hero" size="sm" className="mt-4">Start your first walk</Button>
                 </Link>
               </div>
             ) : (

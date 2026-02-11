@@ -1,7 +1,13 @@
 import LegalLayout from "@/components/LegalLayout";
+import SEOHead from "@/components/SEOHead";
 
 const Legal = () => (
   <LegalLayout title="Legal Information">
+    <SEOHead
+      title="Legal Information"
+      description="Open source attributions, disclaimers, and legal information for MosqueSteps."
+      path="/legal"
+    />
     <p className="text-sm text-muted-foreground">Last updated: February 2026</p>
 
     <section>
@@ -50,6 +56,13 @@ const Legal = () => (
         </li>
         <li>
           <strong>Nominatim</strong> — OpenStreetMap geocoding service for location search.
+        </li>
+        <li>
+          <strong>OSRM</strong> — Open Source Routing Machine; walking route and turn-by-turn directions
+          (router.project-osrm.org).
+        </li>
+        <li>
+          <strong>TimeAPI</strong> — Timezone detection by coordinates (timeapi.io).
         </li>
       </ul>
     </section>

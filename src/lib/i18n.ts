@@ -86,7 +86,7 @@ const en: Translations = {
   save: "Save",
   cancel: "Cancel",
   back: "Back",
-  loading: "Loading...",
+  loading: "Loading…",
   todaysJourney: "Today's Journey",
   upcomingPrayers: "Upcoming Prayers",
   tomorrowsPrayers: "Tomorrow's Prayers",

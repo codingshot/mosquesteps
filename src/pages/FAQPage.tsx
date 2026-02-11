@@ -1,10 +1,34 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import FAQ from "@/components/landing/FAQ";
 import SEOHead from "@/components/SEOHead";
+import { faqs } from "@/lib/faq-data";
 
 const FAQPage = () => {
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.type = "application/ld+json";
+    script.textContent = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: faqs.map(({ q, a }) => ({
+        "@type": "Question",
+        name: q,
+        acceptedAnswer: { "@type": "Answer", text: a },
+      })),
+    });
+    script.id = "faq-schema";
+    const existing = document.getElementById("faq-schema");
+    if (existing) existing.remove();
+    document.head.appendChild(script);
+    return () => {
+      const el = document.getElementById("faq-schema");
+      if (el) el.remove();
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       <SEOHead title="Frequently Asked Questions" description="Common questions about MosqueSteps — walking tracker, prayer times, mosque finder, and spiritual rewards." path="/faq" />
