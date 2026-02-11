@@ -7,6 +7,7 @@ import { estimateSteps, estimateWalkingTime, calculateHasanat, fetchPrayerTimes,
 import { addWalkEntry, getSettings, getSavedMosques } from "@/lib/walking-history";
 import { StepCounter, isStepCountingAvailable, getPaceCategory } from "@/lib/step-counter";
 import { fetchWalkingRoute } from "@/lib/routing";
+import { getCachedRoute, setCachedRoute, isOnline } from "@/lib/offline-cache";
 import { useToast } from "@/hooks/use-toast";
 import { generateShareCard, shareOrDownload } from "@/lib/share-card";
 import { isNearMosque, addCheckIn, hasCheckedInToday } from "@/lib/checkin";
@@ -96,6 +97,8 @@ const ActiveWalk = () => {
   const [sharingCard, setSharingCard] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [showDirections, setShowDirections] = useState(true);
+  const [offRoute, setOffRoute] = useState(false);
+  const [eta, setEta] = useState<string>("");
   const prevDirectionIdx = useRef(-1);
 
   const stepCounterRef = useRef<StepCounter | null>(null);
@@ -170,23 +173,53 @@ const ActiveWalk = () => {
     fetchAddress();
   }, [mosquePosition?.lat, mosquePosition?.lng]);
 
-  // Fetch route on mount if we have user position and mosque
+  // Fetch route on mount — prefer home location, cache for offline
   useEffect(() => {
     if (!mosquePosition) return;
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          const userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          setCurrentPosition(userPos);
-          const route = await fetchWalkingRoute(userPos.lat, userPos.lng, mosquePosition.lat, mosquePosition.lng);
-          if (route) {
-            setRouteCoords(route.coords);
-            setRouteInfo({ distanceKm: route.distanceKm, durationMin: route.durationMin, steps: route.steps });
-          }
-        },
-        () => {}
-      );
-    }
+
+    const getOrigin = (): Promise<Position> => {
+      // Prefer home location for pre-walk route calculation
+      if (settings.homeLat && settings.homeLng) {
+        return Promise.resolve({ lat: settings.homeLat, lng: settings.homeLng });
+      }
+      return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) return reject();
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          reject
+        );
+      });
+    };
+
+    getOrigin().then(async (origin) => {
+      setCurrentPosition(origin);
+
+      // Try cache first
+      const cached = getCachedRoute(origin.lat, origin.lng, mosquePosition.lat, mosquePosition.lng);
+      if (cached) {
+        setRouteCoords(cached.coords);
+        setRouteInfo({ distanceKm: cached.distanceKm, durationMin: cached.durationMin, steps: cached.steps });
+        // Revalidate in background if online
+        if (isOnline()) {
+          fetchWalkingRoute(origin.lat, origin.lng, mosquePosition.lat, mosquePosition.lng).then((fresh) => {
+            if (fresh) {
+              setCachedRoute(origin.lat, origin.lng, mosquePosition.lat, mosquePosition.lng, fresh);
+              setRouteCoords(fresh.coords);
+              setRouteInfo({ distanceKm: fresh.distanceKm, durationMin: fresh.durationMin, steps: fresh.steps });
+            }
+          }).catch(() => {});
+        }
+        return;
+      }
+
+      // Fetch fresh route
+      const route = await fetchWalkingRoute(origin.lat, origin.lng, mosquePosition.lat, mosquePosition.lng);
+      if (route) {
+        setRouteCoords(route.coords);
+        setRouteInfo({ distanceKm: route.distanceKm, durationMin: route.durationMin, steps: route.steps });
+        setCachedRoute(origin.lat, origin.lng, mosquePosition.lat, mosquePosition.lng, route);
+      }
+    }).catch(() => {});
   }, [mosquePosition?.lat, mosquePosition?.lng]);
 
   // Countdown to selected prayer
@@ -233,7 +266,7 @@ const ActiveWalk = () => {
     return () => clearInterval(interval);
   }, [isWalking]);
 
-  // Update turn-by-turn direction based on position — improved matching
+  // Update turn-by-turn direction based on position — improved matching + off-route detection
   useEffect(() => {
     if (!routeInfo?.steps?.length || !currentPosition || !routeCoords.length) return;
     
@@ -247,6 +280,9 @@ const ActiveWalk = () => {
         closestCoordIdx = i;
       }
     }
+
+    // Off-route detection: > 100m from route
+    setOffRoute(minDist > 0.1);
     
     // Map closest coord to the right direction step by accumulating distances
     let accDist = 0;
@@ -265,7 +301,14 @@ const ActiveWalk = () => {
     }
     
     setCurrentDirectionIdx(stepIdx);
-  }, [currentPosition, routeInfo]);
+
+    // Calculate ETA
+    const remainingDist = routeInfo.steps.slice(stepIdx).reduce((sum, s) => sum + s.distance, 0);
+    const speedKmh = elapsedSeconds > 30 ? distanceKm / (elapsedSeconds / 3600) : (settings.walkingSpeed || 5);
+    const remainingMin = speedKmh > 0 ? Math.round((remainingDist / 1000) / speedKmh * 60) : 0;
+    const arrivalTime = new Date(Date.now() + remainingMin * 60000);
+    setEta(arrivalTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+  }, [currentPosition, routeInfo, elapsedSeconds, distanceKm]);
 
   // Voice directions — speak when step changes
   useEffect(() => {
@@ -298,6 +341,35 @@ const ActiveWalk = () => {
       window.speechSynthesis.speak(utterance);
     }
   }, [currentDirectionIdx, voiceEnabled, isWalking, routeInfo, mosqueName]);
+
+  // Off-route: voice alert + auto-reroute
+  const lastRerouteRef = useRef(0);
+  useEffect(() => {
+    if (!offRoute || !isWalking || !currentPosition || !mosquePosition) return;
+    
+    // Voice warning
+    if (voiceEnabled && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance("You are off route. Recalculating.");
+      utterance.rate = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // Auto-reroute (throttle to once per 30s)
+    if (Date.now() - lastRerouteRef.current < 30000) return;
+    lastRerouteRef.current = Date.now();
+
+    fetchWalkingRoute(currentPosition.lat, currentPosition.lng, mosquePosition.lat, mosquePosition.lng).then((route) => {
+      if (route) {
+        setRouteCoords(route.coords);
+        setRouteInfo({ distanceKm: route.distanceKm, durationMin: route.durationMin, steps: route.steps });
+        setCachedRoute(currentPosition.lat, currentPosition.lng, mosquePosition.lat, mosquePosition.lng, route);
+        setCurrentDirectionIdx(0);
+        prevDirectionIdx.current = -1;
+        setOffRoute(false);
+      }
+    }).catch(() => {});
+  }, [offRoute, isWalking, currentPosition, mosquePosition, voiceEnabled]);
 
   // Stop speech when walk ends
   useEffect(() => {
@@ -498,6 +570,11 @@ const ActiveWalk = () => {
                       {mosqueAddress && (
                         <p className="text-xs text-muted-foreground ml-5.5 pl-0.5">{mosqueAddress}</p>
                       )}
+                      {settings.homeAddress && (
+                        <p className="text-[10px] text-muted-foreground/70 ml-5.5 pl-0.5 flex items-center gap-1">
+                          🏠 Route from: {settings.homeAddress}
+                        </p>
+                      )}
                     </div>
                     <Link to="/mosques" className="text-xs text-primary font-medium hover:underline flex-shrink-0">
                       Change
@@ -616,6 +693,14 @@ const ActiveWalk = () => {
                 routeSteps={routeInfo?.steps}
                 currentStepIdx={currentDirectionIdx}
                 isWalking={true}
+                offRoute={offRoute}
+                eta={eta}
+                onRecenter={() => {
+                  // Re-center handled by WalkMap's panTo
+                  if (currentPosition) {
+                    setCurrentPosition({ ...currentPosition });
+                  }
+                }}
                 className="shadow-md"
               />
             )}
