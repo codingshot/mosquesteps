@@ -1,9 +1,12 @@
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
 import { ArrowRight, BookOpen } from "lucide-react";
 import { guides } from "@/lib/guides-data";
 
+const DURATION = 50; // seconds for one full loop
+
 const GuidesCarousel = () => {
+  const duplicated = [...guides, ...guides];
+
   return (
     <section className="py-16 bg-background">
       <div className="container">
@@ -19,16 +22,18 @@ const GuidesCarousel = () => {
           </p>
         </div>
 
-        <div className="overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
-          <div className="flex gap-4" style={{ minWidth: "max-content" }}>
-            {guides.map((guide, i) => (
-              <motion.div
-                key={guide.id}
-                initial={{ opacity: 0, x: 20 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.08 }}
-                className="w-[220px] flex-shrink-0"
+        <div className="w-full overflow-hidden -mx-4 sm:-mx-6 lg:-mx-8">
+          <div
+            className="flex gap-4 py-2 guides-carousel-track"
+            style={{
+              width: "max-content",
+              animation: `guides-scroll ${DURATION}s linear infinite`,
+            }}
+          >
+            {duplicated.map((guide, i) => (
+              <div
+                key={`${guide.id}-${i}`}
+                className="flex-shrink-0 w-[220px]"
               >
                 <Link
                   to={`/guides/${guide.id}`}
@@ -49,7 +54,7 @@ const GuidesCarousel = () => {
                     </span>
                   </div>
                 </Link>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>

@@ -200,3 +200,15 @@
 .animate-step-bounce {
   animation: step-bounce 0.6s ease-in-out infinite;
 }
+
+/* Guides carousel: one set = 7 cards × (220px + 16px gap) */
+@keyframes guides-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-1652px); }
+}
+.guides-carousel-track {
+  animation-name: guides-scroll;
+}
+.guides-carousel-track:hover {
+  animation-play-state: paused;
+}
