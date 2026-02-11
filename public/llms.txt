@@ -42,6 +42,7 @@ Built with React, TypeScript, Tailwind CSS, Framer Motion, Leaflet, and the Alad
 - **Brand**: https://mosquesteps.com/brand — Brand guidelines and marketing assets
 - **Onboarding**: https://mosquesteps.com/onboarding — First-time setup flow
 - **Contribute**: https://mosquesteps.com/contribute — How to contribute (issues, code, docs, OSM, translations)
+- **Changelog**: https://mosquesteps.com/changelog — User-facing updates; search and filter by type and version
 
 Blog post URLs follow /blogs/{slug}, e.g. /blogs/virtues-of-walking-to-mosque, /blogs/health-benefits-walking-mosque.
 Guide URLs follow /guides/{id}, e.g. /guides/getting-started, /guides/find-mosque, /guides/active-walk.

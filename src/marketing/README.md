@@ -23,6 +23,7 @@ This folder holds all marketing copy, research, and campaign materials. Use it f
 | **exercise-health-research.md** | Health stats and sources for marketing and blog |
 | **habit-psychology.md** | Habit formation research and marketing applications |
 | **improvements-roadmap.md** | Product roadmap, metrics, technical debt |
+| **IMPROVEMENT_PROMPTS.md** | Copy-paste prompts for product, marketing, SEO, tests, technical improvements |
 
 ## Quick links
 
@@ -35,6 +36,6 @@ This folder holds all marketing copy, research, and campaign materials. Use it f
 - **Collecting testimonials?** → testimonials-templates.md  
 - **Staying on brand?** → brand-guidelines.md  
 
-## Root: IMPROVEMENT_PROMPTS.md
+## Improvement prompts
 
-In the **project root** (not this folder), see **IMPROVEMENT_PROMPTS.md** for copy-paste prompts to improve the app, marketing, SEO, tests, and more.
+**IMPROVEMENT_PROMPTS.md** (in this folder) — Copy-paste prompts to improve the app, marketing, SEO, tests, and technical work. Use with Cursor, ChatGPT, or your dev process.

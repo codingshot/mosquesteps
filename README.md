@@ -137,7 +137,7 @@ src/
 
 ## Improvement Prompts
 
-**[IMPROVEMENT_PROMPTS.md](IMPROVEMENT_PROMPTS.md)** — Copy-paste prompts for product, marketing, SEO, tests, and technical improvements. Use with Cursor, ChatGPT, or your dev process.
+**[src/marketing/IMPROVEMENT_PROMPTS.md](src/marketing/IMPROVEMENT_PROMPTS.md)** — Copy-paste prompts for product, marketing, SEO, tests, and technical improvements. Use with Cursor, ChatGPT, or your dev process.
 
 ## Contributing
 

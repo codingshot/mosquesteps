@@ -22,7 +22,7 @@ All notable changes to MosqueSteps are documented here. The project follows [Sem
   - User guides (Getting started, Find mosque, Active walk, Stats, Notifications, Rewards, History)
   - Contribute page (`/contribute`) with issue links and contribution guide
   - Marketing folder: copy, campaigns, content calendar, press kit, email templates, keyword clusters
-  - Improvement prompts (IMPROVEMENT_PROMPTS.md) for product, SEO, and technical work
+  - Improvement prompts (marketing/IMPROVEMENT_PROMPTS.md) for product, SEO, and technical work
 
 - **App features**
   - Dashboard: prayer times, leave-by time, activity summary, start walk CTA
