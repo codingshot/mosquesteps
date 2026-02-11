@@ -132,20 +132,44 @@ export async function getIPGeolocation(): Promise<{ lat: number; lng: number; ci
   return null;
 }
 
+/**
+ * Get current hours and minutes in a specific timezone.
+ * Falls back to system time if timezone is invalid.
+ */
+export function getNowInTimezone(timezone?: string): { hours: number; minutes: number } {
+  if (timezone) {
+    try {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        hour: "numeric",
+        minute: "numeric",
+        hour12: false,
+        timeZone: timezone,
+      }).formatToParts(new Date());
+      const h = parseInt(parts.find(p => p.type === "hour")?.value || "0");
+      const m = parseInt(parts.find(p => p.type === "minute")?.value || "0");
+      return { hours: h === 24 ? 0 : h, minutes: m };
+    } catch {}
+  }
+  const now = new Date();
+  return { hours: now.getHours(), minutes: now.getMinutes() };
+}
+
 export async function fetchPrayerTimes(
   latitude: number,
   longitude: number,
-  dateOverride?: Date
+  dateOverride?: Date,
+  timezone?: string
 ): Promise<{ prayers: PrayerTime[]; hijriDate: string; readableDate: string; isNextDay: boolean }> {
   const target = dateOverride || new Date();
   const cacheKey = getCacheKey(latitude, longitude, target);
 
+  const { hours: nowH, minutes: nowM } = getNowInTimezone(timezone);
+  const currentMinutes = nowH * 60 + nowM;
+
   // Check cache first
   const cached = getPrayerCache(cacheKey);
   if (cached) {
-    // Re-calculate isPast for cached data since time has changed
     const now = new Date();
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
     const isToday = !dateOverride || target.toDateString() === now.toDateString();
     const prayers = cached.data.prayers.map((p) => {
       const [h, m] = p.time.split(":").map(Number);
@@ -166,7 +190,6 @@ export async function fetchPrayerTimes(
   const d: PrayerTimesData = data.data;
 
   const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
   const isToday = !dateOverride || target.toDateString() === now.toDateString();
 
   const prayers: PrayerTime[] = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"].map(
@@ -210,11 +233,11 @@ export function calculateLeaveByTime(
   return `${String(h).padStart(2, "0")}:${String(m < 0 ? m + 60 : m).padStart(2, "0")}`;
 }
 
-export function minutesUntilLeave(prayerTime: string, walkingMinutes: number): number {
+export function minutesUntilLeave(prayerTime: string, walkingMinutes: number, timezone?: string): number {
   const leaveBy = calculateLeaveByTime(prayerTime, walkingMinutes);
   const [lh, lm] = leaveBy.split(":").map(Number);
-  const now = new Date();
-  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const { hours, minutes } = getNowInTimezone(timezone);
+  const nowMin = hours * 60 + minutes;
   let leaveMin = lh * 60 + lm;
   if (leaveMin < nowMin) leaveMin += 24 * 60;
   return leaveMin - nowMin;

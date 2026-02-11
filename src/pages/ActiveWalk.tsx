@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { estimateSteps, estimateWalkingTime, calculateHasanat, fetchPrayerTimes, calculateLeaveByTime, minutesUntilLeave, getIPGeolocation, type PrayerTime } from "@/lib/prayer-times";
 import { addWalkEntry, getSettings, getSavedMosques } from "@/lib/walking-history";
+import { markPrayerWalked, updatePrayerLog, getTodayStr } from "@/lib/prayer-log";
 import { StepCounter, isStepCountingAvailable, getPaceCategory } from "@/lib/step-counter";
 import { fetchWalkingRoute } from "@/lib/routing";
 import { getCachedRoute, setCachedRoute, isOnline } from "@/lib/offline-cache";
@@ -104,6 +105,7 @@ const ActiveWalk = () => {
   const [eta, setEta] = useState<string>("");
   const [showCelebration, setShowCelebration] = useState(false);
   const [newBadges, setNewBadges] = useState<{ id: string; name: string; icon: string; description: string }[]>([]);
+  const [returnMethod, setReturnMethod] = useState<string>("");
   const prevDirectionIdx = useRef(-1);
   const prayerMarginAlerted = useRef(false);
 
@@ -490,6 +492,9 @@ const ActiveWalk = () => {
       hasanat,
       prayer: selectedPrayer,
     });
+
+    // Auto-mark prayer as walked in daily prayer log
+    if (selectedPrayer) markPrayerWalked(selectedPrayer);
 
     // Check for newly earned badges
     const stats = getWalkingStats();
@@ -1286,6 +1291,38 @@ const ActiveWalk = () => {
                 </div>
               </div>
             )}
+
+            {/* Return journey */}
+            <div className="glass-card p-4 space-y-2">
+              <p className="text-xs font-semibold text-foreground">How will you get back home?</p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { id: "walked", label: "🚶 Walk back" },
+                  { id: "car", label: "🚗 Car" },
+                  { id: "taxi", label: "🚕 Taxi" },
+                  { id: "bus", label: "🚌 Bus" },
+                  { id: "bike", label: "🚲 Bike" },
+                ].map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => {
+                      setReturnMethod(m.id);
+                      updatePrayerLog(getTodayStr(), selectedPrayer, { returnMethod: m.id as any });
+                    }}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                      returnMethod === m.id
+                        ? "bg-gradient-teal text-primary-foreground shadow-teal"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+              {returnMethod === "walked" && (
+                <p className="text-[10px] text-primary">✨ Walking back earns you even more hasanat!</p>
+              )}
+            </div>
 
             {/* Walk details */}
             <div className="glass-card p-3 text-xs text-muted-foreground flex items-center justify-between">
