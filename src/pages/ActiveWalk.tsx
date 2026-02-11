@@ -393,6 +393,10 @@ const ActiveWalk = () => {
 
     if (ml <= 5 && ml > -10) {
       prayerMarginAlerted.current = true;
+      // Vibration alert
+      if ("vibrate" in navigator) {
+        navigator.vibrate([200, 100, 200, 100, 400]);
+      }
       if ("speechSynthesis" in window) {
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(
@@ -785,7 +789,7 @@ const ActiveWalk = () => {
 
             {/* Prayer countdown while walking */}
             {selectedPrayer && timeUntilPrayer && (
-              <div className={`rounded-xl px-4 py-2.5 flex items-center justify-between ${
+              <div className={`rounded-xl px-4 py-3 ${
                 (() => {
                   const prayer = prayerTimes.find(pt => pt.name === selectedPrayer);
                   if (!prayer) return "bg-muted";
@@ -797,31 +801,61 @@ const ActiveWalk = () => {
                   return "bg-primary/5";
                 })()
               }`}>
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-gold" />
-                  <div className="text-left">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-gold" />
                     <p className="text-xs font-semibold text-foreground">
                       {selectedPrayer} in <span className="text-gold">{timeUntilPrayer}</span>
                     </p>
-                    {(() => {
-                      const prayer = prayerTimes.find(pt => pt.name === selectedPrayer);
-                      if (!prayer) return null;
-                      const walkTime = routeInfo?.durationMin || estimateWalkingTime(mosqueDist, settings.walkingSpeed);
-                      const remainingWalkMin = routeInfo?.steps
-                        ? Math.round((routeInfo.steps.slice(currentDirectionIdx).reduce((sum, s) => sum + s.distance, 0) / 1000) / (settings.walkingSpeed || 5) * 60)
-                        : walkTime;
-                      const ml = minutesUntilLeave(prayer.time, walkTime);
-                      return (
-                        <p className={`text-[10px] font-medium ${ml <= 0 ? "text-destructive" : ml <= 5 ? "text-destructive" : ml <= 15 ? "text-amber-500" : "text-muted-foreground"}`}>
-                          {ml <= 0 ? "⚠️ You should be there by now!" : `~${remainingWalkMin}m walk left · ${ml}m margin`}
-                        </p>
-                      );
-                    })()}
                   </div>
+                  <span className="text-sm font-bold text-foreground tabular-nums">
+                    {prayerTimes.find(pt => pt.name === selectedPrayer)?.time || ""}
+                  </span>
                 </div>
-                <span className="text-sm font-bold text-foreground tabular-nums">
-                  {prayerTimes.find(pt => pt.name === selectedPrayer)?.time || ""}
-                </span>
+                {/* Estimated arrival comparison */}
+                {(() => {
+                  const prayer = prayerTimes.find(pt => pt.name === selectedPrayer);
+                  if (!prayer) return null;
+                  const [ph, pm] = prayer.time.split(":").map(Number);
+                  const prayerTotalMin = ph * 60 + pm;
+
+                  // Calculate remaining walk time based on current speed
+                  const remainingDist = routeInfo?.steps
+                    ? routeInfo.steps.slice(currentDirectionIdx).reduce((sum, s) => sum + s.distance, 0) / 1000
+                    : mosqueDist - distanceKm;
+                  const currentSpeed = elapsedSeconds > 30 ? distanceKm / (elapsedSeconds / 3600) : (settings.walkingSpeed || 5);
+                  const remainingWalkMin = currentSpeed > 0 ? Math.round((remainingDist / currentSpeed) * 60) : 0;
+
+                  const now = new Date();
+                  const arrivalTotalMin = now.getHours() * 60 + now.getMinutes() + remainingWalkMin;
+                  const diffMin = prayerTotalMin - arrivalTotalMin;
+
+                  const walkTime = routeInfo?.durationMin || estimateWalkingTime(mosqueDist, settings.walkingSpeed);
+                  const ml = minutesUntilLeave(prayer.time, walkTime);
+
+                  return (
+                    <div className="mt-2 space-y-1">
+                      <div className={`flex items-center gap-1.5 text-xs font-medium ${
+                        diffMin < 0 ? "text-destructive" : diffMin <= 5 ? "text-amber-500" : "text-emerald-600 dark:text-emerald-400"
+                      }`}>
+                        {diffMin < 0 ? (
+                          <>⚠️ You may be {Math.abs(diffMin)} min late</>
+                        ) : diffMin === 0 ? (
+                          <>⏰ You'll arrive just in time</>
+                        ) : (
+                          <>✅ You'll arrive {diffMin} min before {selectedPrayer}</>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                        <span>~{remainingWalkMin}m walk left</span>
+                        <span>·</span>
+                        <span>{ml}m margin</span>
+                        <span>·</span>
+                        <span>{currentSpeed.toFixed(1)} km/h</span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
