@@ -36,6 +36,15 @@ const SITE = "https://mosquesteps.com";
 export const changelogEntries: ChangelogEntry[] = [
   // —— Unreleased ——
   {
+    id: "unreleased-seo-2025",
+    type: "seo",
+    version: "Unreleased",
+    date: "Unreleased",
+    title: "SEO and discoverability improvements",
+    description: "BreadcrumbList and HowTo structured data on blog and guide pages. Internal links from Blog to Dashboard, Mosque finder, Sunnah, FAQ, and Guides. Tighter meta descriptions with primary keywords. Expanded llms.txt with page descriptions and a 'For AI assistants' section. Sitemap lastmod and README note for regenerating when adding content.",
+    area: "seo",
+  },
+  {
     id: "unreleased-copy-link",
     type: "improvement",
     version: "Unreleased",

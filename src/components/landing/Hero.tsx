@@ -6,7 +6,7 @@ import heroImage from "@/assets/hero-image.jpg";
 
 const Hero = () => {
   return (
-    <section className="relative min-h-[90vh] flex items-center pt-16 overflow-hidden bg-gradient-hero">
+    <section className="relative min-h-[90vh] flex items-center pt-24 sm:pt-20 md:pt-16 overflow-hidden bg-gradient-hero">
       {/* Background image */}
       <div className="absolute inset-0 z-0">
         <img
@@ -43,7 +43,7 @@ const Hero = () => {
               </HadithTooltip>
             </p>
             <p className="text-sm text-muted-foreground mb-8">
-              — <a href="https://sunnah.com/muslim:666" target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">Sahih Muslim 666</a>
+              — <a href="https://sunnah.com/muslim:666" target="_blank" rel="noopener noreferrer" className="underline hover:text-primary" title="Open Sahih Muslim 666 on Sunnah.com — each step erases a sin and raises a degree">Sahih Muslim 666</a>
             </p>
           </motion.div>
 

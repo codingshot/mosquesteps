@@ -193,23 +193,25 @@ export function getWalkingStats(): WalkingStats {
     walksByPrayer[e.prayer] = (walksByPrayer[e.prayer] || 0) + 1;
   });
 
-  // Calculate streaks
+  // Streaks: use local date strings so timezone doesn't break "today"
+  const toLocalDateKey = (iso: string): string | null => {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return null;
+    const y = d.getFullYear(), m = d.getMonth(), day = d.getDate();
+    return `${y}-${String(m + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  };
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
 
-  const uniqueDates = [...new Set(history.map((e) => e.date.split("T")[0]))].sort().reverse();
+  const uniqueDates = [...new Set(history.map((e) => toLocalDateKey(e.date)).filter((k): k is string => k != null))].sort().reverse();
   let currentStreak = 0;
   let longestStreak = 0;
   let tempStreak = 0;
 
   for (let i = 0; i < uniqueDates.length; i++) {
-    const d = new Date(uniqueDates[i]);
-    d.setHours(0, 0, 0, 0);
-    const expectedDate = new Date(today);
-    expectedDate.setDate(expectedDate.getDate() - i);
-    expectedDate.setHours(0, 0, 0, 0);
-
-    if (d.getTime() === expectedDate.getTime()) {
+    const expected = new Date(today);
+    expected.setDate(expected.getDate() - i);
+    const expectedKey = toLocalDateKey(expected.toISOString());
+    if (uniqueDates[i] === expectedKey) {
       tempStreak++;
     } else {
       break;
@@ -217,21 +219,24 @@ export function getWalkingStats(): WalkingStats {
   }
   currentStreak = tempStreak;
 
-  // Calculate longest streak from all dates
-  tempStreak = 1;
-  const allDates = [...new Set(history.map((e) => e.date.split("T")[0]))].sort();
-  for (let i = 1; i < allDates.length; i++) {
-    const prev = new Date(allDates[i - 1]);
-    const curr = new Date(allDates[i]);
-    const diffDays = Math.round((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24));
-    if (diffDays === 1) {
-      tempStreak++;
-    } else if (diffDays > 1) {
-      longestStreak = Math.max(longestStreak, tempStreak);
-      tempStreak = 1;
+  const allDates = [...new Set(history.map((e) => toLocalDateKey(e.date)).filter((k): k is string => k != null))].sort();
+  if (allDates.length > 0) {
+    tempStreak = 1;
+    for (let i = 1; i < allDates.length; i++) {
+      const [py, pm, pd] = allDates[i - 1].split("-").map(Number);
+      const [cy, cm, cd] = allDates[i].split("-").map(Number);
+      const prevMs = new Date(py, pm - 1, pd).getTime();
+      const currMs = new Date(cy, cm - 1, cd).getTime();
+      const diffDays = Math.round((currMs - prevMs) / (1000 * 60 * 60 * 24));
+      if (diffDays === 1) {
+        tempStreak++;
+      } else if (diffDays > 1) {
+        longestStreak = Math.max(longestStreak, tempStreak);
+        tempStreak = 1;
+      }
     }
+    longestStreak = Math.max(longestStreak, tempStreak, currentStreak);
   }
-  longestStreak = Math.max(longestStreak, tempStreak, currentStreak);
 
   return {
     totalSteps,

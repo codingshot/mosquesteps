@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, BookOpen, Download, Smartphone } from "lucide-react";
 import { motion } from "framer-motion";
@@ -7,13 +8,36 @@ import { guides } from "@/lib/guides-data";
 import { usePWAInstall } from "@/hooks/use-pwa-install";
 import logo from "@/assets/logo.png";
 
+const SITE_URL = "https://mosquesteps.com";
+
 const Guides = () => {
   const navigate = useNavigate();
   const { canInstall, isInstalled, install } = usePWAInstall();
 
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.type = "application/ld+json";
+    script.id = "breadcrumb-guides";
+    script.textContent = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL + "/" },
+        { "@type": "ListItem", position: 2, name: "Guides", item: SITE_URL + "/guides" },
+      ],
+    });
+    const existing = document.getElementById(script.id);
+    if (existing) existing.remove();
+    document.head.appendChild(script);
+    return () => {
+      const el = document.getElementById(script.id);
+      if (el) el.remove();
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
-      <SEOHead title="User Guides" description="Step-by-step guides for MosqueSteps — setup, tracking walks, finding mosques, prayer reminders, and earning rewards." path="/guides" />
+      <SEOHead title="User Guides" description="Step-by-step guides: set up MosqueSteps, track walks to the mosque, find mosques, and earn spiritual rewards." path="/guides" />
       <header className="bg-gradient-teal text-primary-foreground">
         <div className="container py-4 flex items-center gap-2">
           <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-primary-foreground hover:opacity-80 transition-opacity">

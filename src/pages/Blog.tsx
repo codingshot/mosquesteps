@@ -1,9 +1,35 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import { blogPosts, BlogPost } from "@/lib/blog-data";
 import SEOHead from "@/components/SEOHead";
 import logo from "@/assets/logo.png";
+
+const SITE_URL = "https://mosquesteps.com";
+
+function injectBreadcrumbList(items: { name: string; url: string }[]) {
+  const script = document.createElement("script");
+  script.type = "application/ld+json";
+  script.id = "breadcrumb-blog";
+  script.textContent = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((item, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: item.name,
+      item: item.url,
+    })),
+  });
+  const existing = document.getElementById(script.id);
+  if (existing) existing.remove();
+  document.head.appendChild(script);
+  return () => {
+    const el = document.getElementById(script.id);
+    if (el) el.remove();
+  };
+}
 
 const categoryLabels: Record<BlogPost["category"], string> = {
   sunnah: "Sunnah & Hadith",
@@ -14,30 +40,35 @@ const categoryLabels: Record<BlogPost["category"], string> = {
 };
 
 const categoryColors: Record<BlogPost["category"], string> = {
-  sunnah: "bg-primary/10 text-primary",
-  guide: "bg-accent/10 text-accent-foreground",
-  tips: "bg-secondary text-secondary-foreground",
-  health: "bg-destructive/10 text-destructive",
-  community: "bg-gold/10 text-foreground",
+  sunnah: "bg-primary/15 text-primary dark:bg-primary/25 dark:text-primary",
+  guide: "bg-accent/15 text-foreground dark:bg-accent/30 dark:text-foreground",
+  tips: "bg-muted text-foreground dark:bg-muted/80 dark:text-foreground border border-border",
+  health: "bg-destructive/15 text-destructive dark:bg-destructive/25 dark:text-destructive-foreground",
+  community: "bg-gold/15 text-foreground dark:bg-gold/25 dark:text-foreground border border-border",
 };
 
 const Blog = () => {
   const categories = ["sunnah", "guide", "tips"] as const;
 
+  useEffect(() => {
+    return injectBreadcrumbList([
+      { name: "Home", url: SITE_URL + "/" },
+      { name: "Blog", url: SITE_URL + "/blogs" },
+    ]);
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       <SEOHead
         title="Blog — Sunnah, Guides & Walking Tips"
-        description="Explore articles on the Sunnah of walking to the mosque, app guides, and tips for building a consistent walking habit. Rooted in authentic Islamic sources."
+        description="Articles on walking to the mosque: Sunnah, hadiths, app guides, and tips. Build a blessed walking habit with MosqueSteps."
         path="/blogs"
       />
 
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border/50">
         <div className="container flex items-center h-14 gap-3">
-          <Link to="/">
-            <button className="p-2 -ml-2 text-foreground hover:text-primary transition-colors">
-              <ArrowLeft className="w-5 h-5" />
-            </button>
+          <Link to="/" className="p-2 -ml-2 rounded-lg border border-border bg-background text-foreground hover:text-primary hover:border-primary/50 hover:bg-muted/50 transition-colors inline-flex" aria-label="Back to home">
+            <ArrowLeft className="w-5 h-5" />
           </Link>
           <Link to="/" className="flex items-center gap-2">
             <img src={logo} alt="MosqueSteps" className="w-6 h-6" />
@@ -73,7 +104,7 @@ const Blog = () => {
                       <span className="text-3xl flex-shrink-0">{post.image}</span>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${categoryColors[post.category]}`}>
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border border-border/50 ${categoryColors[post.category]}`}>
                             {categoryLabels[post.category]}
                           </span>
                           <span className="text-[10px] text-muted-foreground">{post.readTime}</span>
@@ -88,6 +119,24 @@ const Blog = () => {
             </section>
           );
         })}
+
+        {/* Internal links for SEO and discovery */}
+        <section className="mt-10 pt-8 border-t border-border">
+          <h2 className="text-sm font-semibold text-foreground mb-3">Explore the app</h2>
+          <div className="flex flex-wrap gap-2">
+            <Link to="/dashboard" className="text-sm text-primary hover:underline">Dashboard</Link>
+            <span className="text-muted-foreground">·</span>
+            <Link to="/mosques" className="text-sm text-primary hover:underline">Mosque finder</Link>
+            <span className="text-muted-foreground">·</span>
+            <Link to="/sunnah" className="text-sm text-primary hover:underline" title="Hadiths about walking to prayer: each step erases a sin and raises a degree, Fajr/Isha rewards, walk with tranquility.">Sunnah & hadiths</Link>
+            <span className="text-muted-foreground">·</span>
+            <Link to="/faq" className="text-sm text-primary hover:underline">FAQ</Link>
+            <span className="text-muted-foreground">·</span>
+            <Link to="/how-it-works" className="text-sm text-primary hover:underline">How it works</Link>
+            <span className="text-muted-foreground">·</span>
+            <Link to="/guides" className="text-sm text-primary hover:underline">Guides</Link>
+          </div>
+        </section>
 
         <div className="text-center pt-4">
           <Link to="/" className="text-sm text-primary hover:underline">← Back to Home</Link>

@@ -46,6 +46,7 @@ const IslamicFoundation = () => {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs font-medium text-gold hover:underline"
+                title="Open full hadith on Sunnah.com — Arabic, chain, and translations"
               >
                 — {h.source} ↗
               </a>
@@ -64,6 +65,7 @@ const IslamicFoundation = () => {
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm font-medium text-gold hover:underline"
+            title="Search Sunnah.com for more hadiths about walking to the mosque"
           >
             Explore more hadiths on Sunnah.com →
           </a>

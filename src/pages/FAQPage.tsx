@@ -31,7 +31,7 @@ const FAQPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <SEOHead title="Frequently Asked Questions" description="Common questions about MosqueSteps — walking tracker, prayer times, mosque finder, and spiritual rewards." path="/faq" />
+      <SEOHead title="Frequently Asked Questions" description="FAQ: steps, prayer times, mosque finder, privacy, and spiritual rewards. MosqueSteps — walk to the mosque, track your blessing." path="/faq" />
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border/50">
         <div className="container flex items-center h-14 gap-3">
           <Link to="/">

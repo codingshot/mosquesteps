@@ -184,10 +184,10 @@ npx vitest --watch      # Watch mode
 
 ## SEO & AI Discoverability
 
-- JSON-LD structured data (WebApplication schema)
+- JSON-LD structured data (WebApplication, FAQPage, BreadcrumbList, HowTo on guides)
 - Open Graph + Twitter Card meta tags
-- `sitemap.xml` and `robots.txt` (allows GPTBot, ClaudeBot, PerplexityBot)
-- `llms.txt` for AI engine context
+- `sitemap.xml` and `robots.txt` (allows GPTBot, ClaudeBot, PerplexityBot). When adding new blog posts or guides, update `public/sitemap.xml`: add a `<url>` with `<loc>`, `<lastmod>YYYY-MM-DD</lastmod>`, and optionally `<changefreq>` / `<priority>`.
+- `llms.txt` for AI engine context (page descriptions and "For AI assistants" section)
 
 ## Links
 

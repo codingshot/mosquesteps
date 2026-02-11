@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useParams, Link, Navigate, useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, ChevronRight, Copy, Download, Smartphone, ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
@@ -7,6 +8,8 @@ import { guides, getGuideById } from "@/lib/guides-data";
 import { usePWAInstall } from "@/hooks/use-pwa-install";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
+
+const SITE_URL = "https://mosquesteps.com";
 
 const GuidePage = () => {
   const { guideId } = useParams<{ guideId: string }>();
@@ -20,6 +23,54 @@ const GuidePage = () => {
   const currentIndex = guides.findIndex((g) => g.id === guide.id);
   const prevGuide = currentIndex > 0 ? guides[currentIndex - 1] : null;
   const nextGuide = currentIndex < guides.length - 1 ? guides[currentIndex + 1] : null;
+
+  useEffect(() => {
+    const breadcrumb = document.createElement("script");
+    breadcrumb.type = "application/ld+json";
+    breadcrumb.id = "breadcrumb-guide";
+    breadcrumb.textContent = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL + "/" },
+        { "@type": "ListItem", position: 2, name: "Guides", item: SITE_URL + "/guides" },
+        { "@type": "ListItem", position: 3, name: guide.title, item: SITE_URL + "/guides/" + guide.id },
+      ],
+    });
+    const existing = document.getElementById(breadcrumb.id);
+    if (existing) existing.remove();
+    document.head.appendChild(breadcrumb);
+
+    const howTo =
+      guide.id === "getting-started"
+        ? (() => {
+            const script = document.createElement("script");
+            script.type = "application/ld+json";
+            script.id = "howto-guide";
+            script.textContent = JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "HowTo",
+              name: guide.title,
+              description: guide.description,
+              step: guide.steps.map((s, i) => ({
+                "@type": "HowToStep",
+                position: i + 1,
+                name: s.text.slice(0, 80) + (s.text.length > 80 ? "…" : ""),
+                text: s.text,
+              })),
+            });
+            const ex = document.getElementById(script.id);
+            if (ex) ex.remove();
+            document.head.appendChild(script);
+            return script;
+          })()
+        : null;
+
+    return () => {
+      document.getElementById(breadcrumb.id)?.remove();
+      document.getElementById("howto-guide")?.remove();
+    };
+  }, [guide.id, guide.title, guide.description, guide.steps]);
 
   const copyLink = () => {
     navigator.clipboard.writeText(window.location.href).then(() => {

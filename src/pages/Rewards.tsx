@@ -164,6 +164,7 @@ const Rewards = () => {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs font-medium text-primary hover:underline"
+                      title="Open full hadith on Sunnah.com — Arabic, chain of narration, and translations"
                     >
                       — {h.source} ↗
                     </a>
@@ -183,6 +184,7 @@ const Rewards = () => {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm font-medium text-primary hover:underline"
+                title="Search Sunnah.com for more hadiths about walking to the mosque"
               >
                 Explore more on Sunnah.com →
               </a>

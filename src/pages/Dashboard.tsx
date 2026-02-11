@@ -413,6 +413,7 @@ const Dashboard = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-[10px] text-primary hover:underline"
+                    title="Open Sahih Muslim 666 on Sunnah.com — each step erases a sin and raises a degree"
                   >
                     — Sahih Muslim 666
                   </a>
@@ -760,7 +761,7 @@ const Dashboard = () => {
             </TooltipTrigger>
             <TooltipContent className="max-w-xs p-3" side="top">
               <p className="text-xs text-popover-foreground">
-                <strong>Hasanat</strong> = spiritual rewards. Each step earns 2 hasanat (1 sin erased + 1 degree raised). Based on <a href="https://sunnah.com/muslim:666" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Sahih Muslim 666</a>.
+                <strong>Hasanat</strong> = spiritual rewards. Each step earns 2 hasanat (1 sin erased + 1 degree raised). Based on <a href="https://sunnah.com/muslim:666" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline" title="Open Sahih Muslim 666 on Sunnah.com — each step erases a sin and raises a degree">Sahih Muslim 666</a>.
               </p>
             </TooltipContent>
           </Tooltip>
@@ -775,7 +776,7 @@ const Dashboard = () => {
               one of his sins removed."
             </p>
           </HadithTooltip>
-          <a href="https://sunnah.com/muslim:666" target="_blank" rel="noopener noreferrer" className="text-xs text-gold mt-2 inline-block hover:underline">
+          <a href="https://sunnah.com/muslim:666" target="_blank" rel="noopener noreferrer" className="text-xs text-gold mt-2 inline-block hover:underline" title="Open Sahih Muslim 666 on Sunnah.com — each step erases a sin and raises a degree">
             — Sahih Muslim 666
           </a>
         </div>

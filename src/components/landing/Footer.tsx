@@ -56,7 +56,7 @@ const Footer = () => {
           <div>
             <h4 className="text-sm font-semibold text-foreground mb-3">Resources</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><Link to="/sunnah" className="hover:text-primary transition-colors">Sunnah References</Link></li>
+              <li><Link to="/sunnah" className="hover:text-primary transition-colors" title="Hadiths on walking to the mosque: rewards, Fajr & Isha, tranquility. Full Arabic and Sunnah.com links.">Sunnah References</Link></li>
               <li><Link to="/how-it-works" className="hover:text-primary transition-colors">How It Works</Link></li>
               <li><Link to="/faq" className="hover:text-primary transition-colors">FAQ</Link></li>
               <li><Link to="/changelog" className="hover:text-primary transition-colors">Changelog</Link></li>
@@ -69,29 +69,14 @@ const Footer = () => {
             </ul>
           </div>
 
-          {/* Report & Legal */}
+          {/* Issues & Legal */}
           <div>
-            <h4 className="text-sm font-semibold text-foreground mb-3">Report an Issue</h4>
+            <h4 className="text-sm font-semibold text-foreground mb-3">Issues & Legal</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li>
-                <a href={`${GITHUB_REPO}/issues/new?template=bug_report.md`} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">
-                  🐛 Report a Bug
-                </a>
-              </li>
-              <li>
-                <a href={`${GITHUB_REPO}/issues/new?template=feature_request.md`} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">
-                  ✨ Request a Feature
-                </a>
-              </li>
-              <li>
-                <a href={`${GITHUB_REPO}/issues/new?template=mosque_data.md`} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">
-                  🕌 Mosque Data Issue
-                </a>
-              </li>
-              <li>
-                <a href={`${GITHUB_REPO}/issues/new?template=prayer_times.md`} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">
-                  ⏰ Prayer Time Issue
-                </a>
+                <Link to="/issues" className="hover:text-primary transition-colors">
+                  Report an Issue
+                </Link>
               </li>
             </ul>
             <h4 className="text-sm font-semibold text-foreground mb-3 mt-4">Legal</h4>

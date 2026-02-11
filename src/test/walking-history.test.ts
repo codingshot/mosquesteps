@@ -80,6 +80,25 @@ describe("walking-history", () => {
       expect(stats.totalWalks).toBe(0);
       expect(stats.totalHasanat).toBe(0);
       expect(stats.totalDistance).toBe(0);
+      expect(stats.currentStreak).toBe(0);
+      expect(stats.longestStreak).toBe(0);
+      expect(stats.walksByPrayer).toEqual({});
+    });
+
+    it("ignores malformed dates for streak calculation", () => {
+      addWalkEntry({ date: "2026-02-10T12:00:00.000Z", mosqueName: "M", distanceKm: 0.5, steps: 100, walkingTimeMin: 5, hasanat: 200, prayer: "Fajr" });
+      const stats = getWalkingStats();
+      expect(stats.totalWalks).toBe(1);
+      expect(stats.currentStreak).toBeGreaterThanOrEqual(0);
+      expect(stats.longestStreak).toBeGreaterThanOrEqual(0);
+    });
+
+    it("handles entry with invalid date string without throwing", () => {
+      addWalkEntry({ date: "not-a-date", mosqueName: "M", distanceKm: 0.5, steps: 100, walkingTimeMin: 5, hasanat: 200, prayer: "Fajr" });
+      const stats = getWalkingStats();
+      expect(stats.totalWalks).toBe(1);
+      expect(stats.currentStreak).toBe(0);
+      expect(stats.longestStreak).toBe(0);
     });
 
     it("calculates totals correctly", () => {

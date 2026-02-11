@@ -28,4 +28,5 @@ Allow: /
 User-agent: *
 Allow: /
 
+# Valid URLs are in the sitemap; 404 and other invalid paths are not listed.
 Sitemap: https://mosquesteps.com/sitemap.xml

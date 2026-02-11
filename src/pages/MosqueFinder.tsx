@@ -489,7 +489,7 @@ const MosqueFinder = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col pb-bottom-nav relative">
-      <SEOHead title="Find Mosques Near You" description="Discover nearby mosques with walking routes, distance estimates, and step counts. Powered by OpenStreetMap." path="/mosques" />
+      <SEOHead title="Find Mosques Near You" description="Find mosques near you: walking routes, distance, and step estimates. OpenStreetMap. Set your mosque for prayer-time reminders." path="/mosques" />
       <header className="bg-card border-b border-border">
         <div className="container py-3 flex items-center gap-2">
           <Link to="/dashboard" className="flex items-center gap-2">

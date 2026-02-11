@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useParams, Link, Navigate } from "react-router-dom";
 import { ArrowLeft, Copy } from "lucide-react";
 import { motion } from "framer-motion";
@@ -6,6 +7,8 @@ import SEOHead from "@/components/SEOHead";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
+
+const SITE_URL = "https://mosquesteps.com";
 
 const categoryLabels: Record<BlogPostType["category"], string> = {
   sunnah: "Sunnah & Hadith",
@@ -17,12 +20,60 @@ const categoryLabels: Record<BlogPostType["category"], string> = {
 
 const BlogPostPage = () => {
   const { slug } = useParams<{ slug: string }>();
-  const post = slug ? getBlogBySlug(slug) : undefined;
+  const normalizedSlug = slug
+    ? (() => {
+        try {
+          return decodeURIComponent(slug).trim().replace(/\/+$/, "");
+        } catch {
+          return slug.trim().replace(/\/+$/, "");
+        }
+      })()
+    : "";
+  const post = normalizedSlug ? getBlogBySlug(normalizedSlug) : undefined;
   const { toast } = useToast();
 
-  if (!post) return <Navigate to="/blogs" replace />;
+  useEffect(() => {
+    if (normalizedSlug && !post) {
+      toast({ title: "Article not found", description: "Redirecting to blog.", variant: "destructive" });
+    }
+  }, [normalizedSlug, post, toast]);
+
+  if (!post) {
+    if (!normalizedSlug) return <Navigate to="/blogs" replace />;
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+        <SEOHead title="Article Not Found" description="Blog article not found." path={`/blogs/${normalizedSlug}`} noindex />
+        <p className="text-muted-foreground mb-4">Article not found.</p>
+        <Link to="/blogs" className="text-primary font-medium hover:underline">
+          ← Back to Blog
+        </Link>
+      </div>
+    );
+  }
 
   const related = getRelatedPosts(post.slug, 3);
+
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.type = "application/ld+json";
+    script.id = "breadcrumb-blogpost";
+    script.textContent = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL + "/" },
+        { "@type": "ListItem", position: 2, name: "Blog", item: SITE_URL + "/blogs" },
+        { "@type": "ListItem", position: 3, name: post.title, item: SITE_URL + "/blogs/" + post.slug },
+      ],
+    });
+    const existing = document.getElementById(script.id);
+    if (existing) existing.remove();
+    document.head.appendChild(script);
+    return () => {
+      const el = document.getElementById(script.id);
+      if (el) el.remove();
+    };
+  }, [post.slug, post.title]);
 
   const copyLink = () => {
     const url = window.location.href;
@@ -90,10 +141,8 @@ const BlogPostPage = () => {
 
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border/50">
         <div className="container flex items-center h-14 gap-3">
-          <Link to="/blogs">
-            <button className="p-2 -ml-2 text-foreground hover:text-primary transition-colors">
-              <ArrowLeft className="w-5 h-5" />
-            </button>
+          <Link to="/blogs" className="p-2 -ml-2 rounded-lg border border-border bg-background text-foreground hover:text-primary hover:border-primary/50 hover:bg-muted/50 transition-colors inline-flex" aria-label="Back to blog">
+            <ArrowLeft className="w-5 h-5" />
           </Link>
           <Link to="/" className="flex items-center gap-2">
             <img src={logo} alt="MosqueSteps" className="w-6 h-6" />
@@ -112,7 +161,7 @@ const BlogPostPage = () => {
             <span className="text-xs font-semibold text-primary">{categoryLabels[post.category]} · {post.readTime}</span>
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground mt-2 leading-tight">{post.title}</h1>
             <p className="text-muted-foreground text-sm mt-3 max-w-lg mx-auto">{post.excerpt}</p>
-            <Button variant="ghost" size="sm" className="mt-3 gap-2 text-muted-foreground" onClick={copyLink} aria-label="Copy link to this article">
+            <Button variant="outline" size="sm" className="mt-3 gap-2 text-foreground border-border" onClick={copyLink} aria-label="Copy link to this article">
               <Copy className="w-4 h-4" /> Copy link
             </Button>
           </div>
@@ -124,7 +173,7 @@ const BlogPostPage = () => {
           {/* Tags */}
           <div className="flex flex-wrap gap-2 mt-8">
             {post.tags.map((tag) => (
-              <span key={tag} className="text-[10px] px-2 py-1 rounded-full bg-secondary text-secondary-foreground">
+              <span key={tag} className="text-[10px] px-2 py-1 rounded-full bg-muted/80 text-foreground border border-border ring-1 ring-border/50">
                 #{tag}
               </span>
             ))}
@@ -153,8 +202,12 @@ const BlogPostPage = () => {
           </section>
         )}
 
-        <div className="text-center pt-8">
+        <div className="text-center pt-6 flex flex-wrap justify-center gap-x-3 gap-y-1">
           <Link to="/blogs" className="text-sm text-primary hover:underline">← All Articles</Link>
+          <span className="text-muted-foreground">·</span>
+          <Link to="/guides" className="text-sm text-primary hover:underline">User guides</Link>
+          <span className="text-muted-foreground">·</span>
+          <Link to="/faq" className="text-sm text-primary hover:underline">FAQ</Link>
         </div>
       </main>
     </div>

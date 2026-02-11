@@ -1123,7 +1123,7 @@ const ActiveWalk = () => {
                 <motion.div key={currentQuoteIdx} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
                   className="bg-gradient-teal rounded-xl p-3 text-primary-foreground">
                   <p className="text-xs italic leading-relaxed">"{quote.text}"</p>
-                  <a href={quote.link} target="_blank" rel="noopener noreferrer" className="text-[10px] text-gold mt-1 block hover:underline">— {quote.source}</a>
+                  <a href={quote.link} target="_blank" rel="noopener noreferrer" className="text-[10px] text-gold mt-1 block hover:underline" title="Open full hadith on Sunnah.com — Arabic, chain, and translations">— {quote.source}</a>
                 </motion.div>
               </AnimatePresence>
             )}

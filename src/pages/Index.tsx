@@ -12,7 +12,7 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <SEOHead
         title="MosqueSteps — Every Step is a Blessing"
-        description="Track your walk to the mosque and discover spiritual rewards. Prayer times, step estimates, mosque finder, and hasanat based on authentic hadiths. Free PWA."
+        description="Track your walk to the mosque and earn spiritual rewards. Prayer times, steps, mosque finder, and hasanat from authentic hadiths. Free PWA — every step counts."
         path="/"
       />
       <Navbar />

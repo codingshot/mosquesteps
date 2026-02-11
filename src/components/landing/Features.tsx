@@ -78,6 +78,7 @@ const Features = () => {
               <Link
                 to={f.page}
                 className="glass-card p-6 hover:shadow-teal transition-shadow duration-300 block group h-full"
+                title={f.page === "/sunnah" ? "Hadiths on walking to the mosque — rewards, Fajr & Isha, tranquility. Links to Sunnah.com." : undefined}
               >
                 <div className="w-12 h-12 rounded-lg bg-gradient-teal flex items-center justify-center mb-4">
                   <f.icon className="w-6 h-6 text-primary-foreground" />

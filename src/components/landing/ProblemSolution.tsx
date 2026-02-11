@@ -57,7 +57,7 @@ const ProblemSolution = () => {
               </li>
               <li className="flex items-start gap-3">
                 <span className="text-primary font-bold">📚</span>
-                <span><strong>Learn the <a href="https://sunnah.com/search?q=walking+to+mosque" target="_blank" rel="noopener noreferrer" className="text-primary underline">Sunnah</a></strong> of walking to prayer</span>
+                <span><strong>Learn the <a href="https://sunnah.com/search?q=walking+to+mosque" target="_blank" rel="noopener noreferrer" className="text-primary underline" title="Search Sunnah.com for hadiths about walking to the mosque">Sunnah</a></strong> of walking to prayer</span>
               </li>
             </ul>
           </motion.div>

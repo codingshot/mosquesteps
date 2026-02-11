@@ -7,7 +7,7 @@ import SEOHead from "@/components/SEOHead";
 const SunnahPage = () => {
   return (
     <div className="min-h-screen bg-background">
-      <SEOHead title="Sunnah of Walking to Prayer" description="Discover the authentic hadiths about the spiritual rewards of walking to the mosque. Every step earns blessings." path="/sunnah" />
+      <SEOHead title="Sunnah of Walking to Prayer" description="Hadiths on walking to the mosque: spiritual rewards, Fajr & Isha, and tranquility. Authentic sources — every step earns blessings." path="/sunnah" />
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border/50">
         <div className="container flex items-center h-14 gap-3">
           <Link to="/">

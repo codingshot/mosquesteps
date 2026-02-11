@@ -8,7 +8,7 @@ import { getBlogBySlug } from "@/lib/blog-data";
 import { getGuideById } from "@/lib/guides-data";
 
 describe("Edge cases: routing and missing content", () => {
-  it("BlogPost with invalid slug redirects to /blogs", () => {
+  it("BlogPost with invalid slug shows not-found UI and link to /blogs", () => {
     const invalidSlug = "nonexistent-post-slug-12345";
     expect(getBlogBySlug(invalidSlug)).toBeUndefined();
 
@@ -17,13 +17,14 @@ describe("Edge cases: routing and missing content", () => {
         <Routes>
           <Route path="/blogs/:slug" element={<BlogPost />} />
           <Route path="/blogs" element={<div data-testid="blog-list">Blog list</div>} />
-          <Route path="*" element={<Navigate to="/blogs" replace />} />
         </Routes>
       </MemoryRouter>
     );
 
-    // BlogPost uses Navigate to="/blogs" when post is undefined, so we should see blog list
-    expect(screen.getByTestId("blog-list")).toBeInTheDocument();
+    expect(screen.getByText(/Article not found/i)).toBeInTheDocument();
+    const backLink = screen.getByRole("link", { name: /back to blog/i });
+    expect(backLink).toBeInTheDocument();
+    expect(backLink).toHaveAttribute("href", "/blogs");
   });
 
   it("getBlogBySlug returns undefined for empty or unknown slug", () => {

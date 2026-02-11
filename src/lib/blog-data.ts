@@ -987,6 +987,20 @@ export function getRelatedPosts(currentSlug: string, limit = 3): BlogPost[] {
   return scored.slice(0, limit).map((s) => s.post);
 }
 
+/** Normalize slug from URL: decode, trim, strip trailing slash, lowercase for lookup. */
+function normalizeSlug(slug: string): string {
+  try {
+    const decoded = decodeURIComponent(slug || "").trim().replace(/\/+$/, "");
+    return decoded.toLowerCase();
+  } catch {
+    return (slug || "").trim().toLowerCase();
+  }
+}
+
 export function getBlogBySlug(slug: string): BlogPost | undefined {
-  return blogPosts.find((p) => p.slug === slug);
+  const normalized = normalizeSlug(slug);
+  if (!normalized) return undefined;
+  const exact = blogPosts.find((p) => p.slug === normalized);
+  if (exact) return exact;
+  return blogPosts.find((p) => p.slug.toLowerCase() === normalized);
 }

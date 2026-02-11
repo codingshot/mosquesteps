@@ -110,6 +110,7 @@ const HadithTooltip = ({ hadithKey, children, className = "" }: HadithTooltipPro
               target="_blank"
               rel="noopener noreferrer"
               className="font-medium text-primary hover:underline flex items-center gap-1"
+              title={`Open full hadith on Sunnah.com — Arabic text, chain of narration, and translations`}
             >
               <BookOpen className="w-3 h-3" />
               {hadith.source}
