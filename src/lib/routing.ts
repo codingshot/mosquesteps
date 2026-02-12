@@ -1,5 +1,5 @@
 /**
- * Fetch walking route from OSRM
+ * Fetch walking route from OSRM. Returns null when offline (no network).
  */
 export async function fetchWalkingRoute(
   fromLat: number,
@@ -12,6 +12,7 @@ export async function fetchWalkingRoute(
   durationMin: number;
   steps: { instruction: string; distance: number; duration: number }[];
 } | null> {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return null;
   try {
     const url = `https://router.project-osrm.org/route/v1/foot/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=geojson&steps=true`;
     const res = await fetch(url);

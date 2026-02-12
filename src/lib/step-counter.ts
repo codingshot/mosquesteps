@@ -11,26 +11,30 @@ interface StepCounterState {
   source: "accelerometer" | "devicemotion" | "gps" | "none";
 }
 
-// Step detection via peak detection on acceleration magnitude
-class AccelerometerStepDetector {
+// Step detection via peak detection on acceleration magnitude (exported for tests)
+export class AccelerometerStepDetector {
   private steps = 0;
   private lastMagnitude = 0;
   private lastPeakTime = 0;
   private isRising = false;
   private callback: StepCallback;
 
-  // Tuning parameters
+  // Tuning parameters for walking accuracy
   private readonly PEAK_THRESHOLD = 1.2;    // m/s² above gravity to count as step
-  private readonly MIN_STEP_INTERVAL = 250; // ms between steps (max ~4 steps/sec)
-  private readonly MAX_STEP_INTERVAL = 2000; // ms (min ~0.5 steps/sec)
+  private readonly MIN_STEP_INTERVAL = 250; // ms between steps (max ~4 steps/sec, prevents double-count)
+  private readonly MAX_STEP_INTERVAL = 3500; // ms (allows pauses at crosswalks, ~0.3 steps/sec min)
 
   constructor(callback: StepCallback) {
     this.callback = callback;
   }
 
   processReading(x: number, y: number, z: number) {
-    // Calculate acceleration magnitude (should be ~9.8 when stationary due to gravity)
-    const magnitude = Math.sqrt(x * x + y * y + z * z);
+    const nx = Number(x);
+    const ny = Number(y);
+    const nz = Number(z);
+    if (!Number.isFinite(nx) || !Number.isFinite(ny) || !Number.isFinite(nz)) return;
+    const magnitude = Math.sqrt(nx * nx + ny * ny + nz * nz);
+    if (!Number.isFinite(magnitude) || magnitude < 1 || magnitude > 50) return; // ignore impossible values
     const now = Date.now();
 
     // Peak detection: detect when acceleration crosses threshold going up then down
@@ -40,9 +44,10 @@ class AccelerometerStepDetector {
       }
     } else if (this.isRising && magnitude < 9.8 + this.PEAK_THRESHOLD * 0.5) {
       this.isRising = false;
-      const timeSinceLastPeak = now - this.lastPeakTime;
-      
-      if (timeSinceLastPeak > this.MIN_STEP_INTERVAL && timeSinceLastPeak < this.MAX_STEP_INTERVAL) {
+      const timeSinceLastPeak = this.lastPeakTime ? now - this.lastPeakTime : this.MIN_STEP_INTERVAL + 1;
+      const isFirstStep = this.lastPeakTime === 0;
+      const validInterval = isFirstStep || (timeSinceLastPeak > this.MIN_STEP_INTERVAL && timeSinceLastPeak < this.MAX_STEP_INTERVAL);
+      if (validInterval) {
         this.steps++;
         this.callback(this.steps);
       }
@@ -71,6 +76,7 @@ export class StepCounter {
   private state: StepCounterState = { steps: 0, isActive: false, source: "none" };
   private onStep: StepCallback;
   private onSourceChange: ((source: string) => void) | null = null;
+  private paused = false;
 
   constructor(onStep: StepCallback, onSourceChange?: (source: string) => void) {
     this.onStep = onStep;
@@ -102,11 +108,9 @@ export class StepCounter {
 
         const accel = new (window as any).Accelerometer({ frequency: 30 });
         accel.addEventListener("reading", () => {
-          this.detector.processReading(
-            accel.x || 0,
-            accel.y || 0,
-            accel.z || 0
-          );
+          if (!this.paused) {
+            this.detector.processReading(accel.x || 0, accel.y || 0, accel.z || 0);
+          }
         });
         accel.addEventListener("error", (e: any) => {
           console.warn("Accelerometer error, falling back:", e.error);
@@ -145,9 +149,10 @@ export class StepCounter {
     }
 
     this.deviceMotionHandler = (event: DeviceMotionEvent) => {
+      if (this.paused) return;
       const accel = event.accelerationIncludingGravity;
       if (accel && accel.x !== null && accel.y !== null && accel.z !== null) {
-        this.detector.processReading(accel.x!, accel.y!, accel.z!);
+        this.detector.processReading(accel.x, accel.y, accel.z);
       }
     };
 
@@ -157,8 +162,17 @@ export class StepCounter {
     return "devicemotion";
   }
 
+  pause() {
+    this.paused = true;
+  }
+
+  resume() {
+    this.paused = false;
+  }
+
   stop() {
     this.state.isActive = false;
+    this.paused = false;
 
     if (this.accelerometer) {
       try { this.accelerometer.stop(); } catch {}

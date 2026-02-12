@@ -55,6 +55,15 @@ export default defineConfig(({ mode }) => ({
               expiration: { maxEntries: 200, maxAgeSeconds: 86400 * 30 },
             },
           },
+          {
+            urlPattern: /^https:\/\/router\.project-osrm\.org\/.*/i,
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "osrm-routes-cache",
+              networkTimeoutSeconds: 8,
+              expiration: { maxEntries: 30, maxAgeSeconds: 86400 * 7 },
+            },
+          },
         ],
       },
       manifest: {

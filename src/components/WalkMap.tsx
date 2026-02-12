@@ -20,6 +20,8 @@ interface WalkMapProps {
   isWalking: boolean;
   offRoute?: boolean;
   eta?: string;
+  /** Compact direction overlay at bottom of map (e.g. "In 150 m · Turn left") */
+  directionOverlay?: { distance: string; instruction: string };
   className?: string;
   onRecenter?: () => void;
 }
@@ -46,6 +48,9 @@ const userIcon = L.divIcon({
   iconAnchor: [7, 7],
 });
 
+const PAN_THROTTLE_MS = 2500;
+const USER_OFFSET_FRACTION = 0.35; // User at 35% from top = more route ahead visible
+
 export default function WalkMap({
   userPosition,
   mosquePosition,
@@ -57,6 +62,7 @@ export default function WalkMap({
   isWalking,
   offRoute,
   eta,
+  directionOverlay,
   className = "",
   onRecenter,
 }: WalkMapProps) {
@@ -69,6 +75,8 @@ export default function WalkMap({
   const walkLineRef = useRef<L.Polyline | null>(null);
   const stepMarkersRef = useRef<L.Marker[]>([]);
   const distLabelRef = useRef<L.Marker | null>(null);
+  const lastPanRef = useRef(0);
+  const recenterRequestedRef = useRef(false);
 
   // Initialize map
   useEffect(() => {
@@ -94,7 +102,7 @@ export default function WalkMap({
     };
   }, []);
 
-  // Update user marker
+  // Update user marker and camera (route-ahead view when walking)
   useEffect(() => {
     if (!mapRef.current || !userPosition) return;
     if (userMarkerRef.current) {
@@ -103,7 +111,22 @@ export default function WalkMap({
       userMarkerRef.current = L.marker([userPosition.lat, userPosition.lng], { icon: userIcon }).addTo(mapRef.current);
     }
     if (isWalking) {
-      mapRef.current.panTo([userPosition.lat, userPosition.lng], { animate: true });
+      const now = Date.now();
+      const shouldPan = recenterRequestedRef.current || now - lastPanRef.current >= PAN_THROTTLE_MS;
+      if (shouldPan) {
+        const map = mapRef.current;
+        const size = map.getSize();
+        if (size.x > 0 && size.y > 0) {
+          lastPanRef.current = now;
+          recenterRequestedRef.current = false;
+          const userPoint = map.latLngToContainerPoint([userPosition.lat, userPosition.lng]);
+          const targetY = size.y * USER_OFFSET_FRACTION;
+          const deltaY = targetY - userPoint.y;
+          const targetPoint = L.point(userPoint.x, userPoint.y + deltaY);
+          const targetLatLng = map.containerPointToLatLng(targetPoint);
+          map.panTo(targetLatLng, { animate: true, duration: 0.4 });
+        }
+      }
     }
   }, [userPosition, isWalking]);
 
@@ -266,24 +289,41 @@ export default function WalkMap({
       .addTo(mapRef.current);
   }, [userPosition, mosquePosition, isWalking]);
 
+  const handleRecenter = () => {
+    if (!mapRef.current || !userPosition) {
+      onRecenter?.();
+      return;
+    }
+    const map = mapRef.current;
+    const size = map.getSize();
+    const userPoint = map.latLngToContainerPoint([userPosition.lat, userPosition.lng]);
+    const targetY = size.y * USER_OFFSET_FRACTION;
+    const deltaY = targetY - userPoint.y;
+    const targetPoint = L.point(userPoint.x, userPoint.y + deltaY);
+    const targetLatLng = map.containerPointToLatLng(targetPoint);
+    map.panTo(targetLatLng, { animate: true, duration: 0.5 });
+    recenterRequestedRef.current = false;
+  };
+
   return (
     <div className="relative">
       <div
         ref={containerRef}
         className={`rounded-xl overflow-hidden border border-border ${className}`}
-        style={{ height: "220px" }}
+        style={{ height: "280px" }}
       />
       {/* Map overlays */}
       {isWalking && (
         <div className="absolute top-2 right-2 flex flex-col gap-1.5 z-[1000]">
           {/* Re-center button */}
-          {onRecenter && (
+          {(onRecenter || userPosition) && (
             <button
-              onClick={onRecenter}
-              className="w-8 h-8 rounded-lg bg-background/90 backdrop-blur border border-border shadow-md flex items-center justify-center text-foreground hover:bg-muted transition-colors"
-              title="Re-center map"
+              onClick={handleRecenter}
+              className="w-9 h-9 rounded-lg bg-background/95 backdrop-blur border border-border shadow-lg flex items-center justify-center text-foreground hover:bg-muted active:scale-95 transition-all"
+              title="Re-center map on you"
+              aria-label="Re-center map"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>
             </button>
           )}
         </div>
@@ -295,9 +335,21 @@ export default function WalkMap({
           <p className="text-xs font-bold text-foreground">{eta}</p>
         </div>
       )}
+      {/* Direction overlay — compact strip at bottom of map */}
+      {isWalking && directionOverlay && (
+        <div className="absolute bottom-2 left-2 right-2 z-[1000] bg-background/95 backdrop-blur rounded-lg px-3 py-2.5 border border-border shadow-lg flex items-center gap-3">
+          <span className="text-xs font-bold text-primary shrink-0">{directionOverlay.distance}</span>
+          <span className="text-sm font-medium text-foreground truncate">{directionOverlay.instruction}</span>
+        </div>
+      )}
       {/* Off-route warning */}
-      {isWalking && offRoute && (
+      {isWalking && offRoute && !directionOverlay && (
         <div className="absolute bottom-2 left-2 right-2 z-[1000] bg-destructive/90 backdrop-blur rounded-lg px-3 py-2 text-destructive-foreground text-xs font-medium text-center">
+          ⚠️ You're off route — recalculating...
+        </div>
+      )}
+      {isWalking && offRoute && directionOverlay && (
+        <div className="absolute bottom-14 left-2 right-2 z-[1000] bg-destructive/90 backdrop-blur rounded-lg px-3 py-2 text-destructive-foreground text-xs font-medium text-center">
           ⚠️ You're off route — recalculating...
         </div>
       )}

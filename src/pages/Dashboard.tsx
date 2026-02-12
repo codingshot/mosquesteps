@@ -18,8 +18,8 @@ import {
 import { getSettings, saveSettings, getWalkingStats, getWalkHistory, getSavedMosques, fetchTimezone, type WalkEntry } from "@/lib/walking-history";
 import { formatTime as formatTimeStr, formatMinutes } from "@/lib/regional-defaults";
 import { getRegionalDefaults } from "@/lib/regional-defaults";
-import { requestNotificationPermission, isNotificationSupported, getNotificationPermission, schedulePrayerReminder, checkAndSendWeeklyInsight } from "@/lib/notifications";
-import { getUnreadCount } from "@/lib/notification-store";
+import { requestNotificationPermission, isNotificationSupported, getNotificationPermission, schedulePrayerReminder, checkAndSendWeeklyInsight, startReminderPolling, clearScheduledReminders } from "@/lib/notifications";
+import { getUnreadCount, getNotificationSettings } from "@/lib/notification-store";
 import { getStepRecommendation } from "@/lib/health-recommendations";
 import { getOnboardingDate } from "./Onboarding";
 import { getBadges } from "@/lib/badges";
@@ -60,6 +60,12 @@ const Dashboard = () => {
         result.onchange = () => setLocationStatus(result.state as any);
       }).catch(() => {});
     }
+  }, []);
+
+  // Start reminder polling so scheduled prayer reminders fire even after tab refresh
+  useEffect(() => {
+    const stop = startReminderPolling();
+    return stop;
   }, []);
 
   // Weekly health insight notification
@@ -232,7 +238,8 @@ const Dashboard = () => {
       setPrayers(data.prayers);
       setReadableDate(data.readableDate);
 
-      if (getNotificationPermission() === "granted") {
+      if (getNotificationPermission() === "granted" && getNotificationSettings().prayerReminders) {
+        clearScheduledReminders();
         data.prayers.forEach((p) => {
           if (prayerPrefs.includes(p.name) && !p.isPast) {
             const leaveBy = calculateLeaveByTime(p.time, walkMin);
@@ -266,6 +273,7 @@ const Dashboard = () => {
     const granted = await requestNotificationPermission();
     if (granted) {
       toast({ title: "Notifications enabled! 🔔", description: `You'll be reminded ${notifyMinBefore} min before leave time.` });
+      clearScheduledReminders();
       prayers.forEach((p) => {
         if (prayerPrefs.includes(p.name) && !p.isPast) {
           const leaveBy = calculateLeaveByTime(p.time, walkMin);

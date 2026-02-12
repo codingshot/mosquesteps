@@ -8,6 +8,7 @@ import "leaflet/dist/leaflet.css";
 import { estimateSteps, estimateWalkingTime, fetchPrayerTimes, calculateLeaveByTime, minutesUntilLeave, getNowInTimezone, type PrayerTime } from "@/lib/prayer-times";
 import { fetchWalkingRoute } from "@/lib/routing";
 import { getCachedMosques, setCachedMosques, getCachedRoute, setCachedRoute, isOnline } from "@/lib/offline-cache";
+import { searchNearbyMosques as fetchMosquesFromOverpass } from "@/lib/mosque-search";
 import { fetchLocationSuggestions } from "@/lib/geocode";
 import { getIPGeolocation } from "@/lib/prayer-times";
 import { formatTime as formatTimeStr, formatSmallDistance, formatMinutes } from "@/lib/regional-defaults";
@@ -251,58 +252,12 @@ const MosqueFinder = () => {
     }
 
     try {
-      const query = `
-        [out:json][timeout:15];
-        (
-          node["amenity"="place_of_worship"]["religion"="muslim"](around:8000,${lat},${lng});
-          way["amenity"="place_of_worship"]["religion"="muslim"](around:8000,${lat},${lng});
-          relation["amenity"="place_of_worship"]["religion"="muslim"](around:8000,${lat},${lng});
-          node["building"="mosque"](around:8000,${lat},${lng});
-          way["building"="mosque"](around:8000,${lat},${lng});
-          node["amenity"="place_of_worship"]["denomination"="sunni"](around:8000,${lat},${lng});
-          way["amenity"="place_of_worship"]["denomination"="sunni"](around:8000,${lat},${lng});
-          node["amenity"="place_of_worship"]["denomination"="shia"](around:8000,${lat},${lng});
-          way["amenity"="place_of_worship"]["denomination"="shia"](around:8000,${lat},${lng});
-        );
-        out center 50;
-      `;
-      const res = await fetch("https://overpass-api.de/api/interpreter", {
-        method: "POST",
-        body: `data=${encodeURIComponent(query)}`,
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      });
-      const data = await res.json();
+      const results = await fetchMosquesFromOverpass(lat, lng);
+      const withDist: Mosque[] = results
+        .map((m) => ({ ...m, distance: haversineDistance(origin.lat, origin.lng, m.lat, m.lon) }))
+        .sort((a, b) => (a.distance || 0) - (b.distance || 0));
+      setMosques(withDist);
 
-      const seen = new Set<number>();
-      const deduped: Mosque[] = [];
-      const allParsed: Mosque[] = data.elements
-        .map((el: any) => ({
-          id: el.id,
-          name: el.tags?.name || el.tags?.["name:en"] || el.tags?.["name:ar"] || "Mosque",
-          lat: el.lat || el.center?.lat,
-          lon: el.lon || el.center?.lon,
-        }))
-        .filter((m: Mosque) => m.lat && m.lon);
-
-      for (const m of allParsed) {
-        if (seen.has(m.id)) continue;
-        const isDuplicate = deduped.some(
-          (existing) =>
-            existing.name === m.name &&
-            haversineDistance(existing.lat, existing.lon, m.lat, m.lon) < 0.05
-        );
-        if (!isDuplicate) {
-          seen.add(m.id);
-          deduped.push(m);
-        }
-      }
-
-      const results: Mosque[] = deduped
-        .map((m: Mosque) => ({ ...m, distance: haversineDistance(origin.lat, origin.lng, m.lat, m.lon) }))
-        .sort((a: Mosque, b: Mosque) => (a.distance || 0) - (b.distance || 0));
-      setMosques(results);
-
-      // Cache for offline
       setCachedMosques(lat, lng, results.map((m) => ({ id: m.id, name: m.name, lat: m.lat, lon: m.lon })));
     } catch (e) {
       console.error("Failed to fetch mosques:", e);

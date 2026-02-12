@@ -85,6 +85,36 @@ export function getCachedRoute(fromLat: number, fromLng: number, toLat: number, 
   }
 }
 
+/** When offline, fallback: any cached route to this mosque (destination). Prefer one from nearby origin. */
+export function getCachedRouteToMosque(toLat: number, toLng: number, preferFromLat?: number, preferFromLng?: number): RouteCacheEntry | null {
+  try {
+    const raw = localStorage.getItem(ROUTE_CACHE_KEY);
+    if (!raw) return null;
+    const entries: RouteCacheEntry[] = JSON.parse(raw);
+    const destKey = gridKey(toLat, toLng);
+    const valid = entries.filter((e) => {
+      if (Date.now() - e.timestamp >= ROUTE_TTL) return false;
+      const [, dest] = e.key.split("->");
+      return dest === destKey;
+    });
+    if (valid.length === 0) return null;
+    if (preferFromLat != null && preferFromLng != null) {
+      valid.sort((a, b) => {
+        const [fromA] = a.key.split("->");
+        const [fromB] = b.key.split("->");
+        const [latA, lngA] = fromA.split(",").map(Number);
+        const [latB, lngB] = fromB.split(",").map(Number);
+        const distA = Math.hypot(latA - preferFromLat, lngA - preferFromLng);
+        const distB = Math.hypot(latB - preferFromLat, lngB - preferFromLng);
+        return distA - distB;
+      });
+    }
+    return valid[0];
+  } catch {
+    return null;
+  }
+}
+
 export function setCachedRoute(
   fromLat: number, fromLng: number, toLat: number, toLng: number,
   data: { coords: [number, number][]; distanceKm: number; durationMin: number; steps: { instruction: string; distance: number; duration: number }[] }

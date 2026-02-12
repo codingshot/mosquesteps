@@ -1,6 +1,36 @@
 /**
- * Notification helpers for prayer reminders and weekly health insights
+ * Notification helpers for prayer reminders and weekly health insights.
+ * Uses Browser Notifications API; reminders are persisted and polled so they
+ * can fire even after tab refresh or when user returns to the app.
  */
+
+import { getNotificationSettings } from "@/lib/notification-store";
+
+const REMINDERS_STORAGE_KEY = "mosquesteps_scheduled_reminders";
+const REMINDER_POLL_INTERVAL_MS = 60 * 1000; // 1 minute
+let reminderPollIntervalId: ReturnType<typeof setInterval> | null = null;
+
+export interface ScheduledReminder {
+  prayerName: string;
+  reminderAt: number; // Unix ms
+}
+
+function getStoredReminders(): ScheduledReminder[] {
+  try {
+    const raw = localStorage.getItem(REMINDERS_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return [];
+}
+
+function setStoredReminders(list: ScheduledReminder[]): void {
+  localStorage.setItem(REMINDERS_STORAGE_KEY, JSON.stringify(list));
+}
+
+/** Clear all scheduled reminders (e.g. before rescheduling from fresh prayer times). */
+export function clearScheduledReminders(): void {
+  setStoredReminders([]);
+}
 
 export async function requestNotificationPermission(): Promise<boolean> {
   if (!("Notification" in window)) {
@@ -28,23 +58,25 @@ export function getNotificationPermission(): string {
   return Notification.permission;
 }
 
+/**
+ * Send a browser notification (Notification API). Call only when permission is granted.
+ */
 export function sendNotification(title: string, body: string, icon?: string): void {
-  if (Notification.permission !== "granted") return;
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
 
   try {
     new Notification(title, {
       body,
-      icon: icon || "/favicon.png",
+      icon: icon ?? "/favicon.png",
       badge: "/favicon.png",
       tag: "mosquesteps",
     });
   } catch {
-    // Fallback for service worker environments
     if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
       navigator.serviceWorker.ready.then((registration) => {
         registration.showNotification(title, {
           body,
-          icon: icon || "/favicon.png",
+          icon: icon ?? "/favicon.png",
           badge: "/favicon.png",
           tag: "mosquesteps",
         });
@@ -54,32 +86,67 @@ export function sendNotification(title: string, body: string, icon?: string): vo
 }
 
 /**
- * Schedule a prayer departure reminder
+ * Schedule a prayer departure reminder. Stored in localStorage and fired by the
+ * reminder poll when due (so it works after tab refresh / return to app).
+ * Handles next-day Fajr (reminder time in the past => add one day).
  */
 export function schedulePrayerReminder(
   prayerName: string,
   leaveByTime: string,
   minutesBefore: number = 5
-): NodeJS.Timeout | null {
+): void {
   const [h, m] = leaveByTime.split(":").map(Number);
   const now = new Date();
-  const reminderTime = new Date();
+  const reminderTime = new Date(now);
   reminderTime.setHours(h, m - minutesBefore, 0, 0);
+  if (reminderTime.getTime() <= now.getTime()) {
+    reminderTime.setDate(reminderTime.getDate() + 1);
+  }
+  const reminderAt = reminderTime.getTime();
+  const list = getStoredReminders();
+  if (list.some((r) => r.prayerName === prayerName && r.reminderAt === reminderAt)) return;
+  list.push({ prayerName, reminderAt });
+  list.sort((a, b) => a.reminderAt - b.reminderAt);
+  setStoredReminders(list);
+}
 
-  const delay = reminderTime.getTime() - now.getTime();
-  if (delay <= 0) return null;
-
-  return setTimeout(() => {
-    sendNotification(
-      `Time to leave for ${prayerName} 🕌`,
-      `Leave now to arrive on time. Walk with tranquility and dignity.`
-    );
-  }, delay);
+/**
+ * Poll scheduled reminders and send browser notifications when due.
+ * Call once when the app (e.g. Dashboard) mounts; cleanup on unmount.
+ */
+export function startReminderPolling(): () => void {
+  if (reminderPollIntervalId) return () => {};
+  reminderPollIntervalId = setInterval(() => {
+    if (Notification.permission !== "granted") return;
+    const list = getStoredReminders();
+    const now = Date.now();
+    const toRemove: number[] = [];
+    list.forEach((r, i) => {
+      if (r.reminderAt <= now) {
+        sendNotification(
+          `Time to leave for ${r.prayerName} 🕌`,
+          "Leave now to arrive on time. Walk with tranquility and dignity."
+        );
+        toRemove.push(i);
+      }
+    });
+    if (toRemove.length) {
+      const next = list.filter((_, i) => !toRemove.includes(i));
+      setStoredReminders(next);
+    }
+  }, REMINDER_POLL_INTERVAL_MS);
+  return () => {
+    if (reminderPollIntervalId) {
+      clearInterval(reminderPollIntervalId);
+      reminderPollIntervalId = null;
+    }
+  };
 }
 
 /**
  * Weekly health insight notification
- * Checks if 7 days have passed since last weekly summary and sends one
+ * Checks if 7 days have passed since last weekly summary and sends one.
+ * Respects notification settings (weeklySummary).
  */
 const WEEKLY_INSIGHT_KEY = "mosquesteps_weekly_insight_last";
 
@@ -90,7 +157,8 @@ export function checkAndSendWeeklyInsight(stats: {
   recommendedSteps: number;
   currentStreak: number;
 }): void {
-  if (Notification.permission !== "granted") return;
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  if (!getNotificationSettings().weeklySummary) return;
 
   const lastSent = localStorage.getItem(WEEKLY_INSIGHT_KEY);
   const now = Date.now();
