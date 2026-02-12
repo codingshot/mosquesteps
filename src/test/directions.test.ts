@@ -26,9 +26,16 @@ describe("formatDirection", () => {
     expect(formatDirection("continue onto Park Rd")).toBe("Continue on park rd");
   });
 
-  it("formats roundabout", () => {
+  it("formats roundabout and rotary", () => {
     expect(formatDirection("roundabout left")).toBe("Enter roundabout, take exit left");
     expect(formatDirection("roundabout right onto Exit")).toBe("Enter roundabout, take exit right onto exit");
+    expect(formatDirection("rotary left")).toBe("Enter roundabout, take exit left");
+    expect(formatDirection("rotary right onto Highway")).toBe("Enter roundabout, take exit right onto highway");
+  });
+
+  it("formats notification as continue", () => {
+    expect(formatDirection("notification")).toBe("Continue straight");
+    expect(formatDirection("notification onto Path")).toBe("Continue on path");
   });
 
   it("formats fork", () => {
@@ -77,5 +84,12 @@ describe("formatDistanceForStep", () => {
   it("rounds meters", () => {
     expect(formatDistanceForStep(123.7)).toBe("In 124 m");
     expect(formatDistanceForStep(99.2)).toBe("In 99 m");
+  });
+
+  it("formats imperial when useImperial true", () => {
+    expect(formatDistanceForStep(100, true)).toBe("In 328 ft");
+    expect(formatDistanceForStep(500, true)).toBe("In 1640 ft");
+    expect(formatDistanceForStep(1609, true)).toBe("In 1.0 mi");
+    expect(formatDistanceForStep(3218, true)).toBe("In 2.0 mi");
   });
 });

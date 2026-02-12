@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import {
   Footprints, Clock, Star, Flame, BarChart3,
   TrendingUp, Route as RouteIcon, Target, Edit2, Check, ArrowLeft, Heart, Zap, Activity,
-  MapPin, Calendar, Car, ChevronDown, ChevronUp, Info
+  MapPin, Calendar, Car, ChevronDown, ChevronUp, Info, Download, FileJson, FileText, FileSpreadsheet
 } from "lucide-react";
 import { getWalkHistory, getWalkingStats, getSettings } from "@/lib/walking-history";
 import { getGoals, saveGoals, type WalkingGoals } from "@/lib/goals";
@@ -13,10 +13,28 @@ import { getOnboardingDate } from "@/pages/Onboarding";
 import { getDayLog, getRecentLogs, updatePrayerLog, TRANSPORT_LABELS, type TransportMode } from "@/lib/prayer-log";
 import { Button } from "@/components/ui/button";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  buildExportReport,
+  exportAsJSON,
+  exportAsCSV,
+  exportAsMarkdown,
+  downloadFile,
+} from "@/lib/stats-export";
 import SEOHead from "@/components/SEOHead";
 import logo from "@/assets/logo.png";
 
@@ -232,6 +250,42 @@ const Stats = () => {
   const prayerCounts = Object.entries(stats.walksByPrayer).sort((a, b) => b[1] - a[1]);
   const topPrayer = prayerCounts[0];
 
+  // Walks by day of week
+  const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const walksByDayOfWeek = DAYS.reduce((acc, d) => ({ ...acc, [d]: 0 }), {} as Record<string, number>);
+  history.forEach((e) => {
+    const d = new Date(e.date);
+    const day = DAYS[d.getDay()];
+    walksByDayOfWeek[day]++;
+  });
+  const dayRanking = Object.entries(walksByDayOfWeek).sort((a, b) => b[1] - a[1]);
+  const topDay = dayRanking[0];
+
+  // Walks by mosque
+  const walksByMosque: Record<string, { count: number; steps: number; distanceKm: number; hasanat: number }> = {};
+  history.forEach((e) => {
+    const name = e.mosqueName || "Unknown";
+    if (!walksByMosque[name]) walksByMosque[name] = { count: 0, steps: 0, distanceKm: 0, hasanat: 0 };
+    walksByMosque[name].count++;
+    walksByMosque[name].steps += e.steps;
+    walksByMosque[name].distanceKm += e.distanceKm;
+    walksByMosque[name].hasanat += e.hasanat;
+  });
+  const mosqueRanking = Object.entries(walksByMosque).sort((a, b) => b[1].count - a[1].count);
+
+  // Walks by month
+  const walksByMonth: Record<string, { count: number; steps: number; distanceKm: number; hasanat: number }> = {};
+  history.forEach((e) => {
+    const d = new Date(e.date);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    if (!walksByMonth[key]) walksByMonth[key] = { count: 0, steps: 0, distanceKm: 0, hasanat: 0 };
+    walksByMonth[key].count++;
+    walksByMonth[key].steps += e.steps;
+    walksByMonth[key].distanceKm += e.distanceKm;
+    walksByMonth[key].hasanat += e.hasanat;
+  });
+  const monthRanking = Object.entries(walksByMonth).sort((a, b) => b[0].localeCompare(a[0]));
+
   // Calorie estimate: ~0.04 kcal per step (walking, average weight)
   const totalCalories = Math.round(stats.totalSteps * 0.04);
   const walksPerDay = daysSinceOnboarding > 0 ? (stats.totalWalks / daysSinceOnboarding).toFixed(1) : "0";
@@ -318,6 +372,21 @@ const Stats = () => {
     setEditingGoals(false);
   };
 
+  const report = buildExportReport(history, stats, { limit: 500 });
+  const handleExport = (format: "csv" | "json" | "md") => {
+    const date = new Date().toISOString().slice(0, 10);
+    if (format === "csv") {
+      const csv = exportAsCSV(history, report);
+      downloadFile(csv, `mosquesteps-walks-${date}.csv`, "text/csv;charset=utf-8");
+    } else if (format === "json") {
+      const json = exportAsJSON(report);
+      downloadFile(json, `mosquesteps-report-${date}.json`, "application/json");
+    } else {
+      const md = exportAsMarkdown(report, formatDist);
+      downloadFile(md, `mosquesteps-report-${date}.md`, "text/markdown");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background pb-bottom-nav">
       <SEOHead
@@ -334,7 +403,29 @@ const Stats = () => {
             <span className="font-bold">Walking Stats</span>
           </Link>
         </div>
-        <div className="container pb-6 text-center">
+        <div className="container pb-6 text-center relative">
+          <div className="absolute top-0 right-4">
+            {history.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-primary-foreground/10">
+                    <Download className="w-4 h-4 mr-1" /> Export
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleExport("csv")}>
+                    <FileSpreadsheet className="w-4 h-4 mr-2" /> CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExport("json")}>
+                    <FileJson className="w-4 h-4 mr-2" /> JSON
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExport("md")}>
+                    <FileText className="w-4 h-4 mr-2" /> Markdown
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
           <BarChart3 className="w-10 h-10 mx-auto mb-2" />
           <h1 className="text-xl font-bold">Your Walking Journey</h1>
           <p className="text-sm text-primary-foreground/70 mt-1">
@@ -755,37 +846,143 @@ const Stats = () => {
           })()}
         </div>
 
-        {/* Prayer distribution */}
+        {/* Most walked prayers */}
         {prayerCounts.length > 0 && (
           <div className="glass-card p-5">
-            <h3 className="text-sm font-semibold text-foreground mb-4">Prayer Distribution</h3>
+            <h3 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-1.5">
+              <Star className="w-4 h-4 text-gold" /> Most Walked Prayers
+            </h3>
+            <p className="text-[10px] text-muted-foreground mb-4">Which prayers do you walk to most often?</p>
             <div className="space-y-3">
-              {prayerCounts.map(([prayer, count]) => (
-                <Tooltip key={prayer}>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-3 cursor-help">
-                      <span className="text-sm text-foreground w-16 font-medium">{prayer}</span>
-                      <div className="flex-1 bg-muted rounded-full h-3 overflow-hidden">
-                        <div className="h-full bg-gradient-teal rounded-full transition-all duration-500"
-                          style={{ width: `${(count / stats.totalWalks) * 100}%` }} />
+              {prayerCounts.map(([prayer, count], idx) => {
+                const pct = stats.totalWalks > 0 ? Math.round((count / stats.totalWalks) * 100) : 0;
+                const isTop = idx === 0;
+                return (
+                  <Tooltip key={prayer}>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-3 cursor-help">
+                        <span className="text-[10px] font-bold text-muted-foreground w-5">#{idx + 1}</span>
+                        <span className={`text-sm font-medium w-16 ${isTop ? "text-gold" : "text-foreground"}`}>{prayer}</span>
+                        <div className="flex-1 bg-muted rounded-full h-3 overflow-hidden">
+                          <div className={`h-full rounded-full transition-all duration-500 ${isTop ? "bg-gradient-gold" : "bg-gradient-teal"}`}
+                            style={{ width: `${Math.max(2, (count / stats.totalWalks) * 100)}%` }} />
+                        </div>
+                        <span className="text-xs text-muted-foreground w-14 text-right">{count} ({pct}%)</span>
                       </div>
-                      <span className="text-xs text-muted-foreground w-8 text-right">{count}</span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent className="p-2" side="top">
-                    <p className="text-xs text-popover-foreground">
-                      Walked to <strong>{prayer}</strong> {count} time{count !== 1 ? "s" : ""} — {Math.round((count / stats.totalWalks) * 100)}% of all walks
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              ))}
+                    </TooltipTrigger>
+                    <TooltipContent className="p-2" side="top">
+                      <p className="text-xs text-popover-foreground">
+                        Walked to <strong>{prayer}</strong> {count} time{count !== 1 ? "s" : ""} — {pct}% of all walks
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })}
             </div>
             {topPrayer && (
-              <p className="text-xs text-muted-foreground mt-3">
-                Most walked: <span className="font-medium text-foreground">{topPrayer[0]}</span> ({topPrayer[1]} times)
+              <p className="text-xs text-gold font-medium mt-3 flex items-center gap-1">
+                🏆 Top prayer: {topPrayer[0]} ({topPrayer[1]} walks)
               </p>
             )}
           </div>
+        )}
+
+        {/* Days you walk the most */}
+        {history.length > 0 && (
+          <div className="glass-card p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-1.5">
+              <Calendar className="w-4 h-4 text-primary" /> Days You Walk the Most
+            </h3>
+            <p className="text-[10px] text-muted-foreground mb-4">Which day of the week do you walk to the mosque most?</p>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {dayRanking.map(([day, count], idx) => {
+                const maxDay = dayRanking[0]?.[1] || 1;
+                const pct = Math.round((count / maxDay) * 100);
+                const isTop = idx === 0;
+                return (
+                  <div
+                    key={day}
+                    className={`flex-1 min-w-[70px] rounded-lg p-2.5 text-center ${isTop ? "bg-gradient-gold/20 ring-1 ring-gold/30" : "bg-muted/50"}`}
+                  >
+                    <p className="text-[10px] font-medium text-muted-foreground">{day.slice(0, 3)}</p>
+                    <p className={`text-lg font-bold ${isTop ? "text-gold" : "text-foreground"}`}>{count}</p>
+                    <p className="text-[9px] text-muted-foreground">walks</p>
+                  </div>
+                );
+              })}
+            </div>
+            {topDay && topDay[1] > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Your busiest walking day: <span className="font-medium text-foreground">{topDay[0]}</span>
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* In-depth reports */}
+        {history.length > 0 && (
+          <Collapsible className="group">
+            <div className="glass-card p-5">
+              <CollapsibleTrigger asChild>
+                <button className="w-full flex items-center justify-between text-left">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                    <BarChart3 className="w-4 h-4 text-primary" /> In-Depth Reports
+                  </h3>
+                  <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="mt-4 space-y-5">
+                  {/* By mosque */}
+                  {mosqueRanking.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-foreground mb-2">By Mosque</p>
+                      <div className="space-y-2">
+                        {mosqueRanking.map(([name, data], i) => (
+                          <div key={name} className="flex items-center gap-3 py-2 border-b border-border/30 last:border-0">
+                            <span className="text-[10px] font-bold text-muted-foreground w-5">#{i + 1}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium truncate">{name}</p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {data.count} walks · {data.steps.toLocaleString()} steps · {formatDist(data.distanceKm)}
+                              </p>
+                            </div>
+                            <span className="text-xs text-gold font-medium">{data.hasanat.toLocaleString()} hasanat</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* By month */}
+                  {monthRanking.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-foreground mb-2">By Month</p>
+                      <div className="space-y-2 max-h-40 overflow-y-auto">
+                        {monthRanking.map(([month, data]) => {
+                          const [y, m] = month.split("-");
+                          const monthLabel = new Date(parseInt(y), parseInt(m) - 1).toLocaleDateString(undefined, { month: "short", year: "numeric" });
+                          return (
+                            <div key={month} className="flex items-center justify-between py-1.5 border-b border-border/30 last:border-0">
+                              <span className="text-xs font-medium">{monthLabel}</span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {data.count} walks · {formatDist(data.distanceKm)} · {data.hasanat.toLocaleString()} hasanat
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Export reminder */}
+                  <p className="text-[10px] text-muted-foreground">
+                    Export your full report as CSV, JSON, or Markdown using the Export button above.
+                  </p>
+                </div>
+              </CollapsibleContent>
+            </div>
+          </Collapsible>
         )}
 
         {/* Recent Walk History */}

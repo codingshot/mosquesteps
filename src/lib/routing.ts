@@ -27,13 +27,14 @@ export async function fetchWalkingRoute(
       (c: [number, number]) => [c[1], c[0]] // GeoJSON is [lng, lat], Leaflet needs [lat, lng]
     );
 
-    const steps = route.legs[0]?.steps?.map((s: any) => ({
-      instruction: s.maneuver?.type
-        ? `${s.maneuver.type}${s.maneuver.modifier ? ` ${s.maneuver.modifier}` : ""}${s.name ? ` onto ${s.name}` : ""}`
-        : "Continue",
-      distance: s.distance,
-      duration: s.duration,
-    })) || [];
+    const steps = route.legs[0]?.steps?.map((s: any) => {
+      const roadName = s.name || s.ref;
+      const ontoPart = roadName ? ` onto ${roadName}` : "";
+      const instruction = s.maneuver?.type
+        ? `${s.maneuver.type}${s.maneuver.modifier ? ` ${s.maneuver.modifier}` : ""}${ontoPart}`
+        : "Continue";
+      return { instruction, distance: s.distance, duration: s.duration };
+    }) || [];
 
     return {
       coords,

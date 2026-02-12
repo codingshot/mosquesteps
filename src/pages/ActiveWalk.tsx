@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Play, Square, Pause, MapPin, Footprints, Clock, Star, Navigation, AlertTriangle, Smartphone, Share2, Map, Image, CheckCircle, ArrowUp, CornerDownLeft, CornerDownRight, ArrowRight, ChevronDown, Volume2, VolumeX, Route, Download, Copy, ExternalLink, Award, Flame, Trophy, WifiOff } from "lucide-react";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
+import { ArrowLeft, Play, Square, Pause, MapPin, Footprints, Clock, Star, Navigation, AlertTriangle, Smartphone, Share2, Map, Image, CheckCircle, ArrowUp, CornerDownLeft, CornerDownRight, ArrowRight, ChevronDown, Volume2, VolumeX, Route, Download, Copy, ExternalLink, Award, Flame, Trophy, WifiOff, Search, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { estimateSteps, estimateWalkingTime, calculateHasanat, fetchPrayerTimes, calculateLeaveByTime, minutesUntilLeave, getNowInTimezone, getIPGeolocation, type PrayerTime } from "@/lib/prayer-times";
@@ -10,8 +10,10 @@ import { StepCounter, isStepCountingAvailable, getPaceCategory } from "@/lib/ste
 import { fetchWalkingRoute } from "@/lib/routing";
 import { formatDirection, formatDistanceForStep } from "@/lib/directions-utils";
 import { getCachedRoute, getCachedRouteToMosque, setCachedRoute, isOnline } from "@/lib/offline-cache";
+import { fetchLocationSuggestions } from "@/lib/geocode";
 import { useToast } from "@/hooks/use-toast";
 import { generateShareCard, shareOrDownload } from "@/lib/share-card";
+import { downloadFile } from "@/lib/stats-export";
 import { isNearMosque, addCheckIn, hasCheckedInToday } from "@/lib/checkin";
 import { getNewlyEarnedBadges } from "@/lib/badges";
 import { getWalkingStats } from "@/lib/walking-history";
@@ -57,6 +59,7 @@ function getDirectionIcon(instruction: string, small = false) {
 
 const ActiveWalk = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const settings = getSettings();
   const savedMosques = getSavedMosques();
@@ -94,8 +97,13 @@ const ActiveWalk = () => {
   const [returnRouteCoords, setReturnRouteCoords] = useState<[number, number][]>([]);
   const [returnRouteInfo, setReturnRouteInfo] = useState<{ distanceKm: number; durationMin: number; steps: { instruction: string; distance: number }[] } | null>(null);
   const [returnRouteLoading, setReturnRouteLoading] = useState(false);
+  const [returnDestOverride, setReturnDestOverride] = useState<{ lat: number; lng: number; name: string } | null>(null);
+  const [returnDestSearch, setReturnDestSearch] = useState("");
+  const [returnDestSuggestions, setReturnDestSuggestions] = useState<{ displayName: string; lat: number; lng: number }[]>([]);
+  const [showReturnDestSearch, setShowReturnDestSearch] = useState(false);
   const [offline, setOffline] = useState(!isOnline());
   const prevDirectionIdx = useRef(-1);
+  const prepareAnnouncedForStep = useRef(-1);
   const prayerMarginAlerted = useRef(false);
   const prevStepIdxRef = useRef(0);
   const [distanceToTurnM, setDistanceToTurnM] = useState<number | null>(null);
@@ -121,6 +129,18 @@ const ActiveWalk = () => {
   const mosqueName = prayerMosque?.name || settings.selectedMosqueName || "your mosque";
   const progressPercent = mosqueDist > 0 ? Math.min(1, distanceKm / mosqueDist) : 0;
   const hasMosqueDestination = !!mosquePosition;
+
+  const isReturnWalk = searchParams.get("returnWalk") === "1";
+  const returnFromLat = searchParams.get("fromLat");
+  const returnFromLng = searchParams.get("fromLng");
+  const returnToLat = searchParams.get("toLat");
+  const returnToLng = searchParams.get("toLng");
+  const returnWalkOrigin = returnFromLat && returnFromLng ? { lat: parseFloat(returnFromLat), lng: parseFloat(returnFromLng) } : null;
+  const returnWalkDestination = returnToLat && returnToLng ? { lat: parseFloat(returnToLat), lng: parseFloat(returnToLng) } : (settings.homeLat != null && settings.homeLng != null ? { lat: settings.homeLat, lng: settings.homeLng } : null);
+  const effectiveDestination = isReturnWalk ? returnWalkDestination : mosquePosition;
+  const effectiveMosqueName = isReturnWalk ? (returnDestOverride?.name || "Home") : mosqueName;
+  const hasMosqueDestinationEffective = isReturnWalk ? !!returnWalkDestination : !!mosquePosition;
+  const useImperial = settings.distanceUnit === "mi";
 
   // Fetch prayer times and auto-select next prayer
   useEffect(() => {
@@ -185,9 +205,77 @@ const ActiveWalk = () => {
     };
   }, []);
 
+  // Return walk: fetch route from mosque to home (or override destination)
+  useEffect(() => {
+    if (!isReturnWalk || !returnWalkOrigin || !returnWalkDestination) return;
+    setCurrentPosition(returnWalkOrigin);
+    const dest = returnWalkDestination;
+    let cached = getCachedRoute(returnWalkOrigin.lat, returnWalkOrigin.lng, dest.lat, dest.lng);
+    if (!cached && !isOnline()) {
+      cached = getCachedRouteToMosque(dest.lat, dest.lng, returnWalkOrigin.lat, returnWalkOrigin.lng) ?? null;
+    }
+    if (cached) {
+      setRouteCoords(cached.coords);
+      setRouteInfo({ distanceKm: cached.distanceKm, durationMin: cached.durationMin, steps: cached.steps });
+      if (isOnline()) {
+        fetchWalkingRoute(returnWalkOrigin.lat, returnWalkOrigin.lng, dest.lat, dest.lng).then((fresh) => {
+          if (fresh) {
+            setCachedRoute(returnWalkOrigin.lat, returnWalkOrigin.lng, dest.lat, dest.lng, fresh);
+            setRouteCoords(fresh.coords);
+            setRouteInfo({ distanceKm: fresh.distanceKm, durationMin: fresh.durationMin, steps: fresh.steps });
+          }
+        }).catch(() => {});
+      }
+      return;
+    }
+    if (!isOnline()) {
+      toast({ title: "Offline — no cached route", description: "Steps still count. Connect for directions.", variant: "default" });
+      return;
+    }
+    fetchWalkingRoute(returnWalkOrigin.lat, returnWalkOrigin.lng, dest.lat, dest.lng).then((route) => {
+      if (route) {
+        setRouteCoords(route.coords);
+        setRouteInfo({ distanceKm: route.distanceKm, durationMin: route.durationMin, steps: route.steps });
+        setCachedRoute(returnWalkOrigin.lat, returnWalkOrigin.lng, dest.lat, dest.lng, route);
+      } else {
+        toast({ title: "Directions unavailable", description: "Use Open in Maps for turn-by-turn.", variant: "default" });
+      }
+    });
+  }, [isReturnWalk, returnWalkOrigin?.lat, returnWalkOrigin?.lng, returnWalkDestination?.lat, returnWalkDestination?.lng]);
+
+  // Fetch return route when override destination is set (success screen)
+  useEffect(() => {
+    if (returnMethod !== "walked" || !mosquePosition || !returnDestOverride) return;
+    setReturnRouteLoading(true);
+    fetchWalkingRoute(mosquePosition.lat, mosquePosition.lng, returnDestOverride.lat, returnDestOverride.lng)
+      .then((route) => {
+        if (route) {
+          setReturnRouteCoords(route.coords);
+          setReturnRouteInfo({ distanceKm: route.distanceKm, durationMin: route.durationMin, steps: route.steps });
+          setCachedRoute(mosquePosition.lat, mosquePosition.lng, returnDestOverride!.lat, returnDestOverride!.lng, route);
+        }
+      })
+      .finally(() => setReturnRouteLoading(false));
+  }, [returnMethod, mosquePosition?.lat, mosquePosition?.lng, returnDestOverride?.lat, returnDestOverride?.lng]);
+
+  // Debounced search for return destination override
+  useEffect(() => {
+    const q = returnDestSearch.trim();
+    if (q.length < 2) {
+      setReturnDestSuggestions([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      fetchLocationSuggestions(q).then((s) =>
+        setReturnDestSuggestions(s.map((x) => ({ displayName: x.displayName, lat: x.lat, lng: x.lng })))
+      );
+    }, 300);
+    return () => clearTimeout(t);
+  }, [returnDestSearch]);
+
   // Fetch route on mount — home > current location > city (so directions work without location permission)
   useEffect(() => {
-    if (!mosquePosition) return;
+    if (isReturnWalk || !mosquePosition) return;
 
     const getOrigin = (): Promise<Position> => {
       if (settings.homeLat != null && settings.homeLng != null) {
@@ -395,13 +483,14 @@ const ActiveWalk = () => {
     if (!step) return;
 
     const text = formatDirection(step.instruction);
-    const distText = step.distance > 1000
-      ? `${(step.distance / 1000).toFixed(1)} kilometers`
-      : `${Math.round(step.distance)} meters`;
+    const distM = step.distance;
+    const distText = useImperial
+      ? (distM >= 1609 ? `${(distM / 1609).toFixed(1)} miles` : `${Math.round(distM * 3.28)} feet`)
+      : (distM > 1000 ? `${(distM / 1000).toFixed(1)} kilometers` : `${Math.round(distM)} meters`);
 
     const isLast = currentDirectionIdx === routeInfo.steps.length - 1;
     const speech = isLast
-      ? `Arriving at ${mosqueName}. You have reached your destination.`
+      ? `Arriving at ${effectiveMosqueName}. You have reached your destination.`
       : `In ${distText}, ${text.toLowerCase()}.`;
 
     if ("speechSynthesis" in window) {
@@ -415,12 +504,36 @@ const ActiveWalk = () => {
       if (enVoice) utterance.voice = enVoice;
       window.speechSynthesis.speak(utterance);
     }
-  }, [currentDirectionIdx, voiceEnabled, isWalking, routeInfo, mosqueName]);
+  }, [currentDirectionIdx, voiceEnabled, isWalking, routeInfo, effectiveMosqueName, useImperial]);
+
+  // Voice: "Prepare to turn" when within 50m of next turn
+  useEffect(() => {
+    if (!voiceEnabled || !isWalking || !routeInfo?.steps?.length) return;
+    const step = routeInfo.steps[currentDirectionIdx];
+    if (!step || currentDirectionIdx === routeInfo.steps.length - 1) return;
+    const dist = distanceToTurnM ?? step.distance;
+    if (dist > 50 || dist < 10) return;
+    if (prepareAnnouncedForStep.current === currentDirectionIdx) return;
+    prepareAnnouncedForStep.current = currentDirectionIdx;
+
+    const text = formatDirection(step.instruction);
+    const prepareText = text.toLowerCase().startsWith("turn ") ? `Prepare to ${text.toLowerCase()}` : `Coming up: ${text.toLowerCase()}`;
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(prepareText);
+      utterance.rate = 1.0;
+      utterance.volume = 0.85;
+      const voices = window.speechSynthesis.getVoices();
+      const enVoice = voices.find((v) => v.lang.startsWith("en")) || voices[0];
+      if (enVoice) utterance.voice = enVoice;
+      window.speechSynthesis.speak(utterance);
+    }
+  }, [distanceToTurnM, currentDirectionIdx, voiceEnabled, isWalking, routeInfo]);
 
   // Off-route: voice alert + auto-reroute (skip reroute when offline)
   const lastRerouteRef = useRef(0);
   useEffect(() => {
-    if (!offRoute || !isWalking || !currentPosition || !mosquePosition) return;
+    if (!offRoute || !isWalking || !currentPosition || !effectiveDestination) return;
     if (!isOnline()) return;
 
     // Voice warning
@@ -435,18 +548,19 @@ const ActiveWalk = () => {
     if (Date.now() - lastRerouteRef.current < 30000) return;
     lastRerouteRef.current = Date.now();
 
-    fetchWalkingRoute(currentPosition.lat, currentPosition.lng, mosquePosition.lat, mosquePosition.lng).then((route) => {
+    fetchWalkingRoute(currentPosition.lat, currentPosition.lng, effectiveDestination.lat, effectiveDestination.lng).then((route) => {
       if (route) {
         setRouteCoords(route.coords);
         setRouteInfo({ distanceKm: route.distanceKm, durationMin: route.durationMin, steps: route.steps });
-        setCachedRoute(currentPosition.lat, currentPosition.lng, mosquePosition.lat, mosquePosition.lng, route);
+        setCachedRoute(currentPosition.lat, currentPosition.lng, effectiveDestination.lat, effectiveDestination.lng, route);
         setCurrentDirectionIdx(0);
         prevDirectionIdx.current = -1;
         prevStepIdxRef.current = 0;
         setOffRoute(false);
+        toast({ title: "Route updated", description: "New directions loaded." });
       }
     }).catch(() => {});
-  }, [offRoute, isWalking, currentPosition, mosquePosition, voiceEnabled]);
+  }, [offRoute, isWalking, currentPosition, effectiveDestination, voiceEnabled]);
 
   // Stop speech when walk ends
   useEffect(() => {
@@ -593,8 +707,8 @@ const ActiveWalk = () => {
   };
 
   const openInMaps = () => {
-    if (!mosquePosition) return;
-    const dest = `${mosquePosition.lat},${mosquePosition.lng}`;
+    if (!effectiveDestination) return;
+    const dest = `${effectiveDestination.lat},${effectiveDestination.lng}`;
     const origin = currentPosition ? `${currentPosition.lat},${currentPosition.lng}` : "";
     // Try Apple Maps on iOS, Google Maps otherwise
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -624,12 +738,23 @@ const ActiveWalk = () => {
   // Generate shareable directions text
   const generateDirectionsText = () => {
     if (!routeInfo?.steps?.length) return "";
-    const header = `🕌 Directions to ${mosqueName}\n📍 From: ${settings.homeAddress || "Your location"}\n📏 ${routeInfo.distanceKm.toFixed(1)} km · ~${routeInfo.durationMin} min walk\n${"─".repeat(30)}\n`;
+    const destLabel = effectiveMosqueName;
+    const fromLabel = isReturnWalk ? mosqueName : (settings.homeAddress || "Your location");
+    const header = `🕌 Directions to ${destLabel}\n📍 From: ${fromLabel}\n📏 ${routeInfo.distanceKm.toFixed(1)} km · ~${routeInfo.durationMin} min walk\n${"─".repeat(30)}\n`;
     const steps = routeInfo.steps.map((s, i) => {
-      const dist = s.distance > 1000 ? `${(s.distance / 1000).toFixed(1)}km` : `${Math.round(s.distance)}m`;
-      return `${i + 1}. ${formatDirection(s.instruction)} (${dist})`;
+      const distStr = formatDistanceForStep(s.distance, useImperial).replace(/^In /, "").toLowerCase();
+      return `${i + 1}. ${formatDirection(s.instruction)} (${distStr})`;
     }).join("\n");
     return `${header}${steps}\n${"─".repeat(30)}\nGenerated by MosqueSteps 🚶‍♂️`;
+  };
+
+  const downloadDirections = () => {
+    const text = generateDirectionsText();
+    if (!text) return;
+    const date = new Date().toISOString().slice(0, 10);
+    const dest = (effectiveMosqueName || "destination").replace(/\s+/g, "-");
+    downloadFile(text, `mosquesteps-directions-${dest}-${date}.txt`, "text/plain;charset=utf-8");
+    toast({ title: "Directions saved for offline", description: "Open the file when you lose connection." });
   };
 
   const quote = SUNNAH_QUOTES[currentQuoteIdx];
@@ -670,7 +795,7 @@ const ActiveWalk = () => {
             <div className="w-20 h-20 rounded-full bg-gradient-teal flex items-center justify-center mx-auto">
               <Footprints className="w-10 h-10 text-primary-foreground" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground">Ready to Walk?</h1>
+            <h1 className="text-2xl font-bold text-foreground">{isReturnWalk ? "Ready to walk home?" : "Ready to Walk?"}</h1>
             <p className="text-sm text-muted-foreground">
               {isStepCountingAvailable() ? "Motion sensors available — real step counting!" : "Steps estimated from GPS."}
             </p>
@@ -733,28 +858,35 @@ const ActiveWalk = () => {
               )}
             </div>
 
-            {/* Mosque info card */}
+            {/* Mosque / destination info card */}
             <div className="glass-card p-4 text-left space-y-2">
-              {mosquePosition ? (
+              {(effectiveDestination || mosquePosition) ? (
                 <>
                   <div className="flex items-start justify-between">
                     <div className="space-y-1">
                       <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-                        <MapPin className="w-4 h-4 text-primary flex-shrink-0" />
-                        {mosqueName}
+                        {isReturnWalk ? <Home className="w-4 h-4 text-primary flex-shrink-0" /> : <MapPin className="w-4 h-4 text-primary flex-shrink-0" />}
+                        {effectiveMosqueName}
                       </p>
                       {mosqueAddress && (
                         <p className="text-xs text-muted-foreground ml-5.5 pl-0.5">{mosqueAddress}</p>
                       )}
-                      {settings.homeAddress && (
+                      {settings.homeAddress && !isReturnWalk && (
                         <p className="text-[10px] text-muted-foreground/70 ml-5.5 pl-0.5 flex items-center gap-1">
                           🏠 Route from: {settings.homeAddress}
                         </p>
                       )}
+                      {isReturnWalk && (
+                        <p className="text-[10px] text-muted-foreground/70 ml-5.5 pl-0.5 flex items-center gap-1">
+                          🕌 Walking from mosque to {settings.homeAddress || "home"}
+                        </p>
+                      )}
                     </div>
-                    <Link to="/mosques" className="text-xs text-primary font-medium hover:underline flex-shrink-0">
-                      Change
-                    </Link>
+                    {!isReturnWalk && (
+                      <Link to="/mosques" className="text-xs text-primary font-medium hover:underline flex-shrink-0">
+                        Change
+                      </Link>
+                    )}
                   </div>
 
                   {/* Distance & route details */}
@@ -781,23 +913,38 @@ const ActiveWalk = () => {
                 </>
               ) : (
                 <div className="text-center py-2 space-y-2">
-                  <MapPin className="w-8 h-8 text-muted-foreground/50 mx-auto" aria-hidden />
-                  <p className="text-sm font-medium text-foreground">No mosque selected</p>
-                  <p className="text-xs text-muted-foreground">Set your mosque to see walking distance, turn-by-turn directions, and leave-by time.</p>
-                  <Link to="/mosques">
-                    <Button variant="outline" size="sm" className="mt-1">
-                      <MapPin className="w-3 h-3 mr-1" aria-hidden /> Find Mosque
-                    </Button>
-                  </Link>
+                  {isReturnWalk ? (
+                    <>
+                      <Home className="w-8 h-8 text-muted-foreground/50 mx-auto" aria-hidden />
+                      <p className="text-sm font-medium text-foreground">No home address set</p>
+                      <p className="text-xs text-muted-foreground">Set your home in Settings to walk home from the mosque.</p>
+                      <Link to="/settings">
+                        <Button variant="outline" size="sm" className="mt-1">
+                          Open Settings
+                        </Button>
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      <MapPin className="w-8 h-8 text-muted-foreground/50 mx-auto" aria-hidden />
+                      <p className="text-sm font-medium text-foreground">No mosque selected</p>
+                      <p className="text-xs text-muted-foreground">Set your mosque to see walking distance, turn-by-turn directions, and leave-by time.</p>
+                      <Link to="/mosques">
+                        <Button variant="outline" size="sm" className="mt-1">
+                          <MapPin className="w-3 h-3 mr-1" aria-hidden /> Find Mosque
+                        </Button>
+                      </Link>
+                    </>
+                  )}
                 </div>
               )}
             </div>
 
             {/* Map preview */}
-            {showMap && (currentPosition || mosquePosition) && (
+            {showMap && (currentPosition || effectiveDestination || mosquePosition) && (
               <WalkMap
                 userPosition={currentPosition}
-                mosquePosition={mosquePosition}
+                mosquePosition={(effectiveDestination ?? mosquePosition) ?? undefined}
                 walkPath={[]}
                 routeCoords={routeCoords}
                 isWalking={false}
@@ -812,7 +959,15 @@ const ActiveWalk = () => {
                   <p className="text-xs font-semibold text-foreground flex items-center gap-1">
                     <Navigation className="w-3 h-3" /> Walking route ({routeInfo.steps.length} steps)
                   </p>
-                  <div className="flex gap-1">
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={downloadDirections}
+                      className={`rounded hover:bg-muted transition-opacity ${offline ? "p-1 text-primary opacity-100" : "p-0.5 text-muted-foreground/40 hover:text-muted-foreground/70"}`}
+                      title={offline ? "Save directions for offline" : "Download for offline — save before you lose connection"}
+                      aria-label="Download directions for offline"
+                    >
+                      <Download className={offline ? "w-3 h-3" : "w-2.5 h-2.5"} />
+                    </button>
                     <button
                       onClick={() => {
                         const text = generateDirectionsText();
@@ -828,7 +983,7 @@ const ActiveWalk = () => {
                       onClick={() => {
                         const text = generateDirectionsText();
                         if (navigator.share) {
-                          navigator.share({ title: `Directions to ${mosqueName}`, text }).catch(() => {});
+                          navigator.share({ title: `Directions to ${effectiveMosqueName}`, text }).catch(() => {});
                         } else {
                           navigator.clipboard.writeText(text);
                           toast({ title: "Directions copied! 📋" });
@@ -841,6 +996,11 @@ const ActiveWalk = () => {
                     </button>
                   </div>
                 </div>
+                {offline && (
+                  <p className="text-[10px] text-primary mb-2 flex items-center gap-1.5">
+                    <WifiOff className="w-3 h-3 shrink-0" /> No connection — tap the download icon above to save directions for offline use.
+                  </p>
+                )}
                 {/* Route summary bar */}
                 <div className="flex items-center gap-2 mb-2 bg-muted/50 rounded-lg px-2.5 py-1.5">
                   <span className="text-[10px] text-muted-foreground flex items-center gap-1">
@@ -869,7 +1029,7 @@ const ActiveWalk = () => {
                         </div>
                         <div className="flex-1 min-w-0 pb-1">
                           <span className="text-muted-foreground/80 text-[11px]">
-                            {formatDistanceForStep(s.distance)}
+                            {formatDistanceForStep(s.distance, useImperial)}
                           </span>
                           <span className="text-foreground font-medium ml-1">
                             {formatDirection(s.instruction)}
@@ -887,17 +1047,17 @@ const ActiveWalk = () => {
               size="lg"
               className="w-full text-base"
               onClick={startWalk}
-              disabled={!hasMosqueDestination}
-              title={!hasMosqueDestination ? "Select a mosque for turn-by-turn directions" : undefined}
+              disabled={!hasMosqueDestinationEffective}
+              title={!hasMosqueDestinationEffective ? (isReturnWalk ? "Set home in Settings" : "Select a mosque for turn-by-turn directions") : undefined}
             >
-              <Play className="w-5 h-5 mr-2" /> Start Walking
+              <Play className="w-5 h-5 mr-2" /> {isReturnWalk ? "Start Walking Home" : "Start Walking"}
             </Button>
-            {!hasMosqueDestination && (
+            {!hasMosqueDestinationEffective && (
               <p className="text-xs text-muted-foreground text-center">
-                Select a mosque above for directions and leave-by time.
+                {isReturnWalk ? "Set your home address in Settings to walk home from the mosque." : "Select a mosque above for directions and leave-by time."}
               </p>
             )}
-            {mosquePosition && (
+            {(effectiveDestination || mosquePosition) && (
               <Button variant="outline" size="sm" className="w-full text-xs gap-1.5" onClick={openInMaps} title="Open route in your maps app">
                 <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden /> Open in Maps
               </Button>
@@ -912,7 +1072,7 @@ const ActiveWalk = () => {
             <div className="flex items-center justify-between gap-2">
               <div className="inline-flex items-center gap-2 flex-wrap">
                 <div className="inline-block px-3 py-1 rounded-full bg-gradient-gold text-foreground text-xs font-semibold">
-                  Walking to {selectedPrayer}
+                  {isReturnWalk ? "Walking Home" : `Walking to ${selectedPrayer}`}
                 </div>
                 {isPaused && (
                   <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[10px] font-semibold uppercase tracking-wide">
@@ -1040,7 +1200,7 @@ const ActiveWalk = () => {
             {showMap && (
               <WalkMap
                 userPosition={currentPosition}
-                mosquePosition={mosquePosition}
+                mosquePosition={(effectiveDestination ?? mosquePosition) ?? undefined}
                 walkPath={positions}
                 routeCoords={routeCoords}
                 routeSteps={routeInfo?.steps}
@@ -1049,7 +1209,7 @@ const ActiveWalk = () => {
                 offRoute={offRoute}
                 eta={eta}
                 directionOverlay={currentDirection ? {
-                  distance: formatDistanceForStep(distanceToTurnM ?? currentDirection.distance),
+                  distance: formatDistanceForStep(distanceToTurnM ?? currentDirection.distance, useImperial),
                   instruction: formatDirection(currentDirection.instruction),
                 } : undefined}
                 onRecenter={() => {
@@ -1062,17 +1222,30 @@ const ActiveWalk = () => {
             {/* Turn-by-turn navigation panel — distance-first, clear hierarchy, touch-friendly */}
             {showDirections && routeInfo && routeInfo.steps.length > 0 && (
               <div
-                className="glass-card p-0 overflow-hidden text-left w-full rounded-xl"
+                className="glass-card p-0 overflow-hidden text-left w-full rounded-xl relative"
                 role="region"
                 aria-label="Walking directions"
               >
+                {/* Download for offline — subtle when online, visible when offline */}
+                <button
+                  onClick={downloadDirections}
+                  className={`absolute top-2 right-2 z-10 p-1.5 rounded-lg transition-opacity ${
+                    offline
+                      ? "text-primary-foreground/90 bg-primary-foreground/20 hover:bg-primary-foreground/30"
+                      : "text-primary-foreground/40 hover:text-primary-foreground/70 hover:bg-primary-foreground/10"
+                  }`}
+                  title={offline ? "Save directions for offline" : "Download directions for offline use"}
+                  aria-label="Download directions for offline"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                </button>
                 {/* Current direction — prominent, scannable */}
                 {currentDirection && (
                   <div
                     className="bg-gradient-teal p-4 shadow-sm"
                     aria-live="polite"
                     aria-atomic="true"
-                    aria-label={`Step ${currentDirectionIdx + 1} of ${routeInfo.steps.length}. ${formatDistanceForStep(distanceToTurnM ?? currentDirection.distance)}. ${formatDirection(currentDirection.instruction)}`}
+                    aria-label={`Step ${currentDirectionIdx + 1} of ${routeInfo.steps.length}. ${formatDistanceForStep(distanceToTurnM ?? currentDirection.distance, useImperial)}. ${formatDirection(currentDirection.instruction)}`}
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-14 h-14 rounded-xl bg-primary-foreground/20 flex items-center justify-center flex-shrink-0 ring-2 ring-primary-foreground/10" aria-hidden>
@@ -1080,7 +1253,7 @@ const ActiveWalk = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[11px] font-bold text-primary-foreground/90 uppercase tracking-wider">
-                          {formatDistanceForStep(distanceToTurnM ?? currentDirection.distance)}
+                          {formatDistanceForStep(distanceToTurnM ?? currentDirection.distance, useImperial)}
                         </p>
                         <p className="text-lg font-bold text-primary-foreground leading-snug mt-1">
                           {formatDirection(currentDirection.instruction)}
@@ -1135,7 +1308,7 @@ const ActiveWalk = () => {
                       {routeInfo.steps.slice(currentDirectionIdx + 1, currentDirectionIdx + 4).map((s, i) => {
                         const actualIdx = currentDirectionIdx + 1 + i;
                         const isNext = i === 0;
-                        const distLabel = formatDistanceForStep(isNext && distanceToTurnM != null ? distanceToTurnM : s.distance);
+                        const distLabel = formatDistanceForStep(isNext && distanceToTurnM != null ? distanceToTurnM : s.distance, useImperial);
                         return (
                           <div
                             key={actualIdx}
@@ -1190,7 +1363,14 @@ const ActiveWalk = () => {
             {offline && isWalking && routeInfo && routeInfo.steps.length > 0 && (
               <div className="glass-card px-3 py-2 flex items-center gap-2 text-left border border-primary/30 bg-primary/5" role="status" aria-live="polite">
                 <WifiOff className="w-4 h-4 text-primary flex-shrink-0" />
-                <span className="text-xs font-medium text-foreground">Offline — using cached directions. Steps advancing your progress.</span>
+                <span className="text-xs font-medium text-foreground flex-1">Offline — using cached directions. Steps advancing your progress.</span>
+                <button
+                  onClick={downloadDirections}
+                  className="flex items-center gap-1 text-[10px] text-primary font-medium hover:underline shrink-0"
+                  title="Save directions to device for offline"
+                >
+                  <Download className="w-3 h-3" /> Save
+                </button>
               </div>
             )}
 
@@ -1207,14 +1387,14 @@ const ActiveWalk = () => {
                         {(haversine(currentPosition.lat, currentPosition.lng, mosquePosition.lat, mosquePosition.lng) * 1000).toFixed(0)} m to mosque
                       </p>
                       <p className="text-[10px] text-muted-foreground">
-                        {offline ? "Offline — no cached route. Steps still count." : `Head towards ${mosqueName}`}
+                        {offline ? "Offline — no cached route. Steps still count. Download directions when connected for next walk." : `Head towards ${mosqueName}`}
                       </p>
                     </>
                   ) : (
                     <>
                       <p className="text-sm font-medium text-foreground">Steps advancing your walk</p>
                       <p className="text-[10px] text-muted-foreground">
-                        {offline ? "Offline — no cached route. Enable location or connect for directions." : "Enable location for distance and map."}
+                        {offline ? "Offline — no cached route. Download directions when connected for next time." : "Enable location for distance and map."}
                       </p>
                     </>
                   )}
@@ -1539,7 +1719,7 @@ const ActiveWalk = () => {
                 {!returnRouteLoading && returnRouteInfo && returnRouteInfo.steps.length > 0 && (
                   <div className="glass-card p-3 text-left max-h-32 overflow-y-auto">
                     <p className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1">
-                      <Navigation className="w-3 h-3" /> Route back home
+                      <Navigation className="w-3 h-3" /> Route back {returnDestOverride ? `to ${returnDestOverride.name}` : "home"}
                     </p>
                     <div className="space-y-1.5">
                       {returnRouteInfo.steps.map((s, i) => (
@@ -1555,7 +1735,104 @@ const ActiveWalk = () => {
                     <p className="text-[10px] text-muted-foreground mt-2">
                       {returnRouteInfo.distanceKm.toFixed(1)} km · ~{returnRouteInfo.durationMin} min
                     </p>
+                    {returnDestOverride && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setReturnDestOverride(null);
+                          setReturnDestSearch("");
+                          setShowReturnDestSearch(false);
+                          if (mosquePosition && settings.homeLat != null && settings.homeLng != null) {
+                            setReturnRouteLoading(true);
+                            try {
+                              const route = await fetchWalkingRoute(mosquePosition.lat, mosquePosition.lng, settings.homeLat, settings.homeLng);
+                              if (route) {
+                                setReturnRouteCoords(route.coords);
+                                setReturnRouteInfo({ distanceKm: route.distanceKm, durationMin: route.durationMin, steps: route.steps });
+                              }
+                            } finally {
+                              setReturnRouteLoading(false);
+                            }
+                          }
+                        }}
+                        className="text-[10px] text-primary hover:underline mt-1"
+                      >
+                        Use home instead
+                      </button>
+                    )}
                   </div>
+                )}
+
+                {/* Different destination? — address override */}
+                <div className="glass-card p-3 space-y-2">
+                  {!showReturnDestSearch ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowReturnDestSearch(true)}
+                      className="text-xs text-primary hover:underline flex items-center gap-1"
+                    >
+                      <Search className="w-3 h-3" /> Different destination?
+                    </button>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-foreground">Walk to a different address</p>
+                      <input
+                        type="text"
+                        value={returnDestSearch}
+                        onChange={(e) => setReturnDestSearch(e.target.value)}
+                        placeholder="Search address..."
+                        className="w-full px-3 py-2 text-sm rounded-lg bg-muted border border-input"
+                        autoFocus
+                      />
+                      <div className="max-h-32 overflow-y-auto space-y-1">
+                        {returnDestSuggestions.map((s, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => {
+                              setReturnDestOverride({ lat: s.lat, lng: s.lng, name: s.displayName });
+                              setShowReturnDestSearch(false);
+                              setReturnDestSearch("");
+                              setReturnDestSuggestions([]);
+                            }}
+                            className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-muted"
+                          >
+                            {s.displayName}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setShowReturnDestSearch(false); setReturnDestSearch(""); setReturnDestSuggestions([]); }}
+                        className="text-[10px] text-muted-foreground hover:underline"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Start Walk Home */}
+                {returnRouteInfo && mosquePosition && (
+                  <Button
+                    variant="hero"
+                    size="lg"
+                    className="w-full"
+                    onClick={() => {
+                      const dest = returnDestOverride ?? (settings.homeLat != null && settings.homeLng != null ? { lat: settings.homeLat, lng: settings.homeLng } : null);
+                      if (!dest) return;
+                      const params = new URLSearchParams({
+                        returnWalk: "1",
+                        fromLat: String(mosquePosition.lat),
+                        fromLng: String(mosquePosition.lng),
+                        toLat: String(dest.lat),
+                        toLng: String(dest.lng),
+                      });
+                      navigate(`/walk?${params}`);
+                    }}
+                  >
+                    <Home className="w-5 h-5 mr-2" /> Start Walk Home{returnDestOverride ? ` to ${returnDestOverride.name.split(",")[0]}` : ""}
+                  </Button>
                 )}
               </>
             )}
