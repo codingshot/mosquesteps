@@ -117,7 +117,11 @@ export async function getIPGeolocation(): Promise<{ lat: number; lng: number; ci
   } catch {}
 
   try {
-    const res = await fetch("https://ipapi.co/json/", { signal: AbortSignal.timeout(5000) });
+    const ipFetchOpts: RequestInit = {};
+    if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
+      ipFetchOpts.signal = AbortSignal.timeout(5000);
+    }
+    const res = await fetch("https://ipapi.co/json/", ipFetchOpts);
     const data = await res.json();
     if (data.latitude && data.longitude) {
       const result = {
@@ -136,7 +140,11 @@ export async function getIPGeolocation(): Promise<{ lat: number; lng: number; ci
 
   // Fallback to another service
   try {
-    const res = await fetch("https://ip-api.com/json/?fields=lat,lon,city,timezone", { signal: AbortSignal.timeout(5000) });
+    const fallbackOpts: RequestInit = {};
+    if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
+      fallbackOpts.signal = AbortSignal.timeout(5000);
+    }
+    const res = await fetch("https://ip-api.com/json/?fields=lat,lon,city,timezone", fallbackOpts);
     const data = await res.json();
     if (data.lat && data.lon) {
       const result = {

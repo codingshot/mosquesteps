@@ -36,8 +36,8 @@ describe("Rewards page", () => {
 
   it("has Badges and Hadiths tabs", () => {
     renderRewards();
-    expect(screen.getByRole("button", { name: /Badges/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Hadiths/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Badges/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Hadiths/i })).toBeInTheDocument();
   });
 
   it("Badges tab shows How Rewards Are Calculated", () => {
@@ -48,7 +48,7 @@ describe("Rewards page", () => {
 
   it("switching to Hadiths tab shows hadith content", () => {
     renderRewards();
-    fireEvent.click(screen.getByRole("button", { name: /Hadiths/i }));
+    fireEvent.click(screen.getByRole("tab", { name: /Hadiths/i }));
     expect(screen.getByText(/Explore more on Sunnah.com/i)).toBeInTheDocument();
   });
 

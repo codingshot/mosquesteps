@@ -8,6 +8,8 @@ import "leaflet/dist/leaflet.css";
 import { estimateSteps, estimateWalkingTime, fetchPrayerTimes, calculateLeaveByTime, minutesUntilLeave, getNowInTimezone, type PrayerTime } from "@/lib/prayer-times";
 import { fetchWalkingRoute } from "@/lib/routing";
 import { getCachedMosques, setCachedMosques, getCachedRoute, setCachedRoute, isOnline } from "@/lib/offline-cache";
+import { fetchLocationSuggestions } from "@/lib/geocode";
+import { getIPGeolocation } from "@/lib/prayer-times";
 import { formatTime as formatTimeStr, formatSmallDistance, formatMinutes } from "@/lib/regional-defaults";
 import {
   saveSettings, getSettings,
@@ -93,9 +95,12 @@ const MosqueFinder = () => {
   const [selectedMosqueId, setSelectedMosqueId] = useState<number | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeInfo, setRouteInfo] = useState<{ distanceKm: number; durationMin: number; steps: { instruction: string; distance: number }[] } | null>(null);
-  const [searchSuggestions, setSearchSuggestions] = useState<{ name: string; lat: number; lng: number }[]>([]);
+  const [searchSuggestions, setSearchSuggestions] = useState<{ name: string; lat: number; lng: number; isMyLocation?: boolean }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const userPosRef = useRef(userPos);
+  const [hasGpsOrIpPosition, setHasGpsOrIpPosition] = useState(false);
+  userPosRef.current = userPos;
 
   // Prayer time state
   const [nextPrayer, setNextPrayer] = useState<PrayerTime | null>(null);
@@ -163,24 +168,39 @@ const MosqueFinder = () => {
     };
   }, []);
 
-  // GPS for precise location
+  // Initial center: prefer saved city/home, else IP geolocation (then GPS will override)
   useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          setUserPos(loc);
-          if (mapRef.current) {
-            mapRef.current.setView([loc.lat, loc.lng], 14);
-            if (homeMarkerRef.current) {
-              homeMarkerRef.current.setLatLng([loc.lat, loc.lng]);
-            }
-          }
-          searchNearbyMosques(loc.lat, loc.lng);
-        },
-        () => {}
-      );
-    }
+    const hasSaved = settings.cityLat && settings.cityLng || settings.homeLat && settings.homeLng;
+    if (hasSaved) return;
+    getIPGeolocation().then((ip) => {
+      if (!ip || !mapContainerRef.current) return;
+      const loc = { lat: ip.lat, lng: ip.lng };
+      setUserPos(loc);
+      setHasGpsOrIpPosition(true);
+      if (mapRef.current) {
+        mapRef.current.setView([loc.lat, loc.lng], 14);
+        if (homeMarkerRef.current) homeMarkerRef.current.setLatLng([loc.lat, loc.lng]);
+        searchNearbyMosques(loc.lat, loc.lng);
+      }
+    }).catch(() => {});
+  }, []);
+
+  // GPS for precise location (overrides IP/saved when available)
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setUserPos(loc);
+        setHasGpsOrIpPosition(true);
+        if (mapRef.current) {
+          mapRef.current.setView([loc.lat, loc.lng], 14);
+          if (homeMarkerRef.current) homeMarkerRef.current.setLatLng([loc.lat, loc.lng]);
+        }
+        searchNearbyMosques(loc.lat, loc.lng);
+      },
+      () => {}
+    );
   }, []);
 
   // Update map markers when mosques change
@@ -399,34 +419,40 @@ const MosqueFinder = () => {
     }
   };
 
-  // Autocomplete search with debounce
+  // Autocomplete search with debounce (min 2 chars, 8 suggestions, "My location" first when available)
   const handleSearchInputChange = (value: string) => {
     setSearchQuery(value);
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    if (value.trim().length < 3) {
+    if (value.trim().length < 2) {
       setSearchSuggestions([]);
       setShowSuggestions(false);
       return;
     }
     searchTimeoutRef.current = setTimeout(async () => {
       try {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(value)}&format=json&limit=5&addressdetails=1`
-        );
-        const data = await res.json();
-        const suggestions = data.map((d: any) => ({
-          name: d.display_name.split(",").slice(0, 3).join(","),
-          lat: parseFloat(d.lat),
-          lng: parseFloat(d.lon),
+        const list = await fetchLocationSuggestions(value, 8);
+        const suggestions: { name: string; lat: number; lng: number; isMyLocation?: boolean }[] = list.map((s) => ({
+          name: s.displayName.split(",").slice(0, 3).join(", ").trim(),
+          lat: s.lat,
+          lng: s.lng,
         }));
+        if (hasGpsOrIpPosition) {
+          const pos = userPosRef.current;
+          suggestions.unshift({
+            name: "Use my location",
+            lat: pos.lat,
+            lng: pos.lng,
+            isMyLocation: true,
+          });
+        }
         setSearchSuggestions(suggestions);
         setShowSuggestions(suggestions.length > 0);
       } catch {}
-    }, 400);
+    }, 300);
   };
 
-  const selectSuggestion = (s: { name: string; lat: number; lng: number }) => {
-    setSearchQuery(s.name);
+  const selectSuggestion = (s: { name: string; lat: number; lng: number; isMyLocation?: boolean }) => {
+    setSearchQuery(s.isMyLocation ? "My location" : s.name);
     setShowSuggestions(false);
     setUserPos({ lat: s.lat, lng: s.lng });
     if (mapRef.current) {

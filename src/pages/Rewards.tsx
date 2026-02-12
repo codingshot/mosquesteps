@@ -46,27 +46,35 @@ const Rewards = () => {
 
       <div className="container py-6 space-y-4">
         {/* Tabs */}
-        <div className="flex bg-muted rounded-lg p-1">
+        <div className="flex bg-muted rounded-lg p-1" role="tablist" aria-label="Rewards sections">
           <button
+            role="tab"
+            aria-selected={activeTab === "badges"}
+            aria-controls="rewards-badges-panel"
+            id="rewards-tab-badges"
             onClick={() => setActiveTab("badges")}
-            className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors flex items-center justify-center gap-1 ${
+            className={`flex-1 py-2 min-h-[44px] text-sm font-medium rounded-md transition-colors flex items-center justify-center gap-1 ${
               activeTab === "badges" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
             }`}
           >
-            <Trophy className="w-4 h-4" /> Badges
+            <Trophy className="w-4 h-4 shrink-0" aria-hidden /> Badges
           </button>
           <button
+            role="tab"
+            aria-selected={activeTab === "hadiths"}
+            aria-controls="rewards-hadiths-panel"
+            id="rewards-tab-hadiths"
             onClick={() => setActiveTab("hadiths")}
-            className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors flex items-center justify-center gap-1 ${
+            className={`flex-1 py-2 min-h-[44px] text-sm font-medium rounded-md transition-colors flex items-center justify-center gap-1 ${
               activeTab === "hadiths" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
             }`}
           >
-            <BookOpen className="w-4 h-4" /> Hadiths
+            <BookOpen className="w-4 h-4 shrink-0" aria-hidden /> Hadiths
           </button>
         </div>
 
         {activeTab === "badges" && (
-          <div className="space-y-6">
+          <div id="rewards-badges-panel" role="tabpanel" aria-labelledby="rewards-tab-badges" className="space-y-6">
             {/* Reward calculation */}
             <div className="glass-card p-5">
               <h2 className="font-semibold text-foreground mb-3 flex items-center gap-2">
@@ -135,7 +143,7 @@ const Rewards = () => {
         )}
 
         {activeTab === "hadiths" && (
-          <div className="space-y-4">
+          <div id="rewards-hadiths-panel" role="tabpanel" aria-labelledby="rewards-tab-hadiths" className="space-y-4">
             {hadithKeys.map((key, i) => {
               const h = VERIFIED_HADITHS[key];
               if (!h) return null;

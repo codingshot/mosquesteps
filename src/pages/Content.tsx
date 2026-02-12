@@ -17,8 +17,8 @@ export default function Content() {
       />
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border/50">
         <div className="container flex items-center h-14 gap-3">
-          <Link to="/">
-            <Button variant="ghost" size="icon">
+          <Link to="/" aria-label="Back to home">
+            <Button variant="ghost" size="icon" aria-label="Back to home">
               <ArrowLeft className="w-5 h-5" />
             </Button>
           </Link>

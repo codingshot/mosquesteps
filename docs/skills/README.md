@@ -47,6 +47,7 @@ Use this as a living list to drive UX work. Tick or move items as you ship.
 | **Functionality auditor** | [functionality-audit.md](./functionality-audit.md) | Features work end-to-end; edge cases; regressions. |
 | **Quran & hadith accuracy** | [quran-hadith-accuracy.md](./quran-hadith-accuracy.md) | Correct text, source, grading; no fabrication. |
 | **API tester** | [api-testing.md](./api-testing.md) | OSRM, prayer-time APIs, Nominatim; contracts and errors. |
+| **Location tester** | [location-testing.md](./location-testing.md) | GPS vs IP vs city priority, address type-ahead, mosque search, map center. |
 | **SEO auditor** | [seo-audit.md](./seo-audit.md) | Meta, schema, sitemap, internal links, llms.txt. |
 | **AI engine optimizer** | [ai-engine-optimizer.md](./ai-engine-optimizer.md) | llms.txt, structured data, crawlability for AI. |
 | **Blog writer** | [blog-writer.md](./blog-writer.md) | Tone, hadith use, CTAs, SEO; blog-data and guides. |
@@ -63,4 +64,4 @@ Use this as a living list to drive UX work. Tick or move items as you ship.
 4. **Fix and re-check** — Implement fixes, then re-run the relevant tests (e.g. `npm test`, manual flows).
 5. **Update the skill** — If you find new patterns or checks, add them to the skill file so the next audit is better.
 
-Tests live in `src/test/`. Key flows: page loads (`page-loads.test.tsx`), filters (`filters.test.tsx`), routing (`routing.test.ts`), prayer/time (`prayer-times.test.ts`), step counter (`step-counter.test.ts`), security (`security.test.ts`), SEO (`seo.test.tsx`).
+Tests live in `src/test/`. **Features master list:** `docs/features-master-list.md` lists every feature with expected outputs; `docs/features-test-map.json` maps feature IDs to tests. Run `npm run test:features` to run the full suite and see the guide; `npm run test:features:list` to list mapped features; `node scripts/test-by-features.js <ID>` to run tests for one feature (e.g. `LOC-001`). Key test files: page-loads, filters, routing, prayer-times, step-counter, security, seo, geocode, location.

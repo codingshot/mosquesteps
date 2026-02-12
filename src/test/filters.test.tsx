@@ -96,7 +96,7 @@ describe("Changelog page filters", () => {
   it("renders and shows filter controls", () => {
     renderWithProviders(<Changelog />);
     expect(screen.getByPlaceholderText(/Search changelog/i)).toBeInTheDocument();
-    expect(screen.getByText(/Type/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Type/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/Unreleased|1\.0\.0/).length).toBeGreaterThanOrEqual(1);
   });
 

@@ -527,8 +527,13 @@ const ActiveWalk = () => {
   };
 
   const estimateCalories = (steps: number): number => {
-    // Rough estimate: ~0.04 kcal per step for average person
-    return Math.round(steps * 0.04);
+    // Base: ~0.04 kcal per step at reference 70 kg. With advanced metrics + weight, scale by (weight/70)^0.5.
+    const baseKcalPerStep = 0.04;
+    if (settings.advancedMetricsMode && settings.bodyWeightKg && settings.bodyWeightKg >= 20) {
+      const factor = Math.sqrt(settings.bodyWeightKg / 70);
+      return Math.round(steps * baseKcalPerStep * factor);
+    }
+    return Math.round(steps * baseKcalPerStep);
   };
 
   const formatTime = (seconds: number) => {
@@ -697,12 +702,12 @@ const ActiveWalk = () => {
                 </>
               ) : (
                 <div className="text-center py-2 space-y-2">
-                  <MapPin className="w-8 h-8 text-muted-foreground/50 mx-auto" />
+                  <MapPin className="w-8 h-8 text-muted-foreground/50 mx-auto" aria-hidden />
                   <p className="text-sm font-medium text-foreground">No mosque selected</p>
-                  <p className="text-xs text-muted-foreground">Find a nearby mosque to get route info and distance tracking.</p>
+                  <p className="text-xs text-muted-foreground">Set your mosque to see walking distance, turn-by-turn directions, and leave-by time.</p>
                   <Link to="/mosques">
                     <Button variant="outline" size="sm" className="mt-1">
-                      <MapPin className="w-3 h-3 mr-1" /> Find Mosque
+                      <MapPin className="w-3 h-3 mr-1" aria-hidden /> Find Mosque
                     </Button>
                   </Link>
                 </div>
@@ -802,8 +807,8 @@ const ActiveWalk = () => {
               <Play className="w-5 h-5 mr-2" /> Start Walking
             </Button>
             {mosquePosition && (
-              <Button variant="outline" size="sm" className="w-full text-xs gap-1.5" onClick={openInMaps}>
-                <ExternalLink className="w-3.5 h-3.5" /> Open Directions in Maps App
+              <Button variant="outline" size="sm" className="w-full text-xs gap-1.5" onClick={openInMaps} title="Open route in your maps app">
+                <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden /> Open in Maps
               </Button>
             )}
           </motion.div>
@@ -1448,7 +1453,7 @@ const ActiveWalk = () => {
                   ) : (
                     <Button
                       variant="hero"
-                      className="w-full"
+                      className="w-full min-w-0"
                       onClick={() => {
                         addCheckIn({
                           mosqueId: String(mosquePosition.lat),
@@ -1461,8 +1466,10 @@ const ActiveWalk = () => {
                         setCheckedIn(true);
                         toast({ title: "Checked in! 🕌", description: `${mosqueName} — ${selectedPrayer}` });
                       }}
+                      title={mosqueName}
                     >
-                      <CheckCircle className="w-4 h-4 mr-2" /> Check In at {mosqueName}
+                      <CheckCircle className="w-4 h-4 shrink-0" aria-hidden />
+                      <span className="truncate">Check In at {mosqueName}</span>
                     </Button>
                   )
                 ) : (

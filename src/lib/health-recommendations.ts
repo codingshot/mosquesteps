@@ -1,4 +1,5 @@
 import type { UserSettings } from "./walking-history";
+import { AGE_MIN, AGE_MAX } from "./walking-history";
 
 export interface HealthRecommendation {
   dailySteps: number;
@@ -8,13 +9,24 @@ export interface HealthRecommendation {
 }
 
 /**
+ * Clamp age to reasonable range for health recommendations.
+ */
+export function clampAgeForRecommendation(age: number | undefined): number {
+  if (age == null || Number.isNaN(age)) return 30;
+  if (age < AGE_MIN) return AGE_MIN;
+  if (age > AGE_MAX) return AGE_MAX;
+  return Math.round(age);
+}
+
+/**
  * Returns recommended daily steps based on age and gender.
  * Based on guidelines from WHO, CDC, and peer-reviewed research:
  * - Tudor-Locke et al. (2011) — step-based recommendations by age/gender
  * - WHO Physical Activity Guidelines (2020)
+ * Age is clamped to [AGE_MIN, AGE_MAX].
  */
 export function getStepRecommendation(age?: number, gender?: "male" | "female" | ""): HealthRecommendation {
-  const a = age || 30;
+  const a = clampAgeForRecommendation(age ?? 30);
   const g = gender || "male";
 
   if (a < 18) {

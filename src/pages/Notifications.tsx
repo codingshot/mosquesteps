@@ -137,8 +137,8 @@ export default function Notifications() {
       <header className="sticky top-0 z-40 bg-card/95 backdrop-blur-lg border-b border-border px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link to="/dashboard">
-              <Button variant="ghost" size="icon" className="h-8 w-8">
+            <Link to="/dashboard" aria-label="Back to dashboard">
+              <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Back to dashboard">
                 <ArrowLeft className="w-4 h-4" />
               </Button>
             </Link>
@@ -156,7 +156,7 @@ export default function Notifications() {
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setShowFilters(!showFilters); setShowSettings(false); }} aria-label="Toggle filters">
               <Filter className={`w-4 h-4 ${showFilters ? "text-primary" : ""}`} />
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setShowSettings(!showSettings); setShowFilters(false); }}>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setShowSettings(!showSettings); setShowFilters(false); }} aria-label="Notification preferences">
               <Settings2 className={`w-4 h-4 ${showSettings ? "text-primary" : ""}`} />
             </Button>
           </div>
@@ -219,10 +219,11 @@ export default function Notifications() {
               {/* Mark type as read */}
               {filterType !== "all" && (unreadByType[filterType as NotificationType] || 0) > 0 && (
                 <Button
-                  variant="outline" size="sm" className="text-xs h-7"
+                  variant="outline" size="sm" className="text-xs h-7 shrink-0"
                   onClick={() => handleMarkTypeRead(filterType as NotificationType)}
+                  title={`Mark all ${typeConfig[filterType as NotificationType]?.label ?? "selected"} as read`}
                 >
-                  <CheckCheck className="w-3 h-3 mr-1" /> Mark all {typeConfig[filterType as NotificationType]?.label} as read
+                  <CheckCheck className="w-3 h-3 mr-1" aria-hidden /> Mark as read
                 </Button>
               )}
             </div>

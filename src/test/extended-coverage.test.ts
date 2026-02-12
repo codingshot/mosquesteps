@@ -9,7 +9,7 @@ import {
 } from "@/lib/prayer-times";
 import { getSettings, saveSettings, addWalkEntry, getWalkHistory, deleteWalkEntry, getWalkingStats, getSavedMosques, saveMosque, removeSavedMosque, setPrimaryMosque } from "@/lib/walking-history";
 import { getBadges } from "@/lib/badges";
-import { getStepRecommendation, getHealthAssessment } from "@/lib/health-recommendations";
+import { getStepRecommendation, getHealthAssessment, clampAgeForRecommendation } from "@/lib/health-recommendations";
 import { getPaceCategory } from "@/lib/step-counter";
 import { formatMinutes } from "@/lib/regional-defaults";
 
@@ -49,6 +49,16 @@ describe("Health Recommendations", () => {
     expect(getHealthAssessment(rec.dailySteps * 0.9, rec).level).toBe("good");
     expect(getHealthAssessment(rec.dailySteps * 0.6, rec).level).toBe("fair");
     expect(getHealthAssessment(rec.dailySteps * 0.2, rec).level).toBe("needs-improvement");
+  });
+
+  it("clamps age to reasonable range (5–120)", () => {
+    expect(clampAgeForRecommendation(3)).toBe(5);
+    expect(clampAgeForRecommendation(5)).toBe(5);
+    expect(clampAgeForRecommendation(50)).toBe(50);
+    expect(clampAgeForRecommendation(120)).toBe(120);
+    expect(clampAgeForRecommendation(200)).toBe(120);
+    expect(clampAgeForRecommendation(undefined)).toBe(30);
+    expect(clampAgeForRecommendation(NaN)).toBe(30);
   });
 
   it("defaults to male/30 when no params", () => {

@@ -33,6 +33,14 @@ const STORAGE_KEY = "mosquesteps_history";
 const SETTINGS_KEY = "mosquesteps_settings";
 const MOSQUES_KEY = "mosquesteps_saved_mosques";
 
+/** Reasonable age range for health recommendations (years). */
+export const AGE_MIN = 5;
+export const AGE_MAX = 120;
+
+/** Reasonable body weight range for metrics (kg). */
+export const BODY_WEIGHT_KG_MIN = 20;
+export const BODY_WEIGHT_KG_MAX = 300;
+
 export interface UserSettings {
   walkingSpeed: number; // km/h
   selectedMosqueName: string;
@@ -56,6 +64,10 @@ export interface UserSettings {
   notifyMinutesBefore?: number; // minutes before "leave by" time to notify
   age?: number;
   gender?: "male" | "female" | "";
+  /** Optional body weight in kg for calorie estimates and future gait metrics. */
+  bodyWeightKg?: number;
+  /** When true, use weight for calories and enable future gait/stride/cadence insights. */
+  advancedMetricsMode?: boolean;
 }
 
 /**

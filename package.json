@@ -10,7 +10,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:features": "node scripts/test-by-features.js",
+    "test:features:list": "node scripts/test-by-features.js --list"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

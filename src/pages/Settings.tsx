@@ -1,10 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, MapPin, Bell, BellOff, Locate, Download, Sun, Moon, Monitor, Ruler, Gauge, Footprints, Home, User, Globe, CheckCircle, Clock } from "lucide-react";
+import { ArrowLeft, MapPin, Bell, BellOff, Locate, Download, Sun, Moon, Monitor, Ruler, Gauge, Footprints, Home, User, Globe, CheckCircle, Clock, BarChart3, Info } from "lucide-react";
 import { useLocale } from "@/hooks/use-locale";
 import { getAvailableLocales, type Locale } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
-import { getSettings, saveSettings, getSavedMosques, fetchTimezone, type UserSettings } from "@/lib/walking-history";
+import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { getSettings, saveSettings, getSavedMosques, fetchTimezone, AGE_MIN, AGE_MAX, BODY_WEIGHT_KG_MIN, BODY_WEIGHT_KG_MAX, type UserSettings } from "@/lib/walking-history";
+import { fetchLocationSuggestions, type LocationSuggestion } from "@/lib/geocode";
 import { requestNotificationPermission, isNotificationSupported, getNotificationPermission } from "@/lib/notifications";
 import { getRegionalDefaults } from "@/lib/regional-defaults";
 import { useTheme } from "@/hooks/use-theme";
@@ -17,6 +20,9 @@ const Settings = () => {
   const { toast } = useToast();
   const [settings, setSettings] = useState<UserSettings>(getSettings());
   const [citySearch, setCitySearch] = useState("");
+  const [citySuggestions, setCitySuggestions] = useState<LocationSuggestion[]>([]);
+  const [showCitySuggestions, setShowCitySuggestions] = useState(false);
+  const citySearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [notifPermission, setNotifPermission] = useState(getNotificationPermission());
   const [locating, setLocating] = useState(false);
   const [homeLocating, setHomeLocating] = useState(false);
@@ -42,37 +48,67 @@ const Settings = () => {
     return () => clearTimeout(saveTimeoutRef.current);
   }, [settings]);
 
+  const handleCityInputChange = (value: string) => {
+    setCitySearch(value);
+    if (citySearchTimeoutRef.current) clearTimeout(citySearchTimeoutRef.current);
+    if (value.trim().length < 2) {
+      setCitySuggestions([]);
+      setShowCitySuggestions(false);
+      return;
+    }
+    citySearchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const list = await fetchLocationSuggestions(value, 6);
+        setCitySuggestions(list);
+        setShowCitySuggestions(list.length > 0);
+      } catch {
+        setCitySuggestions([]);
+      }
+    }, 300);
+  };
+
+  const selectCitySuggestion = async (s: LocationSuggestion) => {
+    setCitySearch(s.shortName || s.displayName.split(",")[0] || "");
+    setShowCitySuggestions(false);
+    setCitySuggestions([]);
+    try {
+      const tz = await fetchTimezone(s.lat, s.lng);
+      const cityName = s.shortName || s.displayName.split(",")[0] || citySearch;
+      const defaults = getRegionalDefaults(cityName, tz || undefined);
+      const oldTz = settings.cityTimezone;
+      const isNewTimezone = tz && oldTz && tz !== oldTz;
+      setSettings((prev) => ({
+        ...prev,
+        cityName,
+        cityLat: s.lat,
+        cityLng: s.lng,
+        ...(tz ? { cityTimezone: tz } : {}),
+        ...(!prev.timeFormat ? { timeFormat: defaults.timeFormat } : {}),
+        ...(!prev.smallDistanceUnit ? { smallDistanceUnit: defaults.smallDistanceUnit } : {}),
+      }));
+      toast({
+        title: isNewTimezone ? `📍 Location changed to ${cityName}` : "City set!",
+        description: isNewTimezone
+          ? `Timezone updated: ${oldTz} → ${tz}. All prayer times and clocks now use ${cityName} local time.`
+          : `Prayer times will be calculated for ${cityName}${tz ? ` (${tz})` : ""}`,
+      });
+    } catch {
+      toast({ title: "Search failed", description: "Could not find that city.", variant: "destructive" });
+    }
+  };
+
   const handleCitySearch = async () => {
     if (!citySearch.trim()) return;
+    if (citySuggestions.length > 0) {
+      selectCitySuggestion(citySuggestions[0]);
+      return;
+    }
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(citySearch)}&format=json&limit=1`
-      );
-      const data = await res.json();
-      if (data.length > 0) {
-        const loc = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-        const tz = await fetchTimezone(loc.lat, loc.lng);
-        const cityName = data[0].display_name?.split(",")[0] || citySearch;
-        const defaults = getRegionalDefaults(cityName, tz || undefined);
-
-        const oldTz = settings.cityTimezone;
-        const isNewTimezone = tz && oldTz && tz !== oldTz;
-
-        setSettings((s) => ({
-          ...s,
-          cityName,
-          cityLat: loc.lat,
-          cityLng: loc.lng,
-          ...(tz ? { cityTimezone: tz } : {}),
-          ...(!s.timeFormat ? { timeFormat: defaults.timeFormat } : {}),
-          ...(!s.smallDistanceUnit ? { smallDistanceUnit: defaults.smallDistanceUnit } : {}),
-        }));
-        toast({
-          title: isNewTimezone ? `📍 Location changed to ${cityName}` : "City set!",
-          description: isNewTimezone
-            ? `Timezone updated: ${oldTz} → ${tz}. All prayer times and clocks now use ${cityName} local time.`
-            : `Prayer times will be calculated for ${cityName}${tz ? ` (${tz})` : ""}`,
-        });
+      const list = await fetchLocationSuggestions(citySearch, 1);
+      if (list.length > 0) {
+        await selectCitySuggestion(list[0]);
+      } else {
+        toast({ title: "Search failed", description: "Could not find that city.", variant: "destructive" });
       }
     } catch {
       toast({ title: "Search failed", description: "Could not find that city.", variant: "destructive" });
@@ -237,8 +273,24 @@ const Settings = () => {
 
           {/* Stride length */}
           <div>
-            <label className="text-sm text-muted-foreground block mb-2">
+            <label className="text-sm text-muted-foreground block mb-2 flex items-center gap-1.5">
               Stride Length: {(settings.strideLength || 0.75).toFixed(2)} m ({((settings.strideLength || 0.75) * 3.281).toFixed(1)} ft)
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" className="inline-flex text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring rounded" aria-label="Stride length benchmarks">
+                    <Info className="w-3.5 h-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[240px] p-3 text-left" side="bottom">
+                  <p className="font-medium text-foreground mb-1.5">Benchmarks</p>
+                  <ul className="text-xs text-muted-foreground space-y-1">
+                    <li><strong className="text-foreground">National average:</strong> ~0.76 m (adults)</li>
+                    <li><strong className="text-foreground">Elderly (65+):</strong> ~0.60–0.70 m</li>
+                    <li><strong className="text-foreground">Athletes / brisk:</strong> ~0.85–1.0 m</li>
+                  </ul>
+                  <p className="text-xs text-muted-foreground mt-1.5">Used to estimate steps from distance when sensors aren’t used.</p>
+                </TooltipContent>
+              </Tooltip>
             </label>
             <input
               type="range"
@@ -253,7 +305,8 @@ const Settings = () => {
               <span>Short (0.5m)</span>
               <span>Avg (0.75m)</span>
               <span>Long (1.0m)</span>
-
+            </div>
+          </div>
 
           {/* Time Format */}
           <div>
@@ -303,8 +356,6 @@ const Settings = () => {
             </div>
           </div>
         </div>
-          </div>
-        </div>
 
         {/* Location / City for prayer times */}
         <div className="glass-card p-5 space-y-3">
@@ -327,15 +378,35 @@ const Settings = () => {
             <Locate className="w-4 h-4 mr-2" />
             {locating ? "Detecting..." : "Use Current Location"}
           </Button>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Or search city (e.g. London, Makkah)..."
-              value={citySearch}
-              onChange={(e) => setCitySearch(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleCitySearch()}
-              className="flex-1 px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
+          <div className="flex gap-2 relative">
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                placeholder="Or search city or address..."
+                value={citySearch}
+                onChange={(e) => handleCityInputChange(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleCitySearch()}
+                onFocus={() => citySuggestions.length > 0 && setShowCitySuggestions(true)}
+                onBlur={() => setTimeout(() => setShowCitySuggestions(false), 150)}
+                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                autoComplete="off"
+              />
+              {showCitySuggestions && citySuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+                  {citySuggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => selectCitySuggestion(s)}
+                      className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted flex items-center gap-2 border-b border-border/50 last:border-b-0"
+                    >
+                      <MapPin className="w-3.5 h-3.5 text-primary shrink-0" aria-hidden />
+                      <span className="truncate">{s.displayName}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <Button size="sm" onClick={handleCitySearch}>Set</Button>
           </div>
         </div>
@@ -532,25 +603,57 @@ const Settings = () => {
           </div>
         </div>
 
-        {/* Age & Gender (for health recommendations) */}
+        {/* Age, Gender, Body weight (for health recommendations and advanced metrics) */}
         <div className="glass-card p-5 space-y-4">
           <h2 className="font-semibold text-foreground flex items-center gap-2">
             <User className="w-4 h-4 text-primary" /> Health Profile
           </h2>
           <p className="text-sm text-muted-foreground">
-            Used to calculate personalized daily step recommendations on the Stats page.
+            Used for personalized daily step recommendations on the Stats page. Optional weight improves calorie estimates when Advanced metrics is on.
           </p>
           <div>
-            <label className="text-sm text-muted-foreground block mb-1">Age</label>
+            <label className="text-sm text-muted-foreground block mb-1">Age (years)</label>
             <input
               type="number"
-              min="5"
-              max="120"
-              placeholder="e.g. 30"
-              value={settings.age || ""}
-              onChange={(e) => setSettings({ ...settings, age: parseInt(e.target.value) || undefined })}
+              min={AGE_MIN}
+              max={AGE_MAX}
+              placeholder={`e.g. 30 (${AGE_MIN}–${AGE_MAX})`}
+              value={settings.age ?? ""}
+              onChange={(e) => {
+                const raw = e.target.value === "" ? undefined : parseInt(e.target.value, 10);
+                if (raw === undefined || Number.isNaN(raw)) {
+                  setSettings({ ...settings, age: undefined });
+                  return;
+                }
+                const clamped = Math.min(AGE_MAX, Math.max(AGE_MIN, raw));
+                if (clamped !== raw) toast({ title: `Age set to ${clamped} (must be ${AGE_MIN}–${AGE_MAX})`, variant: "default" });
+                setSettings({ ...settings, age: clamped });
+              }}
               className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
+            <p className="text-xs text-muted-foreground mt-1">Ages {AGE_MIN}–{AGE_MAX} for accurate recommendations.</p>
+          </div>
+          <div>
+            <label className="text-sm text-muted-foreground block mb-1">Body weight (kg, optional)</label>
+            <input
+              type="number"
+              min={BODY_WEIGHT_KG_MIN}
+              max={BODY_WEIGHT_KG_MAX}
+              step="0.5"
+              placeholder="e.g. 70"
+              value={settings.bodyWeightKg ?? ""}
+              onChange={(e) => {
+                const raw = e.target.value === "" ? undefined : parseFloat(e.target.value);
+                if (raw === undefined || Number.isNaN(raw)) {
+                  setSettings({ ...settings, bodyWeightKg: undefined });
+                  return;
+                }
+                const clamped = Math.min(BODY_WEIGHT_KG_MAX, Math.max(BODY_WEIGHT_KG_MIN, raw));
+                setSettings({ ...settings, bodyWeightKg: clamped });
+              }}
+              className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <p className="text-xs text-muted-foreground mt-1">Used for calorie estimates when Advanced metrics is on. {BODY_WEIGHT_KG_MIN}–{BODY_WEIGHT_KG_MAX} kg.</p>
           </div>
           <div>
             <label className="text-sm text-muted-foreground block mb-2">Gender</label>
@@ -573,6 +676,30 @@ const Settings = () => {
               ))}
             </div>
           </div>
+        </div>
+
+        {/* Advanced metrics mode */}
+        <div className="glass-card p-5 space-y-3">
+          <h2 className="font-semibold text-foreground flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-primary" /> Advanced metrics
+          </h2>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground">Enable advanced metrics</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Improves calorie estimates using your weight. Future: stride length, cadence, and gait quality from your walk data.
+              </p>
+            </div>
+            <Switch
+              checked={!!settings.advancedMetricsMode}
+              onCheckedChange={(checked) => setSettings({ ...settings, advancedMetricsMode: checked })}
+              aria-label="Toggle advanced metrics mode"
+            />
+          </div>
+          <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1">
+            <li>Calories: weight-adjusted estimate on walk completion when weight is set.</li>
+            <li>Planned: stride length (from steps + distance), cadence (steps/min), and gait consistency for a more dignified walk.</li>
+          </ul>
         </div>
 
         {/* Walking speed */}

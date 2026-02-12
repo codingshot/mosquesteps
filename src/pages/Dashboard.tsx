@@ -187,22 +187,20 @@ const Dashboard = () => {
       return;
     }
 
-    if (settings.cityLat && settings.cityLng) {
-      loadPrayers(settings.cityLat, settings.cityLng);
-    } else if (navigator.geolocation) {
+    // Priority: current location (GPS) → IP geolocation → saved city → Makkah
+    if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => loadPrayers(pos.coords.latitude, pos.coords.longitude),
-        () => fallbackToIP()
+        () => fallbackToIPOrCity()
       );
     } else {
-      fallbackToIP();
+      fallbackToIPOrCity();
     }
   }, []);
 
-  const fallbackToIP = async () => {
+  const fallbackToIPOrCity = async () => {
     const ipGeo = await getIPGeolocation();
     if (ipGeo) {
-      // Auto-save detected location for future use
       const tz = ipGeo.timezone || await fetchTimezone(ipGeo.lat, ipGeo.lng) || undefined;
       saveSettings({
         cityName: ipGeo.city,
@@ -211,9 +209,13 @@ const Dashboard = () => {
         ...(tz ? { cityTimezone: tz } : {}),
       });
       loadPrayers(ipGeo.lat, ipGeo.lng);
-    } else {
-      loadPrayers(21.4225, 39.8262); // Makkah fallback
+      return;
     }
+    if (settings.cityLat && settings.cityLng) {
+      loadPrayers(settings.cityLat, settings.cityLng);
+      return;
+    }
+    loadPrayers(21.4225, 39.8262); // Makkah fallback
   };
 
   const loadPrayers = async (lat: number, lng: number) => {
@@ -295,16 +297,16 @@ const Dashboard = () => {
             <span className="font-bold">MosqueSteps</span>
           </Link>
           <div className="flex items-center gap-1">
-            <Link to="/notifications" className="relative">
-              <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10 w-9 h-9">
+            <Link to="/notifications" className="relative" aria-label={getUnreadCount() > 0 ? `Notifications (${getUnreadCount()} unread)` : "Notifications"}>
+              <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10 w-9 h-9" aria-label={getUnreadCount() > 0 ? `Notifications (${getUnreadCount()} unread)` : "Notifications"}>
                 <Bell className="w-4 h-4" />
                 {getUnreadCount() > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-destructive" />
+                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-destructive" aria-hidden />
                 )}
               </Button>
             </Link>
-            <Link to="/settings">
-              <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10 w-9 h-9">
+            <Link to="/settings" aria-label="Settings">
+              <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10 w-9 h-9" aria-label="Settings">
                 <Settings2 className="w-4 h-4" />
               </Button>
             </Link>

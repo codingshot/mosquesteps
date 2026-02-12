@@ -19,7 +19,7 @@ export default function Contribute() {
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border/50">
         <div className="container flex items-center h-14 gap-3">
           <Link to="/">
-            <Button variant="ghost" size="icon"><ArrowLeft className="w-5 h-5" /></Button>
+            <Button variant="ghost" size="icon" aria-label="Back to home"><ArrowLeft className="w-5 h-5" /></Button>
           </Link>
           <Link to="/" className="flex items-center gap-2">
             <img src={logo} alt="MosqueSteps" className="w-6 h-6" />

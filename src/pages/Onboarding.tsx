@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { MapPin, Bell, Locate, ChevronRight, Check, Home } from "lucide-react";
 import { saveSettings, getSettings, fetchTimezone } from "@/lib/walking-history";
+import { fetchLocationSuggestions, type LocationSuggestion } from "@/lib/geocode";
+import { getIPGeolocation } from "@/lib/prayer-times";
 import { requestNotificationPermission, isNotificationSupported } from "@/lib/notifications";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
@@ -46,6 +48,9 @@ const Onboarding = () => {
   const [step, setStep] = useState(0);
   const [settings, setSettingsState] = useState(getSettings());
   const [citySearch, setCitySearch] = useState("");
+  const [citySuggestions, setCitySuggestions] = useState<LocationSuggestion[]>([]);
+  const [showCitySuggestions, setShowCitySuggestions] = useState(false);
+  const citySearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [locating, setLocating] = useState(false);
   const [selectedPrayers, setSelectedPrayers] = useState<string[]>(
     settings.prayerPreferences || ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]
@@ -109,26 +114,73 @@ const Onboarding = () => {
     );
   };
 
+  // Pre-fill location from IP when user reaches location step (prioritize current/IP before manual city)
+  useEffect(() => {
+    if (step !== 1) return;
+    if (settings.cityLat && settings.cityLng) return;
+    getIPGeolocation().then((ip) => {
+      if (!ip) return;
+      const tz = ip.timezone || "";
+      setSettingsState((s) => ({
+        ...s,
+        cityName: ip.city,
+        cityLat: ip.lat,
+        cityLng: ip.lng,
+        ...(tz ? { cityTimezone: tz } : {}),
+      }));
+    }).catch(() => {});
+  }, [step]);
+
+  const handleCityInputChange = (value: string) => {
+    setCitySearch(value);
+    if (citySearchTimeoutRef.current) clearTimeout(citySearchTimeoutRef.current);
+    if (value.trim().length < 2) {
+      setCitySuggestions([]);
+      setShowCitySuggestions(false);
+      return;
+    }
+    citySearchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const list = await fetchLocationSuggestions(value, 6);
+        setCitySuggestions(list);
+        setShowCitySuggestions(list.length > 0);
+      } catch {
+        setCitySuggestions([]);
+      }
+    }, 300);
+  };
+
+  const selectCitySuggestion = async (s: LocationSuggestion) => {
+    setCitySearch(s.shortName || s.displayName.split(",")[0] || "");
+    setShowCitySuggestions(false);
+    setCitySuggestions([]);
+    try {
+      const tz = await fetchTimezone(s.lat, s.lng);
+      setSettingsState((prev) => ({
+        ...prev,
+        cityName: s.shortName || s.displayName.split(",")[0],
+        cityLat: s.lat,
+        cityLng: s.lng,
+        ...(tz ? { cityTimezone: tz } : {}),
+      }));
+      toast({ title: `City set: ${s.shortName || s.displayName.split(",")[0]}` });
+    } catch {
+      toast({ title: "Search failed", variant: "destructive" });
+    }
+  };
+
   const handleCitySearch = async () => {
     if (!citySearch.trim()) return;
+    if (citySuggestions.length > 0) {
+      selectCitySuggestion(citySuggestions[0]);
+      return;
+    }
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(citySearch)}&format=json&limit=1`
-      );
-      const data = await res.json();
-      if (data.length > 0) {
-        const city = data[0].display_name?.split(",")[0] || citySearch;
-        const lat = parseFloat(data[0].lat);
-        const lng = parseFloat(data[0].lon);
-        const tz = await fetchTimezone(lat, lng);
-        setSettingsState((s) => ({
-          ...s,
-          cityName: city,
-          cityLat: lat,
-          cityLng: lng,
-          ...(tz ? { cityTimezone: tz } : {}),
-        }));
-        toast({ title: `City set: ${city}` });
+      const list = await fetchLocationSuggestions(citySearch, 1);
+      if (list.length > 0) {
+        await selectCitySuggestion(list[0]);
+      } else {
+        toast({ title: "No results", description: "Try a different city name.", variant: "destructive" });
       }
     } catch {
       toast({ title: "Search failed", variant: "destructive" });
@@ -245,15 +297,35 @@ const Onboarding = () => {
                   {locating ? "Detecting..." : "Use Current Location"}
                 </Button>
 
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Or search city..."
-                    value={citySearch}
-                    onChange={(e) => setCitySearch(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleCitySearch()}
-                    className="flex-1 px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
+                <div className="flex gap-2 relative">
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      placeholder="Or search city or address..."
+                      value={citySearch}
+                      onChange={(e) => handleCityInputChange(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleCitySearch()}
+                      onFocus={() => citySuggestions.length > 0 && setShowCitySuggestions(true)}
+                      onBlur={() => setTimeout(() => setShowCitySuggestions(false), 150)}
+                      className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      autoComplete="off"
+                    />
+                    {showCitySuggestions && citySuggestions.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+                        {citySuggestions.map((s, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => selectCitySuggestion(s)}
+                            className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted flex items-center gap-2 border-b border-border/50 last:border-b-0"
+                          >
+                            <MapPin className="w-3.5 h-3.5 text-primary shrink-0" aria-hidden />
+                            <span className="truncate">{s.displayName}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <Button size="sm" onClick={handleCitySearch}>Search</Button>
                 </div>
 
