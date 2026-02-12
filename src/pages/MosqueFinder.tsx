@@ -358,9 +358,12 @@ const MosqueFinder = () => {
       if (route) {
         applyRoute(route);
         setCachedRoute(origin.lat, origin.lng, mosque.lat, mosque.lon, route);
+      } else {
+        toast({ title: "Directions unavailable", description: "Route could not be loaded. Try again or use Open in Maps.", variant: "destructive" });
       }
     } catch (e) {
       console.error("Route fetch failed:", e);
+      toast({ title: "Directions unavailable", description: "Check your connection and try again.", variant: "destructive" });
     } finally {
       setRouteLoading(false);
     }

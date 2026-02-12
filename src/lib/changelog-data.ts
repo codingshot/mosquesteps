@@ -107,6 +107,15 @@ export const changelogEntries: ChangelogEntry[] = [
     description: "Dedicated changelog page with search and filters so you can see what’s new and what’s coming.",
     area: "content",
   },
+  {
+    id: "unreleased-directions-time-pedometer",
+    type: "technical",
+    version: "Unreleased",
+    date: "Unreleased",
+    title: "Directions, time, and pedometer improvements",
+    description: "Walking directions: dedicated routing tests (OSRM URL, response shape, error handling), and safer handling when the route API returns no geometry. Time: tests for getNowInTimezone, getDatePartsInTimezone, and minutesUntilLeave with timezone. Pedometer: step-counter tests for getPaceCategory boundaries and isStepCountingAvailable. Route fetch failures now show a short message so you know when directions couldn't be loaded.",
+    area: "walking",
+  },
   // —— 1.0.0 ——
   {
     id: "v1-dashboard",

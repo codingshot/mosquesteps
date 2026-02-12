@@ -1,7 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { getPaceCategory } from "@/lib/step-counter";
+import { getPaceCategory, isStepCountingAvailable } from "@/lib/step-counter";
 
 describe("step-counter", () => {
+  describe("isStepCountingAvailable", () => {
+    it("returns a boolean", () => {
+      expect(typeof isStepCountingAvailable()).toBe("boolean");
+    });
+  });
+
   describe("getPaceCategory", () => {
     it("returns Stationary for 0 steps/min", () => {
       const result = getPaceCategory(0);

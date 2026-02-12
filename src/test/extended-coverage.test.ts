@@ -11,6 +11,7 @@ import { getSettings, saveSettings, addWalkEntry, getWalkHistory, deleteWalkEntr
 import { getBadges } from "@/lib/badges";
 import { getStepRecommendation, getHealthAssessment } from "@/lib/health-recommendations";
 import { getPaceCategory } from "@/lib/step-counter";
+import { formatMinutes } from "@/lib/regional-defaults";
 
 // ── Health Recommendations ──────────────────────────────────────
 
@@ -131,6 +132,12 @@ describe("Prayer time calculations", () => {
     // Should not throw, returns Infinity
     const result = estimateWalkingTime(1, 0);
     expect(result).toBe(Infinity);
+  });
+
+  it("formatMinutes handles non-finite values", () => {
+    expect(formatMinutes(Infinity)).toBe("—");
+    expect(formatMinutes(NaN)).toBe("—");
+    expect(formatMinutes(-1)).toBe("—");
   });
 
   it("estimateSteps handles large distances", () => {

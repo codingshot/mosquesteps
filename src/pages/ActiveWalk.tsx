@@ -107,6 +107,9 @@ const ActiveWalk = () => {
   const [showCelebration, setShowCelebration] = useState(false);
   const [newBadges, setNewBadges] = useState<{ id: string; name: string; icon: string; description: string }[]>([]);
   const [returnMethod, setReturnMethod] = useState<string>("");
+  const [returnRouteCoords, setReturnRouteCoords] = useState<[number, number][]>([]);
+  const [returnRouteInfo, setReturnRouteInfo] = useState<{ distanceKm: number; durationMin: number; steps: { instruction: string; distance: number }[] } | null>(null);
+  const [returnRouteLoading, setReturnRouteLoading] = useState(false);
   const prevDirectionIdx = useRef(-1);
   const prayerMarginAlerted = useRef(false);
 
@@ -227,6 +230,8 @@ const ActiveWalk = () => {
         setRouteCoords(route.coords);
         setRouteInfo({ distanceKm: route.distanceKm, durationMin: route.durationMin, steps: route.steps });
         setCachedRoute(origin.lat, origin.lng, mosquePosition.lat, mosquePosition.lng, route);
+      } else {
+        toast({ title: "Directions unavailable", description: "Showing distance only. Use Open in Maps for turn-by-turn.", variant: "default" });
       }
     }).catch(() => {});
   }, [mosquePosition?.lat, mosquePosition?.lng]);
@@ -1255,7 +1260,7 @@ const ActiveWalk = () => {
               </motion.div>
             )}
 
-            {/* Walk map — with "Open in Maps" button */}
+            {/* Walk map — with "Open in Maps" button; show return route when "Walk back" selected */}
             {(currentPosition || mosquePosition || positions.length > 1) && (
               <div className="relative">
                 <WalkMap
@@ -1263,6 +1268,7 @@ const ActiveWalk = () => {
                   mosquePosition={mosquePosition}
                   walkPath={positions}
                   routeCoords={routeCoords}
+                  returnRouteCoords={returnMethod === "walked" && returnRouteCoords.length > 0 ? returnRouteCoords : undefined}
                   isWalking={false}
                   className="shadow-md"
                 />
@@ -1312,9 +1318,35 @@ const ActiveWalk = () => {
                 ].map((m) => (
                   <button
                     key={m.id}
-                    onClick={() => {
+                    onClick={async () => {
                       setReturnMethod(m.id);
                       updatePrayerLog(getTodayStr(), selectedPrayer, { returnMethod: m.id as any });
+                      if (m.id === "walked" && mosquePosition && !returnRouteInfo && returnRouteCoords.length === 0) {
+                        const start = positions.length > 0
+                          ? { lat: positions[0].lat, lng: positions[0].lng }
+                          : (settings.homeLat != null && settings.homeLng != null
+                            ? { lat: settings.homeLat, lng: settings.homeLng }
+                            : null);
+                        if (start) {
+                          setReturnRouteLoading(true);
+                          try {
+                            const cached = getCachedRoute(mosquePosition.lat, mosquePosition.lng, start.lat, start.lng);
+                            if (cached) {
+                              setReturnRouteCoords(cached.coords);
+                              setReturnRouteInfo({ distanceKm: cached.distanceKm, durationMin: cached.durationMin, steps: cached.steps });
+                            } else {
+                              const route = await fetchWalkingRoute(mosquePosition.lat, mosquePosition.lng, start.lat, start.lng);
+                              if (route) {
+                                setReturnRouteCoords(route.coords);
+                                setReturnRouteInfo({ distanceKm: route.distanceKm, durationMin: route.durationMin, steps: route.steps });
+                                setCachedRoute(mosquePosition.lat, mosquePosition.lng, start.lat, start.lng, route);
+                              }
+                            }
+                          } finally {
+                            setReturnRouteLoading(false);
+                          }
+                        }
+                      }
                     }}
                     className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                       returnMethod === m.id
@@ -1330,6 +1362,38 @@ const ActiveWalk = () => {
                 <p className="text-[10px] text-primary">✨ Walking back earns you even more hasanat!</p>
               )}
             </div>
+
+            {/* Route back home — shown when "Walk back" selected */}
+            {returnMethod === "walked" && (
+              <>
+                {returnRouteLoading && (
+                  <div className="glass-card p-4 text-center text-sm text-muted-foreground">
+                    Loading route back…
+                  </div>
+                )}
+                {!returnRouteLoading && returnRouteInfo && returnRouteInfo.steps.length > 0 && (
+                  <div className="glass-card p-3 text-left max-h-32 overflow-y-auto">
+                    <p className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1">
+                      <Navigation className="w-3 h-3" /> Route back home
+                    </p>
+                    <div className="space-y-1.5">
+                      {returnRouteInfo.steps.map((s, i) => (
+                        <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <div className="w-4 h-4 rounded-full bg-gold/20 text-amber-700 dark:text-amber-400 flex items-center justify-center text-[10px] font-bold flex-shrink-0">{i + 1}</div>
+                          <span className="capitalize truncate flex-1">{formatDirection(s.instruction)}</span>
+                          <span className="text-muted-foreground/60 flex-shrink-0">
+                            {s.distance > 1000 ? `${(s.distance / 1000).toFixed(1)}km` : `${Math.round(s.distance)}m`}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-2">
+                      {returnRouteInfo.distanceKm.toFixed(1)} km · ~{returnRouteInfo.durationMin} min
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
 
             {/* Walk details */}
             <div className="glass-card p-3 text-xs text-muted-foreground flex items-center justify-between">

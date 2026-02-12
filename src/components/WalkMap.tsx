@@ -13,7 +13,8 @@ interface WalkMapProps {
   userPosition: { lat: number; lng: number } | null;
   mosquePosition: { lat: number; lng: number } | null;
   walkPath: { lat: number; lng: number }[];
-  routeCoords?: [number, number][]; // OSRM route
+  routeCoords?: [number, number][]; // OSRM route (outbound)
+  returnRouteCoords?: [number, number][]; // optional return route to show on success
   routeSteps?: RouteStep[];
   currentStepIdx?: number;
   isWalking: boolean;
@@ -50,6 +51,7 @@ export default function WalkMap({
   mosquePosition,
   walkPath,
   routeCoords,
+  returnRouteCoords,
   routeSteps,
   currentStepIdx = 0,
   isWalking,
@@ -63,6 +65,7 @@ export default function WalkMap({
   const userMarkerRef = useRef<L.Marker | null>(null);
   const mosqueMarkerRef = useRef<L.Marker | null>(null);
   const routeLineRef = useRef<L.Polyline | null>(null);
+  const returnRouteLineRef = useRef<L.Polyline | null>(null);
   const walkLineRef = useRef<L.Polyline | null>(null);
   const stepMarkersRef = useRef<L.Marker[]>([]);
   const distLabelRef = useRef<L.Marker | null>(null);
@@ -136,6 +139,23 @@ export default function WalkMap({
       }
     }
   }, [routeCoords, isWalking]);
+
+  // Draw return route (e.g. on success screen when "Walk back" selected)
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (returnRouteLineRef.current) {
+      mapRef.current.removeLayer(returnRouteLineRef.current);
+      returnRouteLineRef.current = null;
+    }
+    if (returnRouteCoords && returnRouteCoords.length > 1) {
+      returnRouteLineRef.current = L.polyline(returnRouteCoords, {
+        color: "#D4A017",
+        weight: 4,
+        opacity: 0.7,
+        dashArray: "10, 10",
+      }).addTo(mapRef.current);
+    }
+  }, [returnRouteCoords]);
 
   // Draw walked path
   useEffect(() => {

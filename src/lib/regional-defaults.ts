@@ -82,7 +82,7 @@ export function formatTime(time: string, format: "12h" | "24h"): string {
  * Format minutes as human-readable (e.g., 75 → "1h 15m", 5 → "5m")
  */
 export function formatMinutes(minutes: number): string {
-  if (minutes < 0) minutes = 0;
+  if (!Number.isFinite(minutes) || minutes < 0) return "—";
   if (minutes < 60) return `${Math.round(minutes)}m`;
   const h = Math.floor(minutes / 60);
   const m = Math.round(minutes % 60);

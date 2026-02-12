@@ -20,7 +20,9 @@ export async function fetchWalkingRoute(
     if (data.code !== "Ok" || !data.routes?.length) return null;
 
     const route = data.routes[0];
-    const coords: [number, number][] = route.geometry.coordinates.map(
+    const rawCoords = route.geometry?.coordinates;
+    if (!Array.isArray(rawCoords) || rawCoords.length === 0) return null;
+    const coords: [number, number][] = rawCoords.map(
       (c: [number, number]) => [c[1], c[0]] // GeoJSON is [lng, lat], Leaflet needs [lat, lng]
     );
 
