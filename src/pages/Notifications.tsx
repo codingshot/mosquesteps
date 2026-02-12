@@ -153,7 +153,7 @@ export default function Notifications() {
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setShowFilters(!showFilters); setShowSettings(false); }}>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setShowFilters(!showFilters); setShowSettings(false); }} aria-label="Toggle filters">
               <Filter className={`w-4 h-4 ${showFilters ? "text-primary" : ""}`} />
             </Button>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setShowSettings(!showSettings); setShowFilters(false); }}>
@@ -195,13 +195,13 @@ export default function Notifications() {
               <div>
                 <p className="text-xs font-semibold text-muted-foreground mb-2">By type</p>
                 <div className="flex flex-wrap gap-1.5">
-                  <FilterChip active={filterType === "all"} onClick={() => setFilterType("all")} count={notifications.length}>All</FilterChip>
+                  <FilterChip data-testid="filter-type-all" active={filterType === "all"} onClick={() => setFilterType("all")} count={notifications.length}>All</FilterChip>
                   {(Object.keys(typeConfig) as NotificationType[]).map((t) => {
                     const count = typeCounts[t] || 0;
                     if (count === 0) return null;
                     const unread = unreadByType[t] || 0;
                     return (
-                      <FilterChip key={t} active={filterType === t} onClick={() => setFilterType(t)} count={count} unread={unread}>
+                      <FilterChip key={t} data-testid={`filter-type-${t}`} active={filterType === t} onClick={() => setFilterType(t)} count={count} unread={unread}>
                         {typeConfig[t].label}
                       </FilterChip>
                     );
@@ -211,9 +211,9 @@ export default function Notifications() {
               <div>
                 <p className="text-xs font-semibold text-muted-foreground mb-2">By status</p>
                 <div className="flex gap-1.5">
-                  <FilterChip active={readFilter === "all"} onClick={() => setReadFilter("all")}>All</FilterChip>
-                  <FilterChip active={readFilter === "unread"} onClick={() => setReadFilter("unread")} count={unreadCount}>Unread</FilterChip>
-                  <FilterChip active={readFilter === "read"} onClick={() => setReadFilter("read")}>Read</FilterChip>
+                  <FilterChip data-testid="filter-status-all" active={readFilter === "all"} onClick={() => setReadFilter("all")}>All</FilterChip>
+                  <FilterChip data-testid="filter-status-unread" active={readFilter === "unread"} onClick={() => setReadFilter("unread")} count={unreadCount}>Unread</FilterChip>
+                  <FilterChip data-testid="filter-status-read" active={readFilter === "read"} onClick={() => setReadFilter("read")}>Read</FilterChip>
                 </div>
               </div>
               {/* Mark type as read */}
@@ -355,10 +355,12 @@ export default function Notifications() {
 
 // ---- Sub-components ----
 
-function FilterChip({ active, onClick, children, count, unread }: { active: boolean; onClick: () => void; children: React.ReactNode; count?: number; unread?: number }) {
+function FilterChip({ active, onClick, children, count, unread, "data-testid": testId }: { active: boolean; onClick: () => void; children: React.ReactNode; count?: number; unread?: number; "data-testid"?: string }) {
   return (
     <button
+      type="button"
       onClick={onClick}
+      data-testid={testId}
       className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors font-medium flex items-center gap-1 ${
         active
           ? "bg-primary text-primary-foreground border-primary"
