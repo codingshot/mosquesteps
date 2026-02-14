@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Play, Square, Pause, MapPin, Footprints, Clock, Star, Navigation, AlertTriangle, Smartphone, Share2, Map, Image, CheckCircle, ArrowUp, CornerDownLeft, CornerDownRight, ArrowRight, ChevronDown, Volume2, VolumeX, Route, Download, Copy, ExternalLink, Award, Flame, Trophy, WifiOff, Search, Home } from "lucide-react";
+import { ArrowLeft, Play, Square, Pause, MapPin, Footprints, Clock, Star, Navigation, AlertTriangle, Smartphone, Share2, Map, Image, CheckCircle, ArrowUp, CornerDownLeft, CornerDownRight, ArrowRight, ChevronDown, Volume2, VolumeX, Route, Download, Copy, ExternalLink, Award, Flame, Trophy, WifiOff, Search, Home, Locate } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { estimateSteps, estimateWalkingTime, calculateHasanat, fetchPrayerTimes, calculateLeaveByTime, minutesUntilLeave, getNowInTimezone, getIPGeolocation, type PrayerTime } from "@/lib/prayer-times";
@@ -1124,6 +1124,233 @@ const ActiveWalk = () => {
               </div>
             )}
 
+            {/* DIRECTIONS ON TOP - Turn-by-turn navigation panel */}
+            {showDirections && routeInfo && routeInfo.steps.length > 0 && (
+              <div
+                className="glass-card p-0 overflow-hidden text-left w-full rounded-xl relative"
+                role="region"
+                aria-label="Walking directions"
+              >
+                {/* Download for offline */}
+                <button
+                  onClick={downloadDirections}
+                  className={`absolute top-2 right-2 z-10 p-1.5 rounded-lg transition-opacity ${
+                    offline
+                      ? "text-primary-foreground/90 bg-primary-foreground/20 hover:bg-primary-foreground/30"
+                      : "text-primary-foreground/40 hover:text-primary-foreground/70 hover:bg-primary-foreground/10"
+                  }`}
+                  title={offline ? "Save directions for offline" : "Download directions for offline use"}
+                  aria-label="Download directions for offline"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                </button>
+                {/* Current direction */}
+                {currentDirection && (
+                  <div
+                    className="bg-gradient-teal p-4 shadow-sm"
+                    aria-live="polite"
+                    aria-atomic="true"
+                    aria-label={`Step ${currentDirectionIdx + 1} of ${routeInfo.steps.length}. ${formatDistanceForStep(distanceToTurnM ?? currentDirection.distance, useImperial)}. ${formatDirection(currentDirection.instruction)}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-14 h-14 rounded-xl bg-primary-foreground/20 flex items-center justify-center flex-shrink-0 ring-2 ring-primary-foreground/10" aria-hidden>
+                        {getDirectionIcon(currentDirection.instruction)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-bold text-primary-foreground/90 uppercase tracking-wider">
+                          {formatDistanceForStep(distanceToTurnM ?? currentDirection.distance, useImperial)}
+                        </p>
+                        <p className="text-lg font-bold text-primary-foreground leading-snug mt-1">
+                          {formatDirection(currentDirection.instruction)}
+                        </p>
+                      </div>
+                      <div className="text-right flex-shrink-0 tabular-nums">
+                        <p className="text-[10px] text-primary-foreground/60 uppercase tracking-wide">Step</p>
+                        <p className="text-xl font-bold text-primary-foreground">{currentDirectionIdx + 1}<span className="text-sm font-normal text-primary-foreground/50">/{routeInfo.steps.length}</span></p>
+                      </div>
+                    </div>
+
+                    {/* Remaining distance, time, progress */}
+                    {(() => {
+                      const remainingDist = routeInfo.steps.slice(currentDirectionIdx).reduce((sum, s) => sum + s.distance, 0);
+                      const remainingMin = Math.max(0, Math.round((remainingDist / 1000) / (settings.walkingSpeed || 5) * 60));
+                      const totalSteps = Math.max(1, routeInfo.steps.length);
+                      const pctDone = routeInfo.steps.length <= 1 ? (currentDirectionIdx >= routeInfo.steps.length - 1 ? 100 : 0) : Math.round((currentDirectionIdx / (totalSteps - 1)) * 100);
+                      return (
+                        <div className="flex items-center gap-3 mt-3 pt-3 border-t border-primary-foreground/15 text-xs text-primary-foreground/70">
+                          <span className="font-medium">{remainingDist > 1000 ? `${(remainingDist / 1000).toFixed(1)} km` : `${Math.round(remainingDist)} m`} left</span>
+                          <span>~{remainingMin} min</span>
+                          <span className="ml-auto font-medium">{pctDone}% done</span>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* Segmented progress bar */}
+                <div className="px-3 pt-2.5 pb-1">
+                  <div className="flex gap-1" role="progressbar" aria-valuenow={currentDirectionIdx + 1} aria-valuemin={1} aria-valuemax={routeInfo.steps.length} aria-label="Route progress">
+                    {routeInfo.steps.map((_, i) => (
+                      <div
+                        key={i}
+                        className={`h-2 rounded-full flex-1 transition-all duration-300 ${
+                          i < currentDirectionIdx
+                            ? "bg-primary/80"
+                            : i === currentDirectionIdx
+                              ? "bg-gold shadow-sm"
+                              : "bg-muted"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Upcoming directions — tappable for preview */}
+                {routeInfo.steps.length > currentDirectionIdx + 1 && (
+                  <div className="px-3 pb-3 pt-2">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Then</p>
+                    <div className="space-y-2">
+                      {routeInfo.steps.slice(currentDirectionIdx + 1, currentDirectionIdx + 4).map((s, i) => {
+                        const actualIdx = currentDirectionIdx + 1 + i;
+                        const isNext = i === 0;
+                        const distLabel = formatDistanceForStep(isNext && distanceToTurnM != null ? distanceToTurnM : s.distance, useImperial);
+                        return (
+                          <button
+                            key={actualIdx}
+                            onClick={() => {
+                              toast({
+                                title: formatDirection(s.instruction),
+                                description: `${distLabel} · Step ${actualIdx + 1} of ${routeInfo.steps.length}`,
+                              });
+                            }}
+                            className={`w-full flex items-center gap-3 rounded-lg px-3 py-2 transition-colors text-left ${
+                              isNext ? "bg-primary/5 border border-primary/10" : "bg-muted/50 hover:bg-muted"
+                            }`}
+                          >
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                              isNext ? "bg-primary/15" : "bg-muted"
+                            }`} aria-hidden>
+                              {getDirectionIcon(s.instruction, true)}
+                            </div>
+                            <span className={`text-sm truncate flex-1 ${isNext ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+                              <span className="text-primary font-medium">{distLabel}</span>
+                              <span className="ml-1">{formatDirection(s.instruction).toLowerCase()}</span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                      {routeInfo.steps.length > currentDirectionIdx + 4 && (
+                        <p className="text-[10px] text-muted-foreground/50 text-center pt-1">
+                          +{routeInfo.steps.length - currentDirectionIdx - 4} more steps
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Final step — arrival indicator */}
+                {currentDirectionIdx === routeInfo.steps.length - 1 && (
+                  <div className="px-3 pb-3 pt-2">
+                    <div className="flex items-center gap-3 bg-gold/15 rounded-lg px-4 py-3 border border-gold/20">
+                      <MapPin className="w-5 h-5 text-gold flex-shrink-0" />
+                      <span className="text-sm font-semibold text-foreground">Arriving at {mosqueName}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Off-route banner */}
+            {offRoute && isWalking && (
+              <div className="glass-card px-3 py-2 flex items-center gap-2 text-left border border-amber-500/30 bg-amber-500/5" role="status" aria-live="polite">
+                <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                <span className="text-xs font-medium text-foreground">
+                  {offline ? "Off route — reconnect to recalculate" : "Off route — recalculating…"}
+                </span>
+              </div>
+            )}
+
+            {/* Offline banner */}
+            {offline && isWalking && routeInfo && routeInfo.steps.length > 0 && (
+              <div className="glass-card px-3 py-2 flex items-center gap-2 text-left border border-primary/30 bg-primary/5" role="status" aria-live="polite">
+                <WifiOff className="w-4 h-4 text-primary flex-shrink-0" />
+                <span className="text-xs font-medium text-foreground flex-1">Offline — using cached directions. Steps advancing your progress.</span>
+                <button
+                  onClick={downloadDirections}
+                  className="flex items-center gap-1 text-[10px] text-primary font-medium hover:underline shrink-0"
+                  title="Save directions to device for offline"
+                >
+                  <Download className="w-3 h-3" /> Save
+                </button>
+              </div>
+            )}
+
+            {/* No route fallback */}
+            {(!routeInfo || routeInfo.steps.length === 0) && isWalking && mosquePosition && (
+              <div className="glass-card p-3 flex items-center gap-3 text-left">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  {offline ? <WifiOff className="w-5 h-5 text-primary" /> : <Navigation className="w-5 h-5 text-primary" />}
+                </div>
+                <div>
+                  {currentPosition ? (
+                    <>
+                      <p className="text-sm font-medium text-foreground">
+                        {(haversine(currentPosition.lat, currentPosition.lng, mosquePosition.lat, mosquePosition.lng) * 1000).toFixed(0)} m to mosque
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {offline ? "Offline — no cached route. Steps still count." : `Head towards ${mosqueName}`}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm font-medium text-foreground">Steps advancing your walk</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {offline ? "Offline — no cached route." : "Enable location for distance and map."}
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* MAP with recenter button */}
+            {showMap && (
+              <div className="relative">
+                <WalkMap
+                  userPosition={currentPosition}
+                  mosquePosition={(effectiveDestination ?? mosquePosition) ?? undefined}
+                  walkPath={positions}
+                  routeCoords={routeCoords}
+                  routeSteps={routeInfo?.steps}
+                  currentStepIdx={currentDirectionIdx}
+                  isWalking={true}
+                  offRoute={offRoute}
+                  eta={eta}
+                  directionOverlay={currentDirection ? {
+                    distance: formatDistanceForStep(distanceToTurnM ?? currentDirection.distance, useImperial),
+                    instruction: formatDirection(currentDirection.instruction),
+                  } : undefined}
+                  onRecenter={() => {
+                    if (currentPosition) setCurrentPosition({ ...currentPosition });
+                  }}
+                  className="shadow-md"
+                />
+                {/* Reset map to current location button */}
+                {currentPosition && (
+                  <button
+                    onClick={() => {
+                      if (currentPosition) setCurrentPosition({ ...currentPosition });
+                    }}
+                    className="absolute bottom-3 left-3 z-10 bg-card/90 backdrop-blur-sm border border-border rounded-lg p-2 shadow-lg hover:bg-card transition-colors"
+                    title="Center map on current location"
+                    aria-label="Center map on current location"
+                  >
+                    <Locate className="w-4 h-4 text-primary" />
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Prayer countdown while walking */}
             {selectedPrayer && timeUntilPrayer && (
               <div className={`rounded-xl px-4 py-3 ${
@@ -1196,233 +1423,23 @@ const ActiveWalk = () => {
               </div>
             )}
 
-            {/* Live map with overlays */}
-            {showMap && (
-              <WalkMap
-                userPosition={currentPosition}
-                mosquePosition={(effectiveDestination ?? mosquePosition) ?? undefined}
-                walkPath={positions}
-                routeCoords={routeCoords}
-                routeSteps={routeInfo?.steps}
-                currentStepIdx={currentDirectionIdx}
-                isWalking={true}
-                offRoute={offRoute}
-                eta={eta}
-                directionOverlay={currentDirection ? {
-                  distance: formatDistanceForStep(distanceToTurnM ?? currentDirection.distance, useImperial),
-                  instruction: formatDirection(currentDirection.instruction),
-                } : undefined}
-                onRecenter={() => {
-                  if (currentPosition) setCurrentPosition({ ...currentPosition });
-                }}
-                className="shadow-md"
-              />
-            )}
 
-            {/* Turn-by-turn navigation panel — distance-first, clear hierarchy, touch-friendly */}
-            {showDirections && routeInfo && routeInfo.steps.length > 0 && (
-              <div
-                className="glass-card p-0 overflow-hidden text-left w-full rounded-xl relative"
-                role="region"
-                aria-label="Walking directions"
-              >
-                {/* Download for offline — subtle when online, visible when offline */}
-                <button
-                  onClick={downloadDirections}
-                  className={`absolute top-2 right-2 z-10 p-1.5 rounded-lg transition-opacity ${
-                    offline
-                      ? "text-primary-foreground/90 bg-primary-foreground/20 hover:bg-primary-foreground/30"
-                      : "text-primary-foreground/40 hover:text-primary-foreground/70 hover:bg-primary-foreground/10"
-                  }`}
-                  title={offline ? "Save directions for offline" : "Download directions for offline use"}
-                  aria-label="Download directions for offline"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                </button>
-                {/* Current direction — prominent, scannable */}
-                {currentDirection && (
-                  <div
-                    className="bg-gradient-teal p-4 shadow-sm"
-                    aria-live="polite"
-                    aria-atomic="true"
-                    aria-label={`Step ${currentDirectionIdx + 1} of ${routeInfo.steps.length}. ${formatDistanceForStep(distanceToTurnM ?? currentDirection.distance, useImperial)}. ${formatDirection(currentDirection.instruction)}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-14 h-14 rounded-xl bg-primary-foreground/20 flex items-center justify-center flex-shrink-0 ring-2 ring-primary-foreground/10" aria-hidden>
-                        {getDirectionIcon(currentDirection.instruction)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-bold text-primary-foreground/90 uppercase tracking-wider">
-                          {formatDistanceForStep(distanceToTurnM ?? currentDirection.distance, useImperial)}
-                        </p>
-                        <p className="text-lg font-bold text-primary-foreground leading-snug mt-1">
-                          {formatDirection(currentDirection.instruction)}
-                        </p>
-                      </div>
-                      <div className="text-right flex-shrink-0 tabular-nums">
-                        <p className="text-[10px] text-primary-foreground/60 uppercase tracking-wide">Step</p>
-                        <p className="text-xl font-bold text-primary-foreground">{currentDirectionIdx + 1}<span className="text-sm font-normal text-primary-foreground/50">/{routeInfo.steps.length}</span></p>
-                      </div>
-                    </div>
 
-                    {/* Remaining distance, time, progress */}
-                    {(() => {
-                      const remainingDist = routeInfo.steps.slice(currentDirectionIdx).reduce((sum, s) => sum + s.distance, 0);
-                      const remainingMin = Math.max(0, Math.round((remainingDist / 1000) / (settings.walkingSpeed || 5) * 60));
-                      const totalSteps = Math.max(1, routeInfo.steps.length);
-                      const pctDone = routeInfo.steps.length <= 1 ? (currentDirectionIdx >= routeInfo.steps.length - 1 ? 100 : 0) : Math.round((currentDirectionIdx / (totalSteps - 1)) * 100);
-                      return (
-                        <div className="flex items-center gap-3 mt-3 pt-3 border-t border-primary-foreground/15 text-xs text-primary-foreground/70">
-                          <span className="font-medium">{remainingDist > 1000 ? `${(remainingDist / 1000).toFixed(1)} km` : `${Math.round(remainingDist)} m`} left</span>
-                          <span>~{remainingMin} min</span>
-                          <span className="ml-auto font-medium">{pctDone}% done</span>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                )}
-
-                {/* Segmented progress bar — shows journey at a glance */}
-                <div className="px-3 pt-2.5 pb-1">
-                  <div className="flex gap-1" role="progressbar" aria-valuenow={currentDirectionIdx + 1} aria-valuemin={1} aria-valuemax={routeInfo.steps.length} aria-label="Route progress">
-                    {routeInfo.steps.map((_, i) => (
-                      <div
-                        key={i}
-                        className={`h-2 rounded-full flex-1 transition-all duration-300 ${
-                          i < currentDirectionIdx
-                            ? "bg-primary/80"
-                            : i === currentDirectionIdx
-                              ? "bg-gold shadow-sm"
-                              : "bg-muted"
-                        }`}
-                      />
-                    ))}
-                  </div>
+            {/* Step counter pill — compact inline display */}
+            <div className="flex items-center justify-center gap-3">
+              <div className="flex items-center gap-2 bg-card border border-border rounded-full px-4 py-2 shadow-sm" role="status" aria-live="polite" aria-label={`${displaySteps.toLocaleString()} steps`}>
+                <Footprints className={`w-4 h-4 text-gold ${!isPaused ? "animate-step-bounce" : ""}`} />
+                <span className="text-xl font-bold text-foreground tabular-nums">{displaySteps.toLocaleString()}</span>
+                <span className="text-[10px] text-muted-foreground">{useRealSteps ? "sensor" : "est."}</span>
+                {/* Mini progress bar */}
+                <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-gold rounded-full transition-all duration-500" style={{ width: `${Math.min(100, progressPercent * 100)}%` }} />
                 </div>
-
-                {/* Next up — "Then in Xm" for walking context */}
-                {routeInfo.steps.length > currentDirectionIdx + 1 && (
-                  <div className="px-3 pb-3 pt-2">
-                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Then</p>
-                    <div className="space-y-2">
-                      {routeInfo.steps.slice(currentDirectionIdx + 1, currentDirectionIdx + 4).map((s, i) => {
-                        const actualIdx = currentDirectionIdx + 1 + i;
-                        const isNext = i === 0;
-                        const distLabel = formatDistanceForStep(isNext && distanceToTurnM != null ? distanceToTurnM : s.distance, useImperial);
-                        return (
-                          <div
-                            key={actualIdx}
-                            className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
-                              isNext ? "bg-primary/5 border border-primary/10" : "bg-muted/50"
-                            }`}
-                          >
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                              isNext ? "bg-primary/15" : "bg-muted"
-                            }`} aria-hidden>
-                              {getDirectionIcon(s.instruction, true)}
-                            </div>
-                            <span className={`text-sm truncate flex-1 ${isNext ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
-                              <span className="text-primary font-medium">{distLabel}</span>
-                              <span className="ml-1">{formatDirection(s.instruction).toLowerCase()}</span>
-                            </span>
-                          </div>
-                        );
-                      })}
-                      {routeInfo.steps.length > currentDirectionIdx + 4 && (
-                        <p className="text-[10px] text-muted-foreground/50 text-center pt-1">
-                          +{routeInfo.steps.length - currentDirectionIdx - 4} more steps
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Final step — arrival indicator */}
-                {currentDirectionIdx === routeInfo.steps.length - 1 && (
-                  <div className="px-3 pb-3 pt-2">
-                    <div className="flex items-center gap-3 bg-gold/15 rounded-lg px-4 py-3 border border-gold/20">
-                      <MapPin className="w-5 h-5 text-gold flex-shrink-0" />
-                      <span className="text-sm font-semibold text-foreground">Arriving at {mosqueName}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Off-route banner — visible when recalculating (or offline) */}
-            {offRoute && isWalking && (
-              <div className="glass-card px-3 py-2 flex items-center gap-2 text-left border border-amber-500/30 bg-amber-500/5" role="status" aria-live="polite">
-                <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-                <span className="text-xs font-medium text-foreground">
-                  {offline ? "Off route — reconnect to recalculate" : "Off route — recalculating…"}
-                </span>
-              </div>
-            )}
-
-            {/* Offline banner — cached directions + step-based progress */}
-            {offline && isWalking && routeInfo && routeInfo.steps.length > 0 && (
-              <div className="glass-card px-3 py-2 flex items-center gap-2 text-left border border-primary/30 bg-primary/5" role="status" aria-live="polite">
-                <WifiOff className="w-4 h-4 text-primary flex-shrink-0" />
-                <span className="text-xs font-medium text-foreground flex-1">Offline — using cached directions. Steps advancing your progress.</span>
-                <button
-                  onClick={downloadDirections}
-                  className="flex items-center gap-1 text-[10px] text-primary font-medium hover:underline shrink-0"
-                  title="Save directions to device for offline"
-                >
-                  <Download className="w-3 h-3" /> Save
-                </button>
-              </div>
-            )}
-
-            {/* No route fallback — show basic distance guidance or offline message */}
-            {(!routeInfo || routeInfo.steps.length === 0) && isWalking && mosquePosition && (
-              <div className="glass-card p-3 flex items-center gap-3 text-left">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  {offline ? <WifiOff className="w-5 h-5 text-primary" /> : <Navigation className="w-5 h-5 text-primary" />}
-                </div>
-                <div>
-                  {currentPosition ? (
-                    <>
-                      <p className="text-sm font-medium text-foreground">
-                        {(haversine(currentPosition.lat, currentPosition.lng, mosquePosition.lat, mosquePosition.lng) * 1000).toFixed(0)} m to mosque
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {offline ? "Offline — no cached route. Steps still count. Download directions when connected for next walk." : `Head towards ${mosqueName}`}
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-sm font-medium text-foreground">Steps advancing your walk</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {offline ? "Offline — no cached route. Download directions when connected for next time." : "Enable location for distance and map."}
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Progress ring */}
-            <div className="relative w-44 h-44 mx-auto">
-              <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
-                <circle cx="60" cy="60" r="52" fill="none" stroke="hsl(var(--border))" strokeWidth="6" />
-                <circle cx="60" cy="60" r="52" fill="none" stroke="url(#activeGold)" strokeWidth="6" strokeLinecap="round"
-                  strokeDasharray={`${progressPercent * 52 * 2 * Math.PI} ${52 * 2 * Math.PI}`} className="transition-all duration-500" />
-                <defs>
-                  <linearGradient id="activeGold" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="hsl(39, 95%, 55%)" />
-                    <stop offset="100%" stopColor="hsl(39, 95%, 40%)" />
-                  </linearGradient>
-                </defs>
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <Footprints className={`w-5 h-5 text-gold mb-1 ${!isPaused ? "animate-step-bounce" : ""}`} />
-                <span className="text-3xl font-bold text-foreground">{displaySteps.toLocaleString()}</span>
-                <span className="text-[10px] text-muted-foreground">{useRealSteps ? "steps (sensor)" : "steps (est.)"}</span>
+                <span className="text-[10px] text-muted-foreground tabular-nums">{Math.round(progressPercent * 100)}%</span>
               </div>
             </div>
 
-            {/* Live stats — announced to screen readers when values update */}
+            {/* Live stats grid */}
             <div className="grid grid-cols-4 gap-2" role="status" aria-live="polite" aria-atomic="true" aria-label={`Walk progress: ${displaySteps.toLocaleString()} steps, ${(distanceKm * 1000).toFixed(0)} meters, ${hasanat.toLocaleString()} hasanat, ${formatTime(elapsedSeconds)} elapsed`}>
               <div className="glass-card p-2 text-center">
                 <p className="text-sm font-bold text-foreground">{(distanceKm * 1000).toFixed(0)}</p>
@@ -1544,7 +1561,59 @@ const ActiveWalk = () => {
               </div>
             </motion.div>
 
-            {/* Calories & extra stats */}
+            {/* Zero steps explanation & override */}
+            {displaySteps === 0 && elapsedSeconds > 60 && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.65 }}
+                className="glass-card p-4 space-y-3 text-left border border-amber-500/20"
+              >
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">0 steps recorded</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      This can happen when: your device doesn't support motion sensors, the browser blocked sensor access, or your phone was in a bag/pocket at an unusual angle.
+                    </p>
+                  </div>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                  <p className="text-xs font-medium text-foreground">Override with estimated steps?</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Based on your {formatTime(elapsedSeconds)} walk{distanceKm > 0 ? ` covering ${(distanceKm * 1000).toFixed(0)}m` : ""} at ~{settings.walkingSpeed} km/h pace:
+                  </p>
+                  {(() => {
+                    const estDistKm = distanceKm > 0.01 ? distanceKm : (settings.walkingSpeed * (elapsedSeconds / 3600));
+                    const estSteps = estimateSteps(estDistKm);
+                    const estHasanat = calculateHasanat(estSteps);
+                    return (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          setSensorSteps(estSteps);
+                          // Update the saved walk entry
+                          const history = JSON.parse(localStorage.getItem("mosquesteps_history") || "[]");
+                          if (history.length > 0) {
+                            history[0].steps = estSteps;
+                            history[0].hasanat = estHasanat;
+                            history[0].distanceKm = Math.max(history[0].distanceKm, estDistKm);
+                            localStorage.setItem("mosquesteps_history", JSON.stringify(history));
+                          }
+                          toast({ title: `Steps updated to ${estSteps.toLocaleString()}`, description: `${estHasanat.toLocaleString()} hasanat earned.` });
+                        }}
+                      >
+                        Use estimated: {estSteps.toLocaleString()} steps ({estHasanat.toLocaleString()} hasanat)
+                      </Button>
+                    );
+                  })()}
+                </div>
+              </motion.div>
+            )}
+
+
             <motion.div
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}

@@ -362,8 +362,9 @@ const Dashboard = () => {
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <Footprints className="w-6 h-6 text-gold mb-1" />
-                <span className="text-3xl font-bold">{steps.toLocaleString()}</span>
-                <span className="text-xs text-primary-foreground/70">est. steps (round trip)</span>
+                <span className="text-3xl font-bold">{summaryData.totalSteps.toLocaleString()}</span>
+                <span className="text-xs text-primary-foreground/70">steps today</span>
+                <span className="text-[10px] text-primary-foreground/50">est. {steps.toLocaleString()}/trip</span>
               </div>
             </div>
           </motion.div>
@@ -736,13 +737,14 @@ const Dashboard = () => {
             <TooltipTrigger asChild>
               <div className="glass-card p-4 text-center cursor-help">
                 <Footprints className="w-5 h-5 text-primary mx-auto mb-1" />
-                <p className="text-lg font-bold text-foreground">{steps.toLocaleString()}</p>
-                <p className="text-xs text-muted-foreground">Est. Steps</p>
+                <p className="text-lg font-bold text-foreground">{summaryData.totalSteps.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Today's Steps</p>
+                <p className="text-[10px] text-muted-foreground/60 mt-0.5">est. {steps.toLocaleString()}/trip</p>
               </div>
             </TooltipTrigger>
             <TooltipContent className="max-w-[200px] p-2.5" side="top">
               <p className="text-xs text-popover-foreground">
-                Estimated steps for a <strong>round trip</strong> to {settings.selectedMosqueName} ({(mosqueDistance * 2).toFixed(1)} km total).
+                <strong>Today's actual steps</strong> from walks you've completed. Estimated round trip: {steps.toLocaleString()} steps ({(mosqueDistance * 2).toFixed(1)} km).
               </p>
             </TooltipContent>
           </Tooltip>

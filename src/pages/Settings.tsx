@@ -796,41 +796,109 @@ const Settings = () => {
           <p className="text-sm text-muted-foreground">
             All data is stored locally on your device. Nothing is sent to external servers.
           </p>
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const allKeys = [
+                    "mosquesteps_history", "mosquesteps_settings", "mosquesteps_badges",
+                    "mosquesteps_onboarded", "mosquesteps_onboarded_date", "mosquesteps_saved_mosques",
+                    "mosquesteps_prayer_log", "mosquesteps_checkins", "mosquesteps_goals",
+                    "mosquesteps_notifications", "mosquesteps_notification_settings",
+                  ];
+                  const exportObj: Record<string, unknown> = { exportedAt: new Date().toISOString(), version: 1 };
+                  for (const key of allKeys) {
+                    const raw = localStorage.getItem(key);
+                    if (raw) {
+                      try { exportObj[key] = JSON.parse(raw); } catch { exportObj[key] = raw; }
+                    }
+                  }
+                  const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: "application/json" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `mosquesteps-full-backup-${new Date().toISOString().split("T")[0]}.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                  toast({ title: "Full backup exported! 📥", description: "All app data (walks, settings, badges, mosques, prayer logs) saved." });
+                }}
+                className="flex-1"
+              >
+                <Download className="w-4 h-4 mr-2" /> Export All
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => {
+                  if (confirm("Clear all walking history? This cannot be undone.")) {
+                    localStorage.removeItem("mosquesteps_history");
+                    localStorage.removeItem("mosquesteps_badges");
+                    toast({ title: "History cleared", description: "All walking data has been removed." });
+                  }
+                }}
+                className="flex-1"
+              >
+                Clear History
+              </Button>
+            </div>
+
+            {/* Import / Restore */}
             <Button
               variant="outline"
               size="sm"
+              className="w-full"
               onClick={() => {
-                const history = localStorage.getItem("mosquesteps_history") || "[]";
-                const settingsData = localStorage.getItem("mosquesteps_settings") || "{}";
-                const exportData = JSON.stringify({ walks: JSON.parse(history), settings: JSON.parse(settingsData) }, null, 2);
-                const blob = new Blob([exportData], { type: "application/json" });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `mosquesteps-export-${new Date().toISOString().split("T")[0]}.json`;
-                a.click();
-                URL.revokeObjectURL(url);
-                toast({ title: "Data exported! 📥", description: "Your walking data has been saved as JSON." });
+                const input = document.createElement("input");
+                input.type = "file";
+                input.accept = ".json";
+                input.onchange = async (e) => {
+                  const file = (e.target as HTMLInputElement).files?.[0];
+                  if (!file) return;
+                  try {
+                    const text = await file.text();
+                    const data = JSON.parse(text);
+                    if (!data || typeof data !== "object") throw new Error("Invalid format");
+                    const knownKeys = [
+                      "mosquesteps_history", "mosquesteps_settings", "mosquesteps_badges",
+                      "mosquesteps_onboarded", "mosquesteps_onboarded_date", "mosquesteps_saved_mosques",
+                      "mosquesteps_prayer_log", "mosquesteps_checkins", "mosquesteps_goals",
+                      "mosquesteps_notifications", "mosquesteps_notification_settings",
+                    ];
+                    // Handle legacy format: { walks: [...], settings: {...} }
+                    if (data.walks && !data.mosquesteps_history) {
+                      data.mosquesteps_history = data.walks;
+                    }
+                    if (data.settings && !data.mosquesteps_settings) {
+                      data.mosquesteps_settings = data.settings;
+                    }
+                    let restored = 0;
+                    for (const key of knownKeys) {
+                      if (data[key] !== undefined) {
+                        const value = typeof data[key] === "string" ? data[key] : JSON.stringify(data[key]);
+                        localStorage.setItem(key, value);
+                        restored++;
+                      }
+                    }
+                    if (restored === 0) {
+                      toast({ title: "No data found", description: "The file doesn't contain MosqueSteps data.", variant: "destructive" });
+                      return;
+                    }
+                    toast({ title: `Restored ${restored} data items! 🔄`, description: "Reloading to apply changes..." });
+                    setTimeout(() => window.location.reload(), 1500);
+                  } catch {
+                    toast({ title: "Import failed", description: "Invalid file format. Use a MosqueSteps export file.", variant: "destructive" });
+                  }
+                };
+                input.click();
               }}
-              className="flex-1"
             >
-              <Download className="w-4 h-4 mr-2" /> Export Data
+              <ArrowLeft className="w-4 h-4 mr-2 rotate-90" /> Import Backup
             </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => {
-                if (confirm("Clear all walking history? This cannot be undone.")) {
-                  localStorage.removeItem("mosquesteps_history");
-                  localStorage.removeItem("mosquesteps_badges");
-                  toast({ title: "History cleared", description: "All walking data has been removed." });
-                }
-              }}
-              className="flex-1"
-            >
-              Clear History
-            </Button>
+            <p className="text-[10px] text-muted-foreground">
+              Import a previously exported MosqueSteps backup to restore all your progress, settings, and badges.
+            </p>
           </div>
         </div>
 
