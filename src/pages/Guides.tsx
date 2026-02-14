@@ -15,6 +15,7 @@ const Guides = () => {
   const { canInstall, isInstalled, install } = usePWAInstall();
 
   useEffect(() => {
+    // Breadcrumb
     const script = document.createElement("script");
     script.type = "application/ld+json";
     script.id = "breadcrumb-guides";
@@ -29,15 +30,38 @@ const Guides = () => {
     const existing = document.getElementById(script.id);
     if (existing) existing.remove();
     document.head.appendChild(script);
+
+    // ItemList schema for GEO/AEO — helps AI engines understand guide collection
+    const itemList = document.createElement("script");
+    itemList.type = "application/ld+json";
+    itemList.id = "itemlist-guides";
+    itemList.textContent = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      name: "MosqueSteps User Guides",
+      description: "Complete walkthrough guides for the MosqueSteps mosque walking tracker app.",
+      numberOfItems: guides.length,
+      itemListElement: guides.map((g, i) => ({
+        "@type": "ListItem",
+        position: i + 1,
+        name: g.title,
+        url: SITE_URL + "/guides/" + g.id,
+        description: g.description,
+      })),
+    });
+    const exList = document.getElementById(itemList.id);
+    if (exList) exList.remove();
+    document.head.appendChild(itemList);
+
     return () => {
-      const el = document.getElementById(script.id);
-      if (el) el.remove();
+      document.getElementById(script.id)?.remove();
+      document.getElementById(itemList.id)?.remove();
     };
   }, []);
 
   return (
     <div className="min-h-screen bg-background">
-      <SEOHead title="User Guides" description="Step-by-step guides: set up MosqueSteps, track walks to the mosque, find mosques, and earn spiritual rewards." path="/guides" />
+      <SEOHead title="User Guides — How to Use MosqueSteps" description="Complete step-by-step guides: set up MosqueSteps, find nearby mosques, track walks with GPS, earn spiritual rewards, and view walking statistics." path="/guides" />
       <header className="bg-gradient-teal text-primary-foreground">
         <div className="container py-4 flex items-center gap-2">
           <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-primary-foreground hover:opacity-80 transition-opacity">
