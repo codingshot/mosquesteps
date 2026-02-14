@@ -512,7 +512,8 @@ const ActiveWalk = () => {
       setDistanceToTurnM(Math.max(0, Math.round(distToTurn)));
 
       const remainingDist = totalRouteDist - distAlongRouteM;
-      const speedKmh = elapsedSeconds > 30 ? distanceKm / (elapsedSeconds / 3600) : (settings.walkingSpeed || 5);
+      const rawSpeed = elapsedSeconds > 30 && distanceKm > 0 ? distanceKm / (elapsedSeconds / 3600) : 0;
+      const speedKmh = Number.isFinite(rawSpeed) && rawSpeed > 0 ? rawSpeed : (settings.walkingSpeed || 5);
       const remainingMin = speedKmh > 0 ? Math.round((remainingDist / 1000) / speedKmh * 60) : 0;
       setEta(new Date(Date.now() + remainingMin * 60000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
       return;
@@ -537,12 +538,12 @@ const ActiveWalk = () => {
     prevDirectionIdx.current = currentDirectionIdx;
 
     const step = routeInfo.steps[currentDirectionIdx];
-    if (!step) return;
+    if (!step || !step.instruction) return;
 
     const text = formatDirection(step.instruction);
-    const distM = step.distance;
+    const distM = step.distance || 0;
     const distText = useImperial
-      ? (distM >= 1609 ? `${(distM / 1609).toFixed(1)} miles` : `${Math.round(distM * 3.28)} feet`)
+      ? (distM >= 1609 ? `${(distM / 1609).toFixed(1)} miles` : `${Math.round(distM * 3.28084)} feet`)
       : (distM > 1000 ? `${(distM / 1000).toFixed(1)} kilometers` : `${Math.round(distM)} meters`);
 
     const isLast = currentDirectionIdx === routeInfo.steps.length - 1;
@@ -567,8 +568,8 @@ const ActiveWalk = () => {
   useEffect(() => {
     if (!voiceEnabled || !isWalking || !routeInfo?.steps?.length) return;
     const step = routeInfo.steps[currentDirectionIdx];
-    if (!step || currentDirectionIdx === routeInfo.steps.length - 1) return;
-    const dist = distanceToTurnM ?? step.distance;
+    if (!step || !step.instruction || currentDirectionIdx === routeInfo.steps.length - 1) return;
+    const dist = distanceToTurnM ?? step.distance ?? 0;
     if (dist > 50 || dist < 10) return;
     if (prepareAnnouncedForStep.current === currentDirectionIdx) return;
     prepareAnnouncedForStep.current = currentDirectionIdx;
@@ -725,7 +726,7 @@ const ActiveWalk = () => {
   const stopWalk = () => {
     setIsWalking(false);
     setIsPaused(false);
-    if (watchId !== null) { navigator.geolocation.clearWatch(watchId); setWatchId(null); }
+    if (watchId !== null && navigator.geolocation) { navigator.geolocation.clearWatch(watchId); setWatchId(null); }
     if (stepCounterRef.current) { stepCounterRef.current.stop(); stepCounterRef.current = null; }
     setCompleted(true);
     setShowCelebration(true);
@@ -1028,7 +1029,7 @@ const ActiveWalk = () => {
                     <button
                       onClick={() => {
                         const text = generateDirectionsText();
-                        navigator.clipboard.writeText(text);
+                        try { navigator.clipboard.writeText(text); } catch { /* fallback: no clipboard */ }
                         toast({ title: "Directions copied! 📋" });
                       }}
                       className="p-1 rounded hover:bg-muted text-muted-foreground"
@@ -1453,7 +1454,8 @@ const ActiveWalk = () => {
                   const remainingDist = routeInfo?.steps
                     ? routeInfo.steps.slice(currentDirectionIdx).reduce((sum, s) => sum + s.distance, 0) / 1000
                     : mosqueDist - distanceKm;
-                  const currentSpeed = elapsedSeconds > 30 ? distanceKm / (elapsedSeconds / 3600) : (settings.walkingSpeed || 5);
+                  const rawSpd = elapsedSeconds > 30 && distanceKm > 0 ? distanceKm / (elapsedSeconds / 3600) : 0;
+                  const currentSpeed = Number.isFinite(rawSpd) && rawSpd > 0 ? rawSpd : (settings.walkingSpeed || 5);
                   const remainingWalkMin = currentSpeed > 0 ? Math.round((remainingDist / currentSpeed) * 60) : 0;
 
                   const { hours: nowH, minutes: nowM } = getNowInTimezone(settings.cityTimezone);
