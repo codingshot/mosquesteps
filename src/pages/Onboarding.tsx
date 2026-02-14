@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { MapPin, Bell, Locate, ChevronRight, Check, Home } from "lucide-react";
-import { saveSettings, getSettings, fetchTimezone } from "@/lib/walking-history";
+import { saveSettings, getSettings, fetchTimezone, type UserSettings } from "@/lib/walking-history";
 import { fetchLocationSuggestions, type LocationSuggestion } from "@/lib/geocode";
 import { getIPGeolocation } from "@/lib/prayer-times";
+import { searchNearbyMosques, type MosqueResult } from "@/lib/mosque-search";
 import { requestNotificationPermission, isNotificationSupported } from "@/lib/notifications";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
@@ -56,6 +57,193 @@ const Onboarding = () => {
     settings.prayerPreferences || ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]
   );
   const [homeSearch, setHomeSearch] = useState("");
+
+  // --- OnboardingMosqueStep extracted inline to avoid build errors ---
+  const OnboardingMosqueStep = ({ settings: s, setSettingsState: setSS, toast: t, next: n, skip: sk }: {
+    settings: UserSettings;
+    setSettingsState: React.Dispatch<React.SetStateAction<UserSettings>>;
+    toast: typeof toast;
+    next: () => void;
+    skip: () => void;
+  }) => {
+    const [mosqueSearch, setMosqueSearch] = useState("");
+    const [nearbyMosques, setNearbyMosques] = useState<MosqueResult[]>([]);
+    const [searchingMosques, setSearchingMosques] = useState(false);
+    const [searchedOnce, setSearchedOnce] = useState(false);
+
+    // Auto-search on mount if we have coords
+    useEffect(() => {
+      if (searchedOnce) return;
+      const lat = s.homeLat || s.cityLat;
+      const lng = s.homeLng || s.cityLng;
+      if (lat && lng) {
+        setSearchingMosques(true);
+        setSearchedOnce(true);
+        searchNearbyMosques(lat, lng)
+          .then((results) => setNearbyMosques(results.slice(0, 8)))
+          .catch(() => {})
+          .finally(() => setSearchingMosques(false));
+      }
+    }, [s.homeLat, s.homeLng, s.cityLat, s.cityLng, searchedOnce]);
+
+    const handleSearchMosques = async () => {
+      const lat = s.homeLat || s.cityLat;
+      const lng = s.homeLng || s.cityLng;
+      if (!lat || !lng) {
+        t({ title: "Set location first", description: "Go back and set your city or home address.", variant: "destructive" });
+        return;
+      }
+      setSearchingMosques(true);
+      try {
+        const results = await searchNearbyMosques(lat, lng);
+        setNearbyMosques(results.slice(0, 10));
+        if (results.length === 0) t({ title: "No mosques found", description: "Try the Mosque Finder on the dashboard." });
+      } catch {
+        t({ title: "Search failed", description: "Check your internet and try again.", variant: "destructive" });
+      } finally {
+        setSearchingMosques(false);
+      }
+    };
+
+    const selectMosque = (m: MosqueResult) => {
+      const homeLat = s.homeLat || s.cityLat || 0;
+      const homeLng = s.homeLng || s.cityLng || 0;
+      const dist = Math.round(haversineDistance(homeLat, homeLng, m.lat, m.lon) * 100) / 100;
+      setSS((prev) => ({
+        ...prev,
+        selectedMosqueName: m.name,
+        selectedMosqueLat: m.lat,
+        selectedMosqueLng: m.lon,
+        selectedMosqueDistance: Math.max(0.1, dist),
+      }));
+      t({ title: `Selected: ${m.name}`, description: `${dist.toFixed(1)} km away` });
+    };
+
+    return (
+      <div className="space-y-5">
+        <div className="text-center">
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+            <span className="text-3xl">🕌</span>
+          </div>
+          <h2 className="text-2xl font-bold text-foreground">Your Mosque</h2>
+          <p className="text-muted-foreground mt-2 text-sm">
+            Find nearby mosques based on your location, or enter manually.
+          </p>
+        </div>
+
+        {/* Selected mosque */}
+        {s.selectedMosqueName && s.selectedMosqueName !== "My Mosque" && (
+          <div className="glass-card p-3 text-center">
+            <p className="text-sm font-medium text-primary">
+              <Check className="w-4 h-4 inline mr-1" /> {s.selectedMosqueName} ({s.selectedMosqueDistance.toFixed(1)} km)
+            </p>
+          </div>
+        )}
+
+        {/* Auto-search button */}
+        <Button
+          variant="outline"
+          onClick={handleSearchMosques}
+          disabled={searchingMosques}
+          className="w-full"
+        >
+          <MapPin className="w-4 h-4 mr-2" />
+          {searchingMosques ? "Searching nearby mosques..." : "Find Nearby Mosques"}
+        </Button>
+
+        {/* Nearby mosques list */}
+        {nearbyMosques.length > 0 && (
+          <div className="space-y-1.5 max-h-48 overflow-y-auto">
+            {nearbyMosques.map((m) => {
+              const homeLat = s.homeLat || s.cityLat || 0;
+              const homeLng = s.homeLng || s.cityLng || 0;
+              const dist = haversineDistance(homeLat, homeLng, m.lat, m.lon);
+              const isSelected = s.selectedMosqueLat === m.lat && s.selectedMosqueLng === m.lon;
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => selectMosque(m)}
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
+                    isSelected
+                      ? "border-primary bg-primary/5 shadow-sm"
+                      : "border-border hover:border-primary/40"
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                    isSelected ? "bg-gradient-teal" : "bg-muted"
+                  }`}>
+                    {isSelected ? (
+                      <Check className="w-4 h-4 text-primary-foreground" />
+                    ) : (
+                      <span className="text-sm">🕌</span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium truncate ${isSelected ? "text-foreground" : "text-muted-foreground"}`}>
+                      {m.name}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">{dist.toFixed(1)} km away</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {searchedOnce && nearbyMosques.length === 0 && !searchingMosques && (
+          <p className="text-xs text-muted-foreground text-center">No mosques found nearby. Enter manually below.</p>
+        )}
+
+        {/* Manual entry */}
+        <div className="border-t border-border pt-4 space-y-3">
+          <p className="text-xs font-medium text-muted-foreground">Or enter manually:</p>
+          <div>
+            <label className="text-sm text-muted-foreground block mb-1">Mosque name</label>
+            <input
+              type="text"
+              value={s.selectedMosqueName}
+              onChange={(e) => setSS((prev) => ({ ...prev, selectedMosqueName: e.target.value }))}
+              className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div>
+            <label className="text-sm text-muted-foreground block mb-1">
+              Distance: {s.selectedMosqueDistance} km
+            </label>
+            <input
+              type="range"
+              min="0.1"
+              max="10"
+              step="0.1"
+              value={s.selectedMosqueDistance}
+              onChange={(e) => setSS((prev) => ({ ...prev, selectedMosqueDistance: parseFloat(e.target.value) }))}
+              className="w-full accent-primary"
+            />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>0.1 km</span>
+              <span>10 km</span>
+            </div>
+          </div>
+        </div>
+
+        <Button variant="hero" onClick={n} className="w-full">
+          Continue <ChevronRight className="w-4 h-4 ml-1" />
+        </Button>
+        <button onClick={sk} className="w-full text-center text-sm text-muted-foreground hover:text-primary">
+          Skip →
+        </button>
+      </div>
+    );
+  };
+
+  // Helper for distance
+  const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
 
   const next = () => {
     if (step < steps.length - 1) {
@@ -432,58 +620,13 @@ const Onboarding = () => {
 
             {/* Step 3: Mosque */}
             {step === 3 && (
-              <div className="space-y-6">
-                <div className="text-center">
-                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                    <span className="text-3xl">🕌</span>
-                  </div>
-                  <h2 className="text-2xl font-bold text-foreground">Your Mosque</h2>
-                  <p className="text-muted-foreground mt-2 text-sm">
-                    Set your primary mosque and distance for accurate step tracking.
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-sm text-muted-foreground block mb-1">Mosque name</label>
-                    <input
-                      type="text"
-                      value={settings.selectedMosqueName}
-                      onChange={(e) => setSettingsState({ ...settings, selectedMosqueName: e.target.value })}
-                      className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm text-muted-foreground block mb-1">
-                      Distance: {settings.selectedMosqueDistance} km
-                    </label>
-                    <input
-                      type="range"
-                      min="0.1"
-                      max="10"
-                      step="0.1"
-                      value={settings.selectedMosqueDistance}
-                      onChange={(e) => setSettingsState({ ...settings, selectedMosqueDistance: parseFloat(e.target.value) })}
-                      className="w-full accent-primary"
-                    />
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>0.1 km</span>
-                      <span>10 km</span>
-                    </div>
-                  </div>
-                </div>
-
-                <p className="text-xs text-muted-foreground text-center">
-                  You can use the <span className="text-primary font-medium">Mosque Finder</span> later for exact distances.
-                </p>
-
-                <Button variant="hero" onClick={next} className="w-full">
-                  Continue <ChevronRight className="w-4 h-4 ml-1" />
-                </Button>
-                <button onClick={skip} className="w-full text-center text-sm text-muted-foreground hover:text-primary">
-                  Skip →
-                </button>
-              </div>
+              <OnboardingMosqueStep
+                settings={settings}
+                setSettingsState={setSettingsState}
+                toast={toast}
+                next={next}
+                skip={skip}
+              />
             )}
 
             {/* Step 4: Notifications */}
