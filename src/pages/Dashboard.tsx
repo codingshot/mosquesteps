@@ -200,11 +200,9 @@ const Dashboard = () => {
       return;
     }
 
-    // Auto-detect closest mosque if none is set
+    // Auto-detect closest mosque if none is set — prefer GPS for accuracy
     if (settings.selectedMosqueName === "My Mosque" && savedMosques.length === 0) {
-      const lat = settings.homeLat || settings.cityLat;
-      const lng = settings.homeLng || settings.cityLng;
-      if (lat && lng) {
+      const detectMosque = (lat: number, lng: number) => {
         import("@/lib/mosque-search").then(({ searchNearbyMosques }) => {
           searchNearbyMosques(lat, lng).then((results) => {
             if (results.length > 0) {
@@ -216,7 +214,6 @@ const Dashboard = () => {
                 selectedMosqueLng: closest.lon,
                 selectedMosqueDistance: Math.max(0.1, dist),
               });
-              // Also save as primary mosque
               import("@/lib/walking-history").then(({ saveMosque, setPrimaryMosque }) => {
                 saveMosque({ id: String(closest.id), name: closest.name, lat: closest.lat, lng: closest.lon, distanceKm: Math.max(0.1, dist), isPrimary: true });
                 setPrimaryMosque(String(closest.id));
@@ -224,6 +221,23 @@ const Dashboard = () => {
             }
           }).catch(() => {});
         });
+      };
+
+      // Try GPS first for best accuracy, fall back to saved/IP coords
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => detectMosque(pos.coords.latitude, pos.coords.longitude),
+          () => {
+            const lat = settings.homeLat || settings.cityLat;
+            const lng = settings.homeLng || settings.cityLng;
+            if (lat && lng) detectMosque(lat, lng);
+          },
+          { timeout: 5000, maximumAge: 60000 }
+        );
+      } else {
+        const lat = settings.homeLat || settings.cityLat;
+        const lng = settings.homeLng || settings.cityLng;
+        if (lat && lng) detectMosque(lat, lng);
       }
     }
 
