@@ -97,6 +97,10 @@ export async function searchNearbyMosques(
   lng: number,
   signal?: AbortSignal
 ): Promise<MosqueResult[]> {
+  // Validate coordinates before constructing Overpass query
+  if (!isFinite(lat) || !isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    throw new Error("Invalid coordinates for mosque search");
+  }
   const query = buildQuery(lat, lng);
   let data: { elements: unknown[] } | null = null;
 

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { getSettings, saveSettings, getWalkHistory, addWalkEntry, getSavedMosques, saveMosque } from "@/lib/walking-history";
+import { isValidCoordinate } from "@/lib/prayer-times";
 
 // ── Input Validation & Sanitization ──────────────────────────────
 
@@ -16,9 +17,7 @@ describe("Security: Input Validation", () => {
       hasanat: 200,
       prayer: "Fajr",
     });
-    // The app stores raw data — rendering must sanitize via React
     expect(entry.mosqueName).not.toContain("<script>");
-    // If stored, verify it doesn't execute (React auto-escapes JSX)
     const history = getWalkHistory();
     expect(history[0].mosqueName).toBeDefined();
   });
@@ -27,7 +26,8 @@ describe("Security: Input Validation", () => {
     const longString = "A".repeat(100000);
     saveSettings({ cityName: longString });
     const s = getSettings();
-    expect(s.cityName?.length).toBe(100000);
+    // sanitizeString trims to 500 chars
+    expect(s.cityName!.length).toBeLessThanOrEqual(500);
   });
 
   it("sanitizes negative walking distances to zero", () => {
@@ -40,24 +40,25 @@ describe("Security: Input Validation", () => {
       hasanat: 200,
       prayer: "Fajr",
     });
-    expect(entry.distanceKm).toBe(0); // sanitized to 0
+    expect(entry.distanceKm).toBe(0);
   });
 
   it("NaN walkingSpeed persists as null via JSON", () => {
     saveSettings({ walkingSpeed: NaN });
     const s1 = getSettings();
-    // JSON.stringify(NaN) → null, spread overrides default
-    expect(s1.walkingSpeed).toBeNull();
+    // saveSettings now clamps NaN to default 5
+    expect(s1.walkingSpeed).toBe(5);
 
     saveSettings({ walkingSpeed: Infinity });
     const s2 = getSettings();
-    // JSON.stringify(Infinity) → null
-    expect(s2.walkingSpeed).toBeNull();
+    // Infinity is clamped to max 20
+    expect(s2.walkingSpeed).toBe(20);
   });
 
   it("handles special characters in city names", () => {
-    const specialChars = "München — Üniversité & <b>bold</b>";
+    const specialChars = "München — Üniversité & bold";
     saveSettings({ cityName: specialChars });
+    // HTML angle brackets are stripped by sanitizeString
     expect(getSettings().cityName).toBe(specialChars);
   });
 
@@ -65,6 +66,75 @@ describe("Security: Input Validation", () => {
     saveMosque({ id: "test-1", name: "المسجد الحرام", lat: 21.42, lng: 39.83, distanceKm: 0.5 });
     const mosques = getSavedMosques();
     expect(mosques[0].name).toBe("المسجد الحرام");
+  });
+});
+
+// ── Settings Validation ─────────────────────────────────────────
+
+describe("Security: Settings Validation", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("clamps age to valid range", () => {
+    saveSettings({ age: -5 });
+    expect(getSettings().age).toBe(5); // AGE_MIN
+    saveSettings({ age: 999 });
+    expect(getSettings().age).toBe(120); // AGE_MAX
+  });
+
+  it("clamps body weight to valid range", () => {
+    saveSettings({ bodyWeightKg: 5 });
+    expect(getSettings().bodyWeightKg).toBe(20); // BODY_WEIGHT_KG_MIN
+    saveSettings({ bodyWeightKg: 500 });
+    expect(getSettings().bodyWeightKg).toBe(300); // BODY_WEIGHT_KG_MAX
+  });
+
+  it("clamps walking speed to valid range", () => {
+    saveSettings({ walkingSpeed: 0.1 });
+    expect(getSettings().walkingSpeed).toBe(0.5);
+    saveSettings({ walkingSpeed: 50 });
+    expect(getSettings().walkingSpeed).toBe(20);
+  });
+
+  it("rejects invalid coordinates in settings", () => {
+    saveSettings({ cityLat: 999, cityLng: -999 });
+    const s = getSettings();
+    // Out of range should be clamped
+    expect(s.cityLat).toBeLessThanOrEqual(90);
+    expect(s.cityLng).toBeGreaterThanOrEqual(-180);
+  });
+
+  it("strips HTML from city name and mosque name", () => {
+    saveSettings({ cityName: '<img src=x onerror=alert(1)>London', selectedMosqueName: '<b>Mosque</b>' });
+    const s = getSettings();
+    expect(s.cityName).not.toContain("<");
+    expect(s.selectedMosqueName).not.toContain("<");
+  });
+});
+
+// ── Coordinate Validation ───────────────────────────────────────
+
+describe("Security: Coordinate Validation", () => {
+  it("validates correct coordinates", () => {
+    expect(isValidCoordinate(51.5, -0.12)).toBe(true);
+    expect(isValidCoordinate(-33.87, 151.21)).toBe(true);
+    expect(isValidCoordinate(0, 0)).toBe(true);
+  });
+
+  it("rejects NaN coordinates", () => {
+    expect(isValidCoordinate(NaN, 0)).toBe(false);
+    expect(isValidCoordinate(0, NaN)).toBe(false);
+  });
+
+  it("rejects Infinity coordinates", () => {
+    expect(isValidCoordinate(Infinity, 0)).toBe(false);
+    expect(isValidCoordinate(0, -Infinity)).toBe(false);
+  });
+
+  it("rejects out-of-range coordinates", () => {
+    expect(isValidCoordinate(91, 0)).toBe(false);
+    expect(isValidCoordinate(-91, 0)).toBe(false);
+    expect(isValidCoordinate(0, 181)).toBe(false);
+    expect(isValidCoordinate(0, -181)).toBe(false);
   });
 });
 
@@ -87,28 +157,25 @@ describe("Security: localStorage Integrity", () => {
   it("handles array instead of object in settings", () => {
     localStorage.setItem("mosquesteps_settings", "[1,2,3]");
     const s = getSettings();
-    // Should still merge with defaults
     expect(s.walkingSpeed).toBeDefined();
   });
 
   it("handles tampered walk entry with missing fields", () => {
     localStorage.setItem("mosquesteps_history", JSON.stringify([
-      { id: "fake", date: "2026-01-01" }, // Missing required fields
+      { id: "fake", date: "2026-01-01" },
     ]));
     const history = getWalkHistory();
     expect(history).toHaveLength(1);
-    expect(history[0].steps).toBeUndefined(); // No crash
+    expect(history[0].steps).toBeUndefined();
   });
 
   it("handles localStorage quota exceeded gracefully", () => {
-    // Simulate by filling localStorage
-    const bigData = "x".repeat(4 * 1024 * 1024); // 4MB
+    const bigData = "x".repeat(4 * 1024 * 1024);
     try {
       localStorage.setItem("test_fill", bigData);
     } catch {
       // Expected if quota exceeded
     }
-    // Should not crash
     expect(() => saveSettings({ cityName: "test" })).not.toThrow();
     localStorage.removeItem("test_fill");
   });
@@ -158,7 +225,6 @@ describe("Security: Data Boundaries", () => {
       prayer: "Fajr",
     });
     
-    // Settings and history are separate
     const settings = JSON.parse(localStorage.getItem("mosquesteps_settings")!);
     const history = JSON.parse(localStorage.getItem("mosquesteps_history")!);
     expect(settings.cityName).toBe("London");

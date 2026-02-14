@@ -856,10 +856,15 @@ const Settings = () => {
                 input.onchange = async (e) => {
                   const file = (e.target as HTMLInputElement).files?.[0];
                   if (!file) return;
+                  // Reject files over 10MB to prevent abuse
+                  if (file.size > 10 * 1024 * 1024) {
+                    toast({ title: "File too large", description: "Backup files must be under 10MB.", variant: "destructive" });
+                    return;
+                  }
                   try {
                     const text = await file.text();
                     const data = JSON.parse(text);
-                    if (!data || typeof data !== "object") throw new Error("Invalid format");
+                    if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("Invalid format");
                     const knownKeys = [
                       "mosquesteps_history", "mosquesteps_settings", "mosquesteps_badges",
                       "mosquesteps_onboarded", "mosquesteps_onboarded_date", "mosquesteps_saved_mosques",
@@ -876,7 +881,12 @@ const Settings = () => {
                     let restored = 0;
                     for (const key of knownKeys) {
                       if (data[key] !== undefined) {
-                        const value = typeof data[key] === "string" ? data[key] : JSON.stringify(data[key]);
+                        // Only allow string, array, or plain object values — reject functions/symbols
+                        const val = data[key];
+                        if (val !== null && typeof val !== "string" && typeof val !== "number" && typeof val !== "boolean" && typeof val !== "object") continue;
+                        const value = typeof val === "string" ? val : JSON.stringify(val);
+                        // Limit individual value size to 2MB
+                        if (value.length > 2 * 1024 * 1024) continue;
                         localStorage.setItem(key, value);
                         restored++;
                       }
