@@ -185,12 +185,21 @@ export function getNowInTimezone(timezone?: string): { hours: number; minutes: n
   return { hours: now.getHours(), minutes: now.getMinutes() };
 }
 
+/** Validate latitude/longitude are finite numbers within range */
+export function isValidCoordinate(lat: number, lng: number): boolean {
+  return isFinite(lat) && isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+}
+
 export async function fetchPrayerTimes(
   latitude: number,
   longitude: number,
   dateOverride?: Date,
   timezone?: string
 ): Promise<{ prayers: PrayerTime[]; hijriDate: string; readableDate: string; isNextDay: boolean }> {
+  if (!isValidCoordinate(latitude, longitude)) {
+    throw new Error("Invalid coordinates for prayer times");
+  }
+
   const now = new Date();
   const dateToFetch = dateOverride ?? now;
   const { dd, mm, yyyy } = getDatePartsInTimezone(dateToFetch, timezone);

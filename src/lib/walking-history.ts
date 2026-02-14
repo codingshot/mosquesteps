@@ -111,7 +111,34 @@ export function getSettings(): UserSettings {
 
 export function saveSettings(settings: Partial<UserSettings>) {
   const current = getSettings();
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...current, ...settings }));
+  const merged = { ...current, ...settings };
+
+  // Validate numeric ranges
+  if (merged.walkingSpeed != null) merged.walkingSpeed = Math.max(0.5, Math.min(20, Number(merged.walkingSpeed) || 5));
+  if (merged.age != null) merged.age = Math.max(AGE_MIN, Math.min(AGE_MAX, Math.round(Number(merged.age) || 25)));
+  if (merged.bodyWeightKg != null) merged.bodyWeightKg = Math.max(BODY_WEIGHT_KG_MIN, Math.min(BODY_WEIGHT_KG_MAX, Number(merged.bodyWeightKg) || 70));
+  if (merged.selectedMosqueDistance != null) merged.selectedMosqueDistance = Math.max(0, Math.min(100, Number(merged.selectedMosqueDistance) || 0));
+  if (merged.notifyMinutesBefore != null) merged.notifyMinutesBefore = Math.max(0, Math.min(120, Math.round(Number(merged.notifyMinutesBefore) || 15)));
+  if (merged.strideLength != null) merged.strideLength = Math.max(0.3, Math.min(2.0, Number(merged.strideLength) || 0.75));
+
+  // Validate coordinates
+  if (merged.cityLat != null) merged.cityLat = isFinite(merged.cityLat) ? Math.max(-90, Math.min(90, merged.cityLat)) : undefined;
+  if (merged.cityLng != null) merged.cityLng = isFinite(merged.cityLng) ? Math.max(-180, Math.min(180, merged.cityLng)) : undefined;
+  if (merged.homeLat != null) merged.homeLat = isFinite(merged.homeLat) ? Math.max(-90, Math.min(90, merged.homeLat)) : undefined;
+  if (merged.homeLng != null) merged.homeLng = isFinite(merged.homeLng) ? Math.max(-180, Math.min(180, merged.homeLng)) : undefined;
+  if (merged.selectedMosqueLat != null) merged.selectedMosqueLat = isFinite(merged.selectedMosqueLat) ? Math.max(-90, Math.min(90, merged.selectedMosqueLat)) : undefined;
+  if (merged.selectedMosqueLng != null) merged.selectedMosqueLng = isFinite(merged.selectedMosqueLng) ? Math.max(-180, Math.min(180, merged.selectedMosqueLng)) : undefined;
+
+  // Sanitize string fields
+  if (merged.cityName) merged.cityName = sanitizeString(merged.cityName);
+  if (merged.selectedMosqueName) merged.selectedMosqueName = sanitizeString(merged.selectedMosqueName);
+  if (merged.homeAddress) merged.homeAddress = sanitizeString(merged.homeAddress);
+
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(merged));
+  } catch {
+    // localStorage quota exceeded — silently fail
+  }
 }
 
 // Saved mosques
