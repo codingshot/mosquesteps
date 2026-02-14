@@ -258,6 +258,11 @@ const MosqueFinder = () => {
         .sort((a, b) => (a.distance || 0) - (b.distance || 0));
       setMosques(withDist);
 
+      // Auto-select closest mosque if none is currently selected
+      if (withDist.length > 0 && !selectedMosqueId) {
+        handleSelectMosque(withDist[0]);
+      }
+
       setCachedMosques(lat, lng, results.map((m) => ({ id: m.id, name: m.name, lat: m.lat, lon: m.lon })));
     } catch (e) {
       console.error("Failed to fetch mosques:", e);

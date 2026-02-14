@@ -71,7 +71,7 @@ const Onboarding = () => {
     const [searchingMosques, setSearchingMosques] = useState(false);
     const [searchedOnce, setSearchedOnce] = useState(false);
 
-    // Auto-search on mount if we have coords
+    // Auto-search on mount if we have coords — auto-select closest
     useEffect(() => {
       if (searchedOnce) return;
       const lat = s.homeLat || s.cityLat;
@@ -80,7 +80,15 @@ const Onboarding = () => {
         setSearchingMosques(true);
         setSearchedOnce(true);
         searchNearbyMosques(lat, lng)
-          .then((results) => setNearbyMosques(results.slice(0, 8)))
+          .then((results) => {
+            const sliced = results.slice(0, 8);
+            setNearbyMosques(sliced);
+            // Auto-select closest mosque if none is set
+            if (sliced.length > 0 && (!s.selectedMosqueName || s.selectedMosqueName === "My Mosque")) {
+              const closest = sliced[0]; // already sorted by distance from API
+              selectMosque(closest);
+            }
+          })
           .catch(() => {})
           .finally(() => setSearchingMosques(false));
       }
