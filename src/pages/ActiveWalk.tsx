@@ -61,7 +61,7 @@ const ActiveWalk = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const settings = getSettings();
+  const [settings, setSettingsState] = useState(getSettings);
   const savedMosques = getSavedMosques();
 
   const [isWalking, setIsWalking] = useState(false);
@@ -102,6 +102,7 @@ const ActiveWalk = () => {
   const [returnDestSuggestions, setReturnDestSuggestions] = useState<{ displayName: string; lat: number; lng: number }[]>([]);
   const [showReturnDestSearch, setShowReturnDestSearch] = useState(false);
   const [offline, setOffline] = useState(!isOnline());
+  const [autoDetecting, setAutoDetecting] = useState(false);
   const prevDirectionIdx = useRef(-1);
   const prepareAnnouncedForStep = useRef(-1);
   const prayerMarginAlerted = useRef(false);
@@ -129,6 +130,62 @@ const ActiveWalk = () => {
   const mosqueName = prayerMosque?.name || settings.selectedMosqueName || "your mosque";
   const progressPercent = mosqueDist > 0 ? Math.min(1, distanceKm / mosqueDist) : 0;
   const hasMosqueDestination = !!mosquePosition;
+
+  // Auto-detect nearest mosque if none is set
+  useEffect(() => {
+    if (mosquePosition || autoDetecting) return;
+    setAutoDetecting(true);
+
+    const detect = async (lat: number, lng: number) => {
+      try {
+        const { searchNearbyMosques } = await import("@/lib/mosque-search");
+        const results = await searchNearbyMosques(lat, lng);
+        if (results.length > 0) {
+          const closest = results[0];
+          const dist = Math.max(0.1, Math.round(haversine(lat, lng, closest.lat, closest.lon) * 100) / 100);
+          const { saveSettings: save, saveMosque: saveMosqueEntry, setPrimaryMosque: setPrimary } = await import("@/lib/walking-history");
+          save({
+            selectedMosqueName: closest.name,
+            selectedMosqueLat: closest.lat,
+            selectedMosqueLng: closest.lon,
+            selectedMosqueDistance: dist,
+          });
+          saveMosqueEntry({ id: String(closest.id), name: closest.name, lat: closest.lat, lng: closest.lon, distanceKm: dist, isPrimary: true });
+          setPrimary(String(closest.id));
+          setSettingsState(getSettings());
+          toast({ title: `Found: ${closest.name}`, description: `${dist.toFixed(1)} km away — auto-selected as your mosque.` });
+        }
+      } catch {
+        // silently fail
+      } finally {
+        setAutoDetecting(false);
+      }
+    };
+
+    // Try GPS first, then saved coords, then IP
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => detect(pos.coords.latitude, pos.coords.longitude),
+        async () => {
+          const lat = settings.homeLat || settings.cityLat;
+          const lng = settings.homeLng || settings.cityLng;
+          if (lat && lng) {
+            detect(lat, lng);
+          } else {
+            const ipGeo = await getIPGeolocation();
+            if (ipGeo) detect(ipGeo.lat, ipGeo.lng);
+            else setAutoDetecting(false);
+          }
+        },
+        { timeout: 5000, maximumAge: 60000 }
+      );
+    } else {
+      const lat = settings.homeLat || settings.cityLat;
+      const lng = settings.homeLng || settings.cityLng;
+      if (lat && lng) detect(lat, lng);
+      else setAutoDetecting(false);
+    }
+  }, [mosquePosition]);
 
   const isReturnWalk = searchParams.get("returnWalk") === "1";
   const returnFromLat = searchParams.get("fromLat");
@@ -1042,19 +1099,23 @@ const ActiveWalk = () => {
               </div>
             )}
 
+            {autoDetecting && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                Finding nearest mosque...
+              </div>
+            )}
             <Button
               variant="hero"
               size="lg"
               className="w-full text-base"
               onClick={startWalk}
-              disabled={!hasMosqueDestinationEffective}
-              title={!hasMosqueDestinationEffective ? (isReturnWalk ? "Set home in Settings" : "Select a mosque for turn-by-turn directions") : undefined}
             >
               <Play className="w-5 h-5 mr-2" /> {isReturnWalk ? "Start Walking Home" : "Start Walking"}
             </Button>
-            {!hasMosqueDestinationEffective && (
+            {!hasMosqueDestinationEffective && !autoDetecting && (
               <p className="text-xs text-muted-foreground text-center">
-                {isReturnWalk ? "Set your home address in Settings to walk home from the mosque." : "Select a mosque above for directions and leave-by time."}
+                {isReturnWalk ? "Set your home address in Settings to walk home from the mosque." : "No mosque selected — walking in free mode. Select a mosque for directions."}
               </p>
             )}
             {(effectiveDestination || mosquePosition) && (
