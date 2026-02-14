@@ -18,13 +18,13 @@ const GuidePage = () => {
   const { canInstall, isInstalled, install } = usePWAInstall();
   const { toast } = useToast();
 
-  if (!guide) return <Navigate to="/guides" replace />;
-
-  const currentIndex = guides.findIndex((g) => g.id === guide.id);
+  const currentIndex = guide ? guides.findIndex((g) => g.id === guide.id) : -1;
   const prevGuide = currentIndex > 0 ? guides[currentIndex - 1] : null;
-  const nextGuide = currentIndex < guides.length - 1 ? guides[currentIndex + 1] : null;
+  const nextGuide = currentIndex >= 0 && currentIndex < guides.length - 1 ? guides[currentIndex + 1] : null;
 
   useEffect(() => {
+    if (!guide) return;
+    // Breadcrumb structured data
     const breadcrumb = document.createElement("script");
     breadcrumb.type = "application/ld+json";
     breadcrumb.id = "breadcrumb-guide";
@@ -41,42 +41,47 @@ const GuidePage = () => {
     if (existing) existing.remove();
     document.head.appendChild(breadcrumb);
 
-    const howTo =
-      guide.id === "getting-started"
-        ? (() => {
-            const script = document.createElement("script");
-            script.type = "application/ld+json";
-            script.id = "howto-guide";
-            script.textContent = JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "HowTo",
-              name: guide.title,
-              description: guide.description,
-              step: guide.steps.map((s, i) => ({
-                "@type": "HowToStep",
-                position: i + 1,
-                name: s.text.slice(0, 80) + (s.text.length > 80 ? "…" : ""),
-                text: s.text,
-              })),
-            });
-            const ex = document.getElementById(script.id);
-            if (ex) ex.remove();
-            document.head.appendChild(script);
-            return script;
-          })()
-        : null;
+    // HowTo structured data for ALL guides (AEO/GEO optimized)
+    const howToScript = document.createElement("script");
+    howToScript.type = "application/ld+json";
+    howToScript.id = "howto-guide";
+    howToScript.textContent = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "HowTo",
+      name: guide.title,
+      description: guide.description,
+      image: SITE_URL + guide.screenshot,
+      totalTime: `PT${guide.steps.length * 2}M`,
+      tool: [{ "@type": "HowToTool", name: "MosqueSteps app" }],
+      step: guide.steps.map((s, i) => ({
+        "@type": "HowToStep",
+        position: i + 1,
+        name: s.text.slice(0, 80) + (s.text.length > 80 ? "…" : ""),
+        text: s.text,
+        url: s.link ? SITE_URL + s.link : SITE_URL + "/guides/" + guide.id,
+      })),
+    });
+    const exHowTo = document.getElementById(howToScript.id);
+    if (exHowTo) exHowTo.remove();
+    document.head.appendChild(howToScript);
 
     return () => {
       document.getElementById(breadcrumb.id)?.remove();
       document.getElementById("howto-guide")?.remove();
     };
-  }, [guide.id, guide.title, guide.description, guide.steps]);
+  }, [guide?.id, guide?.title, guide?.description, guide?.steps, guide?.screenshot]);
 
   const copyLink = () => {
-    navigator.clipboard.writeText(window.location.href).then(() => {
-      toast({ title: "Link copied", description: "Share this guide with anyone." });
-    });
+    try {
+      navigator.clipboard.writeText(window.location.href).then(() => {
+        toast({ title: "Link copied", description: "Share this guide with anyone." });
+      });
+    } catch {
+      toast({ title: "Copy failed", description: "Use your browser's share feature." });
+    }
   };
+
+  if (!guide) return <Navigate to="/guides" replace />;
 
   return (
     <div className="min-h-screen bg-background pb-bottom-nav">
