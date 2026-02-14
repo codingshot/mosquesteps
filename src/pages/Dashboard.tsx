@@ -31,6 +31,13 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -191,6 +198,33 @@ const Dashboard = () => {
     if (!hasCompletedOnboarding()) {
       navigate("/onboarding", { replace: true });
       return;
+    }
+
+    // Auto-detect closest mosque if none is set
+    if (settings.selectedMosqueName === "My Mosque" && savedMosques.length === 0) {
+      const lat = settings.homeLat || settings.cityLat;
+      const lng = settings.homeLng || settings.cityLng;
+      if (lat && lng) {
+        import("@/lib/mosque-search").then(({ searchNearbyMosques }) => {
+          searchNearbyMosques(lat, lng).then((results) => {
+            if (results.length > 0) {
+              const closest = results[0];
+              const dist = Math.round(haversineDistance(lat, lng, closest.lat, closest.lon) * 100) / 100;
+              saveSettings({
+                selectedMosqueName: closest.name,
+                selectedMosqueLat: closest.lat,
+                selectedMosqueLng: closest.lon,
+                selectedMosqueDistance: Math.max(0.1, dist),
+              });
+              // Also save as primary mosque
+              import("@/lib/walking-history").then(({ saveMosque, setPrimaryMosque }) => {
+                saveMosque({ id: String(closest.id), name: closest.name, lat: closest.lat, lng: closest.lon, distanceKm: Math.max(0.1, dist), isPrimary: true });
+                setPrimaryMosque(String(closest.id));
+              });
+            }
+          }).catch(() => {});
+        });
+      }
     }
 
     // Priority: current location (GPS) → IP geolocation → saved city → Makkah

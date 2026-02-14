@@ -1144,7 +1144,7 @@ const ActiveWalk = () => {
                 >
                   <Download className="w-3.5 h-3.5" />
                 </button>
-                {/* Current direction */}
+                {/* Current direction — large hero card */}
                 {currentDirection && (
                   <div
                     className="bg-gradient-teal p-4 shadow-sm"
@@ -1189,11 +1189,11 @@ const ActiveWalk = () => {
 
                 {/* Segmented progress bar */}
                 <div className="px-3 pt-2.5 pb-1">
-                  <div className="flex gap-1" role="progressbar" aria-valuenow={currentDirectionIdx + 1} aria-valuemin={1} aria-valuemax={routeInfo.steps.length} aria-label="Route progress">
+                  <div className="flex gap-0.5" role="progressbar" aria-valuenow={currentDirectionIdx + 1} aria-valuemin={1} aria-valuemax={routeInfo.steps.length} aria-label="Route progress">
                     {routeInfo.steps.map((_, i) => (
                       <div
                         key={i}
-                        className={`h-2 rounded-full flex-1 transition-all duration-300 ${
+                        className={`h-1.5 rounded-full flex-1 transition-all duration-300 ${
                           i < currentDirectionIdx
                             ? "bg-primary/80"
                             : i === currentDirectionIdx
@@ -1205,25 +1205,27 @@ const ActiveWalk = () => {
                   </div>
                 </div>
 
-                {/* Upcoming directions — tappable for preview */}
+                {/* Upcoming directions — tappable for detailed preview */}
                 {routeInfo.steps.length > currentDirectionIdx + 1 && (
                   <div className="px-3 pb-3 pt-2">
-                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Then</p>
-                    <div className="space-y-2">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Coming up</p>
+                    <div className="space-y-1.5">
                       {routeInfo.steps.slice(currentDirectionIdx + 1, currentDirectionIdx + 4).map((s, i) => {
                         const actualIdx = currentDirectionIdx + 1 + i;
                         const isNext = i === 0;
-                        const distLabel = formatDistanceForStep(isNext && distanceToTurnM != null ? distanceToTurnM : s.distance, useImperial);
+                        const stepDistLabel = formatDistanceForStep(s.distance, useImperial);
+                        const remainingAfter = routeInfo.steps.slice(actualIdx).reduce((sum, st) => sum + st.distance, 0);
+                        const remainingMin = Math.max(0, Math.round((remainingAfter / 1000) / (settings.walkingSpeed || 5) * 60));
                         return (
                           <button
                             key={actualIdx}
                             onClick={() => {
                               toast({
-                                title: formatDirection(s.instruction),
-                                description: `${distLabel} · Step ${actualIdx + 1} of ${routeInfo.steps.length}`,
+                                title: `Step ${actualIdx + 1}: ${formatDirection(s.instruction)}`,
+                                description: `${stepDistLabel} · ${remainingAfter > 1000 ? `${(remainingAfter / 1000).toFixed(1)} km` : `${Math.round(remainingAfter)} m`} remaining · ~${remainingMin} min left`,
                               });
                             }}
-                            className={`w-full flex items-center gap-3 rounded-lg px-3 py-2 transition-colors text-left ${
+                            className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors text-left ${
                               isNext ? "bg-primary/5 border border-primary/10" : "bg-muted/50 hover:bg-muted"
                             }`}
                           >
@@ -1232,10 +1234,13 @@ const ActiveWalk = () => {
                             }`} aria-hidden>
                               {getDirectionIcon(s.instruction, true)}
                             </div>
-                            <span className={`text-sm truncate flex-1 ${isNext ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
-                              <span className="text-primary font-medium">{distLabel}</span>
-                              <span className="ml-1">{formatDirection(s.instruction).toLowerCase()}</span>
-                            </span>
+                            <div className="flex-1 min-w-0">
+                              <span className={`text-sm truncate block ${isNext ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+                                {formatDirection(s.instruction)}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground/70">{stepDistLabel} · ~{remainingMin}m left</span>
+                            </div>
+                            <ChevronDown className="w-3 h-3 text-muted-foreground/40 -rotate-90 flex-shrink-0" />
                           </button>
                         );
                       })}
@@ -1425,39 +1430,39 @@ const ActiveWalk = () => {
 
 
 
-            {/* Step counter pill — compact inline display */}
-            <div className="flex items-center justify-center gap-3">
-              <div className="flex items-center gap-2 bg-card border border-border rounded-full px-4 py-2 shadow-sm" role="status" aria-live="polite" aria-label={`${displaySteps.toLocaleString()} steps`}>
+            {/* Step counter pill + stats row — compact layout */}
+            <div className="flex items-center justify-between gap-2 bg-card border border-border rounded-2xl px-4 py-2.5 shadow-sm" role="status" aria-live="polite" aria-label={`${displaySteps.toLocaleString()} steps`}>
+              <div className="flex items-center gap-2">
                 <Footprints className={`w-4 h-4 text-gold ${!isPaused ? "animate-step-bounce" : ""}`} />
-                <span className="text-xl font-bold text-foreground tabular-nums">{displaySteps.toLocaleString()}</span>
-                <span className="text-[10px] text-muted-foreground">{useRealSteps ? "sensor" : "est."}</span>
-                {/* Mini progress bar */}
-                <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                <span className="text-lg font-bold text-foreground tabular-nums">{displaySteps.toLocaleString()}</span>
+                <span className="text-[9px] text-muted-foreground/60">{useRealSteps ? "sensor" : "est."}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-20 h-1.5 bg-muted rounded-full overflow-hidden">
                   <div className="h-full bg-gradient-gold rounded-full transition-all duration-500" style={{ width: `${Math.min(100, progressPercent * 100)}%` }} />
                 </div>
-                <span className="text-[10px] text-muted-foreground tabular-nums">{Math.round(progressPercent * 100)}%</span>
+                <span className="text-[10px] text-muted-foreground tabular-nums w-8 text-right">{Math.round(progressPercent * 100)}%</span>
               </div>
             </div>
 
-            {/* Live stats grid */}
-            <div className="grid grid-cols-4 gap-2" role="status" aria-live="polite" aria-atomic="true" aria-label={`Walk progress: ${displaySteps.toLocaleString()} steps, ${(distanceKm * 1000).toFixed(0)} meters, ${hasanat.toLocaleString()} hasanat, ${formatTime(elapsedSeconds)} elapsed`}>
-              <div className="glass-card p-2 text-center">
-                <p className="text-sm font-bold text-foreground">{(distanceKm * 1000).toFixed(0)}</p>
-                <p className="text-[10px] text-muted-foreground">meters</p>
+            {/* Live stats — inline row under map area */}
+            <div className="flex items-center justify-around bg-muted/50 rounded-xl px-3 py-2.5" role="status" aria-live="polite">
+              <div className="text-center">
+                <p className="text-sm font-bold text-foreground tabular-nums">{(distanceKm * 1000).toFixed(0)}<span className="text-[10px] text-muted-foreground font-normal ml-0.5">m</span></p>
               </div>
-              <div className="glass-card p-2 text-center">
-                <p className="text-sm font-bold text-foreground">{formatTime(elapsedSeconds)}</p>
-                <p className="text-[10px] text-muted-foreground">time</p>
+              <div className="w-px h-5 bg-border" />
+              <div className="text-center">
+                <p className="text-sm font-bold text-foreground tabular-nums">{formatTime(elapsedSeconds)}</p>
               </div>
-              <div className="glass-card p-2 text-center">
-                <p className="text-sm font-bold text-gradient-gold">{hasanat.toLocaleString()}</p>
-                <p className="text-[10px] text-muted-foreground">hasanat</p>
+              <div className="w-px h-5 bg-border" />
+              <div className="text-center">
+                <p className="text-sm font-bold text-gradient-gold tabular-nums">{hasanat.toLocaleString()}<span className="text-[10px] text-muted-foreground font-normal ml-0.5">✦</span></p>
               </div>
-              <div className="glass-card p-2 text-center">
-                <p className="text-sm font-bold text-foreground">
-                  {elapsedSeconds > 30 ? (distanceKm / (elapsedSeconds / 3600)).toFixed(1) : "—"}
+              <div className="w-px h-5 bg-border" />
+              <div className="text-center">
+                <p className="text-sm font-bold text-foreground tabular-nums">
+                  {elapsedSeconds > 30 ? (distanceKm / (elapsedSeconds / 3600)).toFixed(1) : "—"}<span className="text-[10px] text-muted-foreground font-normal ml-0.5">km/h</span>
                 </p>
-                <p className="text-[10px] text-muted-foreground">km/h</p>
               </div>
             </div>
 
