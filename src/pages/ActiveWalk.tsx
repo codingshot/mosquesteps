@@ -192,8 +192,23 @@ const ActiveWalk = () => {
   const returnFromLng = searchParams.get("fromLng");
   const returnToLat = searchParams.get("toLat");
   const returnToLng = searchParams.get("toLng");
-  const returnWalkOrigin = returnFromLat && returnFromLng ? { lat: parseFloat(returnFromLat), lng: parseFloat(returnFromLng) } : null;
-  const returnWalkDestination = returnToLat && returnToLng ? { lat: parseFloat(returnToLat), lng: parseFloat(returnToLng) } : (settings.homeLat != null && settings.homeLng != null ? { lat: settings.homeLat, lng: settings.homeLng } : null);
+
+  const parseCoord = (v: string | null): number | null => {
+    if (!v) return null;
+    const n = parseFloat(v);
+    return Number.isFinite(n) && n >= -90 && n <= 90 ? n : null;
+  };
+  const parseLng = (v: string | null): number | null => {
+    if (!v) return null;
+    const n = parseFloat(v);
+    return Number.isFinite(n) && n >= -180 && n <= 180 ? n : null;
+  };
+  const fromLatN = parseCoord(returnFromLat);
+  const fromLngN = parseLng(returnFromLng);
+  const toLatN = parseCoord(returnToLat);
+  const toLngN = parseLng(returnToLng);
+  const returnWalkOrigin = fromLatN != null && fromLngN != null ? { lat: fromLatN, lng: fromLngN } : null;
+  const returnWalkDestination = toLatN != null && toLngN != null ? { lat: toLatN, lng: toLngN } : (settings.homeLat != null && settings.homeLng != null ? { lat: settings.homeLat, lng: settings.homeLng } : null);
   const effectiveDestination = isReturnWalk ? returnWalkDestination : mosquePosition;
   const effectiveMosqueName = isReturnWalk ? (returnDestOverride?.name || "Home") : mosqueName;
   const hasMosqueDestinationEffective = isReturnWalk ? !!returnWalkDestination : !!mosquePosition;
@@ -289,29 +304,36 @@ const ActiveWalk = () => {
       toast({ title: "Offline — no cached route", description: "Steps still count. Connect for directions.", variant: "default" });
       return;
     }
-    fetchWalkingRoute(returnWalkOrigin.lat, returnWalkOrigin.lng, dest.lat, dest.lng).then((route) => {
-      if (route) {
-        setRouteCoords(route.coords);
-        setRouteInfo({ distanceKm: route.distanceKm, durationMin: route.durationMin, steps: route.steps });
-        setCachedRoute(returnWalkOrigin.lat, returnWalkOrigin.lng, dest.lat, dest.lng, route);
-      } else {
-        toast({ title: "Directions unavailable", description: "Use Open in Maps for turn-by-turn.", variant: "default" });
-      }
-    });
+    fetchWalkingRoute(returnWalkOrigin.lat, returnWalkOrigin.lng, dest.lat, dest.lng)
+      .then((route) => {
+        if (route) {
+          setRouteCoords(route.coords);
+          setRouteInfo({ distanceKm: route.distanceKm, durationMin: route.durationMin, steps: route.steps });
+          setCachedRoute(returnWalkOrigin.lat, returnWalkOrigin.lng, dest.lat, dest.lng, route);
+        } else {
+          toast({ title: "Directions unavailable", description: "Use Open in Maps for turn-by-turn.", variant: "default" });
+        }
+      })
+      .catch(() => {
+        toast({ title: "Directions unavailable", description: "Check your connection and try again.", variant: "default" });
+      });
   }, [isReturnWalk, returnWalkOrigin?.lat, returnWalkOrigin?.lng, returnWalkDestination?.lat, returnWalkDestination?.lng]);
 
   // Fetch return route when override destination is set (success screen)
   useEffect(() => {
     if (returnMethod !== "walked" || !mosquePosition || !returnDestOverride) return;
+    const { lat, lng } = returnDestOverride;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) return;
     setReturnRouteLoading(true);
-    fetchWalkingRoute(mosquePosition.lat, mosquePosition.lng, returnDestOverride.lat, returnDestOverride.lng)
+    fetchWalkingRoute(mosquePosition.lat, mosquePosition.lng, lat, lng)
       .then((route) => {
         if (route) {
           setReturnRouteCoords(route.coords);
           setReturnRouteInfo({ distanceKm: route.distanceKm, durationMin: route.durationMin, steps: route.steps });
-          setCachedRoute(mosquePosition.lat, mosquePosition.lng, returnDestOverride!.lat, returnDestOverride!.lng, route);
+          setCachedRoute(mosquePosition.lat, mosquePosition.lng, lat, lng, route);
         }
       })
+      .catch(() => {})
       .finally(() => setReturnRouteLoading(false));
   }, [returnMethod, mosquePosition?.lat, mosquePosition?.lng, returnDestOverride?.lat, returnDestOverride?.lng]);
 
@@ -459,11 +481,12 @@ const ActiveWalk = () => {
     if (!routeInfo?.steps?.length) return;
 
     const steps = routeInfo.steps;
-    const totalRouteDist = steps.reduce((s, st) => s + st.distance, 0);
+    const safeDist = (d: unknown) => (Number.isFinite(d) ? (d as number) : 0);
+    const totalRouteDist = steps.reduce((s, st) => s + safeDist(st.distance), 0);
     const stepBoundaries: number[] = [];
     let acc = 0;
     for (const st of steps) {
-      acc += st.distance;
+      acc += safeDist(st.distance);
       stepBoundaries.push(acc);
     }
 
@@ -800,8 +823,8 @@ const ActiveWalk = () => {
     const fromLabel = isReturnWalk ? mosqueName : (settings.homeAddress || "Your location");
     const header = `🕌 Directions to ${destLabel}\n📍 From: ${fromLabel}\n📏 ${routeInfo.distanceKm.toFixed(1)} km · ~${routeInfo.durationMin} min walk\n${"─".repeat(30)}\n`;
     const steps = routeInfo.steps.map((s, i) => {
-      const distStr = formatDistanceForStep(s.distance, useImperial).replace(/^In /, "").toLowerCase();
-      return `${i + 1}. ${formatDirection(s.instruction)} (${distStr})`;
+      const distStr = formatDistanceForStep(s.distance ?? 0, useImperial).replace(/^In /, "").toLowerCase();
+      return `${i + 1}. ${formatDirection(s.instruction ?? "")} (${distStr})`;
     }).join("\n");
     return `${header}${steps}\n${"─".repeat(30)}\nGenerated by MosqueSteps 🚶‍♂️`;
   };
@@ -1234,7 +1257,8 @@ const ActiveWalk = () => {
 
                     {/* Remaining distance, time, progress */}
                     {(() => {
-                      const remainingDist = routeInfo.steps.slice(currentDirectionIdx).reduce((sum, s) => sum + s.distance, 0);
+                      const safeD = (x: unknown) => (Number.isFinite(x) ? (x as number) : 0);
+                      const remainingDist = routeInfo.steps.slice(currentDirectionIdx).reduce((sum, s) => sum + safeD(s.distance), 0);
                       const remainingMin = Math.max(0, Math.round((remainingDist / 1000) / (settings.walkingSpeed || 5) * 60));
                       const totalSteps = Math.max(1, routeInfo.steps.length);
                       const pctDone = routeInfo.steps.length <= 1 ? (currentDirectionIdx >= routeInfo.steps.length - 1 ? 100 : 0) : Math.round((currentDirectionIdx / (totalSteps - 1)) * 100);
@@ -1276,7 +1300,8 @@ const ActiveWalk = () => {
                         const actualIdx = currentDirectionIdx + 1 + i;
                         const isNext = i === 0;
                         const stepDistLabel = formatDistanceForStep(s.distance, useImperial);
-                        const remainingAfter = routeInfo.steps.slice(actualIdx).reduce((sum, st) => sum + st.distance, 0);
+                        const safeD = (x: unknown) => (Number.isFinite(x) ? (x as number) : 0);
+                        const remainingAfter = routeInfo.steps.slice(actualIdx).reduce((sum, st) => sum + safeD(st.distance), 0);
                         const remainingMin = Math.max(0, Math.round((remainingAfter / 1000) / (settings.walkingSpeed || 5) * 60));
                         return (
                           <button
@@ -1451,8 +1476,9 @@ const ActiveWalk = () => {
                   const prayerTotalMin = ph * 60 + pm;
 
                   // Calculate remaining walk time based on current speed
+                  const safeD = (x: unknown) => (Number.isFinite(x) ? (x as number) : 0);
                   const remainingDist = routeInfo?.steps
-                    ? routeInfo.steps.slice(currentDirectionIdx).reduce((sum, s) => sum + s.distance, 0) / 1000
+                    ? routeInfo.steps.slice(currentDirectionIdx).reduce((sum, s) => sum + safeD(s.distance), 0) / 1000
                     : mosqueDist - distanceKm;
                   const rawSpd = elapsedSeconds > 30 && distanceKm > 0 ? distanceKm / (elapsedSeconds / 3600) : 0;
                   const currentSpeed = Number.isFinite(rawSpd) && rawSpd > 0 ? rawSpd : (settings.walkingSpeed || 5);

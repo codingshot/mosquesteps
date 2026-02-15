@@ -5,7 +5,9 @@
 
 /** Walking-optimized instruction text from OSRM (e.g. "turn left onto Main St" → "Turn left onto Main St"). */
 export function formatDirection(instruction: string): string {
+  if (instruction == null || typeof instruction !== "string") return "Continue straight";
   const lower = instruction.toLowerCase().trim();
+  if (!lower) return "Continue straight";
   const ontoMatch = lower.match(/^(.+?)\s+onto\s+(.+)$/);
   const rest = ontoMatch ? ontoMatch[2] : "";
   const actionPart = ontoMatch ? ontoMatch[1] : lower;
@@ -33,11 +35,12 @@ const M_TO_MI = 1609.344;
 
 /** Format distance for walking directions: "In 150 m" or "In 0.2 km". Use "Now" when distance is 0 or very small. */
 export function formatDistanceForStep(distanceM: number, useImperial = false): string {
-  if (!distanceM || distanceM < 10) return "Now";
+  const m = Number(distanceM);
+  if (!Number.isFinite(m) || m < 0 || m < 10) return "Now";
   if (useImperial) {
-    if (distanceM >= 1000) return `In ${(distanceM / M_TO_MI).toFixed(1)} mi`;
-    return `In ${Math.round(distanceM * 3.28084)} ft`;
+    if (m >= 1000) return `In ${(m / M_TO_MI).toFixed(1)} mi`;
+    return `In ${Math.round(m * 3.28084)} ft`;
   }
-  if (distanceM >= 1000) return `In ${(distanceM / 1000).toFixed(1)} km`;
-  return `In ${Math.round(distanceM)} m`;
+  if (m >= 1000) return `In ${(m / 1000).toFixed(1)} km`;
+  return `In ${Math.round(m)} m`;
 }

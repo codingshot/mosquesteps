@@ -104,6 +104,7 @@ export function getCachedRouteToMosque(toLat: number, toLng: number, preferFromL
         const [fromB] = b.key.split("->");
         const [latA, lngA] = fromA.split(",").map(Number);
         const [latB, lngB] = fromB.split(",").map(Number);
+        if (!Number.isFinite(latA) || !Number.isFinite(lngA) || !Number.isFinite(latB) || !Number.isFinite(lngB)) return 0;
         const distA = Math.hypot(latA - preferFromLat, lngA - preferFromLng);
         const distB = Math.hypot(latB - preferFromLat, lngB - preferFromLng);
         return distA - distB;

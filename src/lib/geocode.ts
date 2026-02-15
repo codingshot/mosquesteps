@@ -45,12 +45,18 @@ export async function fetchLocationSuggestions(
   } catch {
     return [];
   }
-  return data.map((d) => ({
-    displayName: d.display_name,
-    shortName: (d.address?.city || d.address?.town || d.address?.village || d.display_name.split(",")[0] || d.display_name).trim(),
-    lat: parseFloat(d.lat),
-    lng: parseFloat(d.lon),
-  }));
+  return data
+    .map((d) => {
+      const lat = parseFloat(d.lat);
+      const lng = parseFloat(d.lon);
+      return {
+        displayName: d.display_name,
+        shortName: (d.address?.city || d.address?.town || d.address?.village || d.display_name.split(",")[0] || d.display_name).trim(),
+        lat,
+        lng,
+      };
+    })
+    .filter((x) => Number.isFinite(x.lat) && Number.isFinite(x.lng) && x.lat >= -90 && x.lat <= 90 && x.lng >= -180 && x.lng <= 180);
 }
 
 /**

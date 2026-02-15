@@ -204,11 +204,11 @@ export default function WalkMap({
     if (!routeSteps?.length || !routeCoords?.length || !isWalking) return;
 
     // Map steps to approximate coords along the route
-    const totalDist = routeSteps.reduce((s, st) => s + st.distance, 0);
+    const totalDist = routeSteps.reduce((s, st) => s + (Number.isFinite(st.distance) ? st.distance : 0), 0);
     let accDist = 0;
 
     routeSteps.forEach((step, i) => {
-      accDist += step.distance;
+      accDist += Number.isFinite(step.distance) ? step.distance : 0;
       const ratio = accDist / Math.max(1, totalDist);
       const coordIdx = Math.min(Math.floor(ratio * (routeCoords.length - 1)), routeCoords.length - 1);
       const coord = routeCoords[coordIdx];
@@ -219,7 +219,7 @@ export default function WalkMap({
       const isLast = i === routeSteps.length - 1;
 
       // Determine icon
-      const lower = step.instruction.toLowerCase();
+      const lower = (step.instruction ?? "").toLowerCase();
       let emoji = "↑";
       if (lower.includes("left")) emoji = "↰";
       else if (lower.includes("right")) emoji = "↱";

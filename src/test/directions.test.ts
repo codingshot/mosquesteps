@@ -44,8 +44,13 @@ describe("formatDirection", () => {
   });
 
   it("handles empty or whitespace", () => {
-    expect(formatDirection("")).toBe("");
+    expect(formatDirection("")).toBe("Continue straight");
     expect(formatDirection("  turn left  ")).toBe("Turn left");
+  });
+
+  it("handles null/undefined instruction safely", () => {
+    expect(formatDirection(null as unknown as string)).toBe("Continue straight");
+    expect(formatDirection(undefined as unknown as string)).toBe("Continue straight");
   });
 
   it("handles unknown instruction by capitalizing", () => {

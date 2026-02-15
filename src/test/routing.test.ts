@@ -12,6 +12,7 @@ describe("routing / directions", () => {
 
   it("builds correct OSRM URL with from and to coordinates", async () => {
     const mockRes = {
+      ok: true,
       json: () =>
         Promise.resolve({
           code: "Ok",
@@ -40,6 +41,7 @@ describe("routing / directions", () => {
 
   it("returns coords as [lat, lng] for Leaflet", async () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
       json: () =>
         Promise.resolve({
           code: "Ok",
@@ -70,6 +72,7 @@ describe("routing / directions", () => {
 
   it("returns distanceKm and durationMin", async () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
       json: () =>
         Promise.resolve({
           code: "Ok",
@@ -91,6 +94,7 @@ describe("routing / directions", () => {
 
   it("returns steps with instruction and distance", async () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
       json: () =>
         Promise.resolve({
           code: "Ok",
@@ -146,6 +150,7 @@ describe("routing / directions", () => {
 
   it("returns null when route has no geometry coordinates", async () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
       json: () =>
         Promise.resolve({
           code: "Ok",
@@ -153,6 +158,21 @@ describe("routing / directions", () => {
         }),
     });
 
+    const result = await fetchWalkingRoute(51.5, -0.1, 51.51, -0.09);
+    expect(result).toBeNull();
+  });
+
+  it("returns null for invalid coordinates", async () => {
+    expect(await fetchWalkingRoute(NaN, -0.1, 51.51, -0.09)).toBeNull();
+    expect(await fetchWalkingRoute(51.5, NaN, 51.51, -0.09)).toBeNull();
+    expect(await fetchWalkingRoute(51.5, -0.1, 999, -0.09)).toBeNull();
+  });
+
+  it("returns null when res.ok is false", async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({ code: "Ok", routes: [{ distance: 1000, duration: 600, geometry: { coordinates: [[-0.1, 51.5]] }, legs: [{ steps: [] }] }] }),
+    });
     const result = await fetchWalkingRoute(51.5, -0.1, 51.51, -0.09);
     expect(result).toBeNull();
   });
