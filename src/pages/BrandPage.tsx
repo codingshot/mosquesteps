@@ -7,7 +7,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import SEOHead from "@/components/SEOHead";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/logo.png?w=256&format=webp";
+import logoFull from "@/assets/logo.png";
 import {
   brandColors, brandFonts, brandButtons, brandIcons,
   brandPersonas, brandDos, brandDonts, aiPrompts, marketingIdeas, appRoutes,
@@ -395,7 +396,7 @@ const BrandPage = () => {
                 <div>
                   <p className="font-semibold text-foreground text-sm">Logo (PNG)</p>
                   <p className="text-xs text-muted-foreground mb-2">192×192px, transparent background</p>
-                  <a href={logo} download="mosquesteps-logo.png">
+                  <a href={logoFull} download="mosquesteps-logo.png">
                     <Button size="sm" variant="outline">
                       <Download className="w-3 h-3 mr-1" /> Download
                     </Button>

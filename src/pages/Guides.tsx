@@ -6,7 +6,7 @@ import SEOHead from "@/components/SEOHead";
 import { Button } from "@/components/ui/button";
 import { guides } from "@/lib/guides-data";
 import { usePWAInstall } from "@/hooks/use-pwa-install";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/logo.png?w=256&format=webp";
 
 const SITE_URL = "https://mosquesteps.com";
 

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, Bug, Sparkles, MapPin, BookOpen, Clock, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import SEOHead from "@/components/SEOHead";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/logo.png?w=256&format=webp";
 
 const SITE_URL = "https://mosquesteps.com";
 const GITHUB_REPO = "https://github.com/codingshot/mosquesteps";

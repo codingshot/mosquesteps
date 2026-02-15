@@ -1,11 +1,13 @@
+import { lazy, Suspense } from "react";
 import Navbar from "@/components/landing/Navbar";
 import Hero from "@/components/landing/Hero";
-import ProblemSolution from "@/components/landing/ProblemSolution";
-import Features from "@/components/landing/Features";
-import GuidesCarousel from "@/components/landing/GuidesCarousel";
-import CTA from "@/components/landing/CTA";
 import Footer from "@/components/landing/Footer";
 import SEOHead from "@/components/SEOHead";
+
+const ProblemSolution = lazy(() => import("@/components/landing/ProblemSolution"));
+const Features = lazy(() => import("@/components/landing/Features"));
+const GuidesCarousel = lazy(() => import("@/components/landing/GuidesCarousel"));
+const CTA = lazy(() => import("@/components/landing/CTA"));
 
 const Index = () => {
   return (
@@ -18,10 +20,12 @@ const Index = () => {
       <Navbar />
       <main>
         <Hero />
-        <ProblemSolution />
-        <Features />
-        <GuidesCarousel />
-        <CTA />
+        <Suspense fallback={null}>
+          <ProblemSolution />
+          <Features />
+          <GuidesCarousel />
+          <CTA />
+        </Suspense>
       </main>
       <Footer />
     </div>

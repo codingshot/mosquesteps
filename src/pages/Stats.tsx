@@ -36,7 +36,7 @@ import {
   downloadFile,
 } from "@/lib/stats-export";
 import SEOHead from "@/components/SEOHead";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/logo.png?w=256&format=webp";
 
 // Recent walks history component
 const RecentWalksSection = ({ history, formatDist }: { history: any[]; formatDist: (km: number) => string }) => {

@@ -24,7 +24,7 @@ import { getStepRecommendation } from "@/lib/health-recommendations";
 import { getOnboardingDate } from "./Onboarding";
 import { getBadges } from "@/lib/badges";
 import HadithTooltip from "@/components/HadithTooltip";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/logo.png?w=256&format=webp";
 import { useToast } from "@/hooks/use-toast";
 import {
   Tooltip,

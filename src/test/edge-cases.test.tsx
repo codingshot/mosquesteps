@@ -47,7 +47,7 @@ describe("Edge cases: routing and missing content", () => {
   it("getGuideById returns guide for valid id", () => {
     const guide = getGuideById("getting-started");
     expect(guide).toBeDefined();
-    expect(guide?.title).toBe("Getting Started");
+    expect(guide?.title).toBe("Getting Started with MosqueSteps");
     expect(guide?.id).toBe("getting-started");
   });
 

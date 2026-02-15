@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import { blogPosts, BlogPost } from "@/lib/blog-data";
 import SEOHead from "@/components/SEOHead";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/logo.png?w=256&format=webp";
 
 const SITE_URL = "https://mosquesteps.com";
 

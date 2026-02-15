@@ -21,7 +21,7 @@ import { addNotification, getNotificationSettings } from "@/lib/notification-sto
 import { sendNotification, getNotificationPermission } from "@/lib/notifications";
 import Confetti from "@/components/Confetti";
 import SEOHead from "@/components/SEOHead";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/logo.png?w=256&format=webp";
 import WalkMap from "@/components/WalkMap";
 
 interface Position {

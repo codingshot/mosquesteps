@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, Github, Bug, MapPin, BookOpen, Code, MessageCircle, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import SEOHead from "@/components/SEOHead";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/logo.png?w=256&format=webp";
 
 const GITHUB_REPO = "https://github.com/codingshot/mosquesteps";
 const ISSUES = `${GITHUB_REPO}/issues`;
