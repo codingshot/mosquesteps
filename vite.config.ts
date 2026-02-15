@@ -19,12 +19,13 @@ export default defineConfig(({ mode }) => ({
     imagetools(),
     mode === "development" && componentTagger(),
     VitePWA({
-      registerType: "autoUpdate",
+      registerType: "prompt",
       injectRegister: "inline",
       includeAssets: ["favicon.png", "favicon.ico", "robots.txt"],
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp,woff,woff2}"],
         navigateFallbackDenylist: [/^\/~oauth/],
+        cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/api\.aladhan\.com\/.*/i,
@@ -67,23 +68,56 @@ export default defineConfig(({ mode }) => ({
               expiration: { maxEntries: 30, maxAgeSeconds: 86400 * 7 },
             },
           },
+          {
+            urlPattern: /^https:\/\/timeapi\.io\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "timezone-cache",
+              expiration: { maxEntries: 50, maxAgeSeconds: 86400 },
+            },
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "google-fonts-cache",
+              expiration: { maxEntries: 10, maxAgeSeconds: 86400 * 365 },
+            },
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "google-fonts-webfonts-cache",
+              expiration: { maxEntries: 30, maxAgeSeconds: 86400 * 365 },
+            },
+          },
         ],
       },
       manifest: {
+        id: "/",
         name: "MosqueSteps — Track Your Blessed Walk",
         short_name: "MosqueSteps",
         description: "Track your walking journey to the mosque, view prayer times, and discover spiritual rewards. Every step is a blessing.",
         theme_color: "#0D7377",
         background_color: "#FFFCF0",
         display: "standalone",
+        display_override: ["standalone", "browser"],
         orientation: "portrait",
         scope: "/",
         start_url: "/dashboard",
         categories: ["lifestyle", "health", "education"],
+        prefer_related_applications: false,
+        shortcuts: [
+          { name: "Start Walk", short_name: "Walk", url: "/walk", icons: [{ src: "/favicon.png", sizes: "192x192" }] },
+          { name: "Mosque Finder", short_name: "Mosques", url: "/mosques", icons: [{ src: "/favicon.png", sizes: "192x192" }] },
+          { name: "Dashboard", short_name: "Home", url: "/dashboard", icons: [{ src: "/favicon.png", sizes: "192x192" }] },
+        ],
         icons: [
           { src: "/favicon.png", sizes: "192x192", type: "image/png", purpose: "any" },
           { src: "/favicon.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
           { src: "/favicon.png", sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: "/favicon.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
       },
     }),

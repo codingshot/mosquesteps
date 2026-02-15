@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-
 import { hasCompletedOnboarding } from "./pages/Onboarding";
 import BottomNav from "./components/BottomNav";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { OfflineBanner } from "./components/OfflineBanner";
 import Index from "./pages/Index";
 
 // Lazy-load non-critical routes for performance
@@ -73,7 +74,8 @@ function ThemeInit() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <ThemeInit />
+        <ThemeInit />
+      <OfflineBanner />
       <Toaster />
       <Sonner />
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>

@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import SEOHead from "@/components/SEOHead";
 import { hasCompletedOnboarding } from "./Onboarding";
 import { Button } from "@/components/ui/button";
-import { MapPin, Clock, Footprints, Star, Navigation, Settings2, Flame, Bell, Trophy, Info, Play, ChevronDown, Locate, AlertTriangle } from "lucide-react";
+import { MapPin, Clock, Footprints, Star, Navigation, Settings2, Flame, Bell, Trophy, Info, Play, ChevronDown, Locate, AlertTriangle, Download, Smartphone, X } from "lucide-react";
 import { motion } from "framer-motion";
 import {
   fetchPrayerTimes,
@@ -23,6 +23,13 @@ import { getUnreadCount, getNotificationSettings } from "@/lib/notification-stor
 import { getStepRecommendation } from "@/lib/health-recommendations";
 import { getOnboardingDate } from "./Onboarding";
 import { getBadges } from "@/lib/badges";
+import { usePWAInstall } from "@/hooks/use-pwa-install";
+import {
+  getDashboardVisitCount,
+  incrementDashboardVisit,
+  dismissInstallPrompt,
+  shouldShowInstallPrompt,
+} from "@/lib/pwa-install-store";
 import HadithTooltip from "@/components/HadithTooltip";
 import logo from "@/assets/logo.png?w=256&format=webp";
 import { useToast } from "@/hooks/use-toast";
@@ -42,6 +49,8 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { canInstall, isInstalled, install, showIOSInstructions } = usePWAInstall();
+  const [installPromptDismissed, setInstallPromptDismissed] = useState(false);
   const [prayers, setPrayers] = useState<PrayerTime[]>([]);
   const [readableDate, setReadableDate] = useState("");
   const [prayerError, setPrayerError] = useState(false);
@@ -57,6 +66,12 @@ const Dashboard = () => {
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  // Track dashboard visits for PWA install prompt
+  const dashboardVisits = getDashboardVisitCount();
+  useEffect(() => {
+    incrementDashboardVisit();
   }, []);
 
   // Check location permission
@@ -496,6 +511,44 @@ const Dashboard = () => {
             </div>
             <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
           </button>
+        )}
+
+        {/* PWA Install prompt — after 1st walk or 2nd visit */}
+        {!isInstalled &&
+          !installPromptDismissed &&
+          shouldShowInstallPrompt(stats.totalWalks, dashboardVisits) && (
+          <div className="glass-card p-4 flex items-center gap-3 relative border-primary/20">
+            <button
+              onClick={() => {
+                dismissInstallPrompt();
+                setInstallPromptDismissed(true);
+              }}
+              className="absolute top-2 right-2 p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              aria-label="Dismiss install prompt"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <Smartphone className="w-8 h-8 text-primary flex-shrink-0" />
+            <div className="flex-1 min-w-0 pr-6">
+              <p className="font-medium text-foreground text-sm">Install MosqueSteps</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Add to home screen for offline support, faster loading, and app-like experience.
+              </p>
+              {canInstall ? (
+                <Button onClick={install} className="mt-2" variant="hero" size="sm">
+                  <Download className="w-4 h-4 mr-1.5" /> Install
+                </Button>
+              ) : showIOSInstructions ? (
+                <p className="text-xs text-primary font-medium mt-2">
+                  iOS: Tap Share → Add to Home Screen
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Use your browser menu → Install or Add to Home Screen
+                </p>
+              )}
+            </div>
+          </div>
         )}
 
         {/* Notification prompt */}
