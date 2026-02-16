@@ -6,8 +6,9 @@ const LegalLayout = ({ title, children }: { title: string; children: React.React
   <div className="min-h-screen bg-background">
     <header className="border-b border-border">
       <div className="container py-4 flex items-center gap-2">
-        <Link to="/" className="flex items-center gap-2 text-foreground">
+        <Link to="/" className="flex items-center gap-2 text-foreground" aria-label="Go back to home">
           <ArrowLeft className="w-5 h-5" />
+          <span className="text-sm font-medium">Back</span>
           <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
         </Link>
         <span className="font-bold text-foreground">{title}</span>

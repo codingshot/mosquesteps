@@ -93,8 +93,9 @@ const GuidePage = () => {
 
       <header className="bg-gradient-teal text-primary-foreground">
         <div className="container py-4 flex items-center gap-2">
-          <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-primary-foreground hover:opacity-80 transition-opacity">
+          <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-primary-foreground hover:opacity-80 transition-opacity" aria-label="Go back to guides">
             <ArrowLeft className="w-5 h-5" />
+            <span className="text-sm font-medium">Back</span>
             <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
           </button>
           <Link to="/guides" className="font-bold text-sm hover:underline">Guides</Link>

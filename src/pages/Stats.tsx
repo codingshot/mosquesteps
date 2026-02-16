@@ -397,8 +397,9 @@ const Stats = () => {
       />
       <header className="bg-gradient-teal text-primary-foreground">
         <div className="container py-3 flex items-center gap-2">
-          <Link to="/dashboard" className="flex items-center gap-2">
+          <Link to="/dashboard" className="flex items-center gap-2" aria-label="Go back to dashboard">
             <ArrowLeft className="w-5 h-5" />
+            <span className="text-sm font-medium">Back</span>
             <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
             <span className="font-bold">Walking Stats</span>
           </Link>

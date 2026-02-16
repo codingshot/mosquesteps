@@ -64,8 +64,9 @@ const Guides = () => {
       <SEOHead title="User Guides — How to Use MosqueSteps" description="Complete step-by-step guides: set up MosqueSteps, find nearby mosques, track walks with GPS, earn spiritual rewards, and view walking statistics." path="/guides" />
       <header className="bg-gradient-teal text-primary-foreground">
         <div className="container py-4 flex items-center gap-2">
-          <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-primary-foreground hover:opacity-80 transition-opacity">
+          <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-primary-foreground hover:opacity-80 transition-opacity" aria-label="Go back">
             <ArrowLeft className="w-5 h-5" />
+            <span className="text-sm font-medium">Back</span>
             <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
           </button>
           <span className="font-bold">User Guides</span>

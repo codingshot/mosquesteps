@@ -12,6 +12,8 @@ This folder holds all marketing copy, research, and campaign materials. Use it f
 | **campaign-ideas.md** | Campaign concepts (Mosque Next Door, Walk With Me, Fajr Challenge, etc.) |
 | **content-calendar.md** | Monthly themes, content types, blog pipeline, social templates |
 | **content-hooks.md** | One-liners, questions, stats, story angles, CTAs for posts and reels |
+| **content-ideas.md** | Additional content ideas: threads, Reels, YouTube, blog angles, memes, UGC, seasonal |
+| **content-copy-ready.md** | Ready-to-paste copy: tweets, threads, Instagram, Reels scripts, emails, ads, carousels, flyers |
 | **founder-announcement-hadith.md** | Founder announcements: X threads, Sunnah outline, features to test, open source; hadith-based for each social |
 | **keyword-clusters.md** | SEO keyword groups by intent (product, rewards, prayer, health, etc.) |
 | **testimonials-templates.md** | How to ask for quotes, placeholder testimonials, permission checklist |
@@ -30,7 +32,8 @@ This folder holds all marketing copy, research, and campaign materials. Use it f
 - **Need a tagline or headline?** → copy.md, content-hooks.md  
 - **Founder announcement / hadith-based posts?** → founder-announcement-hadith.md (X threads, Sunnah outline, features to test, open source)  
 - **Running an ad?** → social-ads.md, keyword-clusters.md  
-- **Planning content?** → content-calendar.md, campaign-ideas.md  
+- **Planning content?** → content-calendar.md, campaign-ideas.md, content-ideas.md
+- **Need ready copy?** → content-copy-ready.md (tweets, captions, emails, ads)  
 - **Talking to press or partners?** → press-kit.md, influencer-brief.md  
 - **Sending email?** → email-templates.md  
 - **Collecting testimonials?** → testimonials-templates.md  

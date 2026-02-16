@@ -47,8 +47,10 @@ const categoryColors: Record<BlogPost["category"], string> = {
   community: "bg-gold/15 text-foreground dark:bg-gold/25 dark:text-foreground border border-border",
 };
 
+const CATEGORY_ORDER: BlogPost["category"][] = ["sunnah", "guide", "tips", "health", "community"];
+
 const Blog = () => {
-  const categories = ["sunnah", "guide", "tips"] as const;
+  const categories = CATEGORY_ORDER.filter((cat) => blogPosts.some((p) => p.category === cat));
 
   useEffect(() => {
     return injectBreadcrumbList([
@@ -83,8 +85,14 @@ const Blog = () => {
           <p className="text-muted-foreground">Sunnah insights, app guides, and tips for your walking journey.</p>
         </div>
 
-        {categories.map((cat) => {
+        {categories.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <p className="text-sm">No articles yet. Check back soon.</p>
+          </div>
+        ) : (
+        categories.map((cat) => {
           const posts = blogPosts.filter((p) => p.category === cat);
+          if (posts.length === 0) return null;
           return (
             <section key={cat}>
               <h2 className="text-xl font-bold text-foreground mb-4">{categoryLabels[cat]}</h2>
@@ -118,7 +126,8 @@ const Blog = () => {
               </div>
             </section>
           );
-        })}
+        })
+        )}
 
         {/* Internal links for SEO and discovery */}
         <section className="mt-10 pt-8 border-t border-border">

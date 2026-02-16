@@ -34,7 +34,7 @@ const BlogPostPage = () => {
 
   useEffect(() => {
     if (normalizedSlug && !post) {
-      toast({ title: "Article not found", description: "Redirecting to blog.", variant: "destructive" });
+      toast({ title: "Article not found", description: "The article may have been moved or doesn't exist.", variant: "destructive" });
     }
   }, [normalizedSlug, post, toast]);
 

@@ -852,7 +852,10 @@ const ActiveWalk = () => {
       <header className={`${isWalking ? "bg-gradient-teal" : "bg-card border-b border-border"}`}>
         <div className="container py-3 flex items-center justify-between">
           <div className={`flex items-center gap-2 ${isWalking ? "text-primary-foreground" : "text-foreground"}`}>
-            <Link to="/dashboard"><ArrowLeft className="w-5 h-5" /></Link>
+            <Link to="/dashboard" className="flex items-center gap-1.5" aria-label="Go back to dashboard">
+              <ArrowLeft className="w-5 h-5" />
+              <span className="text-sm font-medium">Back</span>
+            </Link>
             <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
             <span className="font-bold">Active Walk</span>
           </div>
