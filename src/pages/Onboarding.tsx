@@ -121,33 +121,62 @@ const Onboarding = () => {
     const [filteredMosques, setFilteredMosques] = useState<MosqueResult[]>([]);
     const [searchingMosques, setSearchingMosques] = useState(false);
     const [searchedOnce, setSearchedOnce] = useState(false);
+    const [selectedMosqueDetails, setSelectedMosqueDetails] = useState<MosqueResult | null>(null);
+    const [showManual, setShowManual] = useState(false);
     const typeAheadRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const searchInputRef = useRef<HTMLInputElement>(null);
+
+    const homeLat = s.homeLat || s.cityLat || 0;
+    const homeLng = s.homeLng || s.cityLng || 0;
+    const hasLocation = !!(s.homeLat || s.cityLat);
+
+    const calcDist = (m: MosqueResult) =>
+      Math.round(haversineDistance(homeLat, homeLng, m.lat, m.lon) * 100) / 100;
+
+    const getDistLabel = (km: number) => {
+      if (km < 1) return `${Math.round(km * 1000)} m`;
+      return `${km.toFixed(1)} km`;
+    };
+
+    const getDistColor = (km: number) => {
+      if (km < 0.5) return "text-primary bg-primary/10";
+      if (km < 1.5) return "text-gold bg-gold/10";
+      return "text-muted-foreground bg-muted";
+    };
+
+    const selectMosque = (m: MosqueResult) => {
+      const dist = calcDist(m);
+      setSS((prev) => ({
+        ...prev,
+        selectedMosqueName: m.name,
+        selectedMosqueLat: m.lat,
+        selectedMosqueLng: m.lon,
+        selectedMosqueDistance: Math.max(0.1, dist),
+      }));
+      setSelectedMosqueDetails(m);
+      setMosqueTypeAhead("");
+    };
 
     // Auto-search on mount if we have coords — auto-select closest
     useEffect(() => {
-      if (searchedOnce) return;
-      const lat = s.homeLat || s.cityLat;
-      const lng = s.homeLng || s.cityLng;
-      if (lat && lng) {
-        setSearchingMosques(true);
-        setSearchedOnce(true);
-        searchNearbyMosques(lat, lng)
-          .then((results) => {
-            const sliced = results.slice(0, 12);
-            setNearbyMosques(sliced);
-            setFilteredMosques(sliced);
-            // Auto-select closest mosque if none is set
-            if (sliced.length > 0 && (!s.selectedMosqueName || s.selectedMosqueName === "My Mosque")) {
-              const closest = sliced[0];
-              selectMosque(closest);
-            }
-          })
-          .catch(() => {})
-          .finally(() => setSearchingMosques(false));
-      }
-    }, [s.homeLat, s.homeLng, s.cityLat, s.cityLng, searchedOnce]);
+      if (searchedOnce || !hasLocation) return;
+      setSearchingMosques(true);
+      setSearchedOnce(true);
+      searchNearbyMosques(homeLat, homeLng)
+        .then((results) => {
+          const sliced = results.slice(0, 15);
+          setNearbyMosques(sliced);
+          setFilteredMosques(sliced);
+          if (sliced.length > 0 && (!s.selectedMosqueName || s.selectedMosqueName === "My Mosque")) {
+            selectMosque(sliced[0]);
+          }
+        })
+        .catch(() => {})
+        .finally(() => setSearchingMosques(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [hasLocation]);
 
-    // Type-ahead filter — filter already-fetched results + fuzzy name search
+    // Type-ahead: instant local filter + debounced re-fetch
     const handleMosqueTypeAhead = (value: string) => {
       setMosqueTypeAhead(value);
       if (typeAheadRef.current) clearTimeout(typeAheadRef.current);
@@ -156,186 +185,248 @@ const Onboarding = () => {
         return;
       }
       const q = value.toLowerCase();
-      // Filter from cached results first (instant)
       const immediate = nearbyMosques.filter((m) => m.name.toLowerCase().includes(q));
       setFilteredMosques(immediate);
-      // Also trigger a fresh nearby search with the typed query acting as a name filter
-      typeAheadRef.current = setTimeout(async () => {
-        const lat = s.homeLat || s.cityLat;
-        const lng = s.homeLng || s.cityLng;
-        if (!lat || !lng) return;
-        try {
-          const results = await searchNearbyMosques(lat, lng);
-          const matched = results.filter((m) => m.name.toLowerCase().includes(q)).slice(0, 8);
-          setFilteredMosques(matched.length > 0 ? matched : immediate);
-        } catch { /* keep immediate results */ }
-      }, 400);
+      if (hasLocation) {
+        typeAheadRef.current = setTimeout(async () => {
+          try {
+            const results = await searchNearbyMosques(homeLat, homeLng);
+            const matched = results.filter((m) => m.name.toLowerCase().includes(q)).slice(0, 10);
+            setNearbyMosques(results.slice(0, 15));
+            setFilteredMosques(matched.length > 0 ? matched : immediate);
+          } catch { /* keep immediate */ }
+        }, 350);
+      }
     };
 
     const handleSearchMosques = async () => {
-      const lat = s.homeLat || s.cityLat;
-      const lng = s.homeLng || s.cityLng;
-      if (!lat || !lng) {
+      if (!hasLocation) {
         t({ title: "Set location first", description: "Go back and set your city or home address.", variant: "destructive" });
         return;
       }
       setSearchingMosques(true);
       try {
-        const results = await searchNearbyMosques(lat, lng);
-        const sliced = results.slice(0, 12);
+        const results = await searchNearbyMosques(homeLat, homeLng);
+        const sliced = results.slice(0, 15);
         setNearbyMosques(sliced);
-        setFilteredMosques(sliced);
+        setFilteredMosques(mosqueTypeAhead.trim()
+          ? sliced.filter((m) => m.name.toLowerCase().includes(mosqueTypeAhead.toLowerCase()))
+          : sliced);
         setSearchedOnce(true);
-        if (results.length === 0) t({ title: "No mosques found", description: "Try the Mosque Finder on the dashboard." });
+        if (results.length === 0) t({ title: "No mosques found nearby", description: "Try the Mosque Finder from the dashboard for a wider search." });
       } catch {
-        t({ title: "Search failed", description: "Check your internet and try again.", variant: "destructive" });
+        t({ title: "Search failed", description: "Check your internet connection and try again.", variant: "destructive" });
       } finally {
         setSearchingMosques(false);
       }
     };
 
-    const selectMosque = (m: MosqueResult) => {
-      const homeLat = s.homeLat || s.cityLat || 0;
-      const homeLng = s.homeLng || s.cityLng || 0;
-      const dist = Math.round(haversineDistance(homeLat, homeLng, m.lat, m.lon) * 100) / 100;
-      setSS((prev) => ({
-        ...prev,
-        selectedMosqueName: m.name,
-        selectedMosqueLat: m.lat,
-        selectedMosqueLng: m.lon,
-        selectedMosqueDistance: Math.max(0.1, dist),
-      }));
-    };
+    const isSelected = (m: MosqueResult) => s.selectedMosqueLat === m.lat && s.selectedMosqueLng === m.lon;
+
+    const displayList = filteredMosques.length > 0 ? filteredMosques : (mosqueTypeAhead ? [] : nearbyMosques);
 
     return (
       <div className="space-y-4">
         <div className="text-center">
-          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
             <span className="text-3xl">🕌</span>
           </div>
           <h2 className="text-2xl font-bold text-foreground">Your Mosque</h2>
-          <p className="text-muted-foreground mt-2 text-sm">
-            We'll find real mosques near you. Select yours.
+          <p className="text-muted-foreground mt-1.5 text-sm">
+            {hasLocation ? "Real mosques near you — select yours below." : "Set your location first for nearby results."}
           </p>
         </div>
 
-        {/* Selected mosque banner */}
+        {/* Selected mosque details card */}
         {s.selectedMosqueName && s.selectedMosqueName !== "My Mosque" && (
-          <div className="flex items-center gap-3 p-3 rounded-xl border border-primary bg-primary/5">
-            <div className="w-8 h-8 rounded-full bg-gradient-teal flex items-center justify-center shrink-0">
-              <Check className="w-4 h-4 text-primary-foreground" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-foreground truncate">{s.selectedMosqueName}</p>
-              <p className="text-xs text-muted-foreground">{s.selectedMosqueDistance.toFixed(1)} km away · Selected</p>
+          <div className="rounded-xl border border-primary bg-primary/5 p-3.5">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-full bg-gradient-teal flex items-center justify-center shrink-0 mt-0.5">
+                <Check className="w-4 h-4 text-primary-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-foreground leading-snug">{s.selectedMosqueName}</p>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1">
+                  <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${getDistColor(s.selectedMosqueDistance)}`}>
+                    📍 {getDistLabel(s.selectedMosqueDistance)}
+                  </span>
+                  {selectedMosqueDetails?.openingHours && (
+                    <span className="text-[10px] text-muted-foreground">🕐 {selectedMosqueDetails.openingHours}</span>
+                  )}
+                  {selectedMosqueDetails?.phone && (
+                    <span className="text-[10px] text-muted-foreground">📞 {selectedMosqueDetails.phone}</span>
+                  )}
+                  {selectedMosqueDetails?.website && (
+                    <a
+                      href={selectedMosqueDetails.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-primary underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      🔗 Website
+                    </a>
+                  )}
+                </div>
+                {selectedMosqueDetails && (
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    {selectedMosqueDetails.lat.toFixed(5)}, {selectedMosqueDetails.lon.toFixed(5)}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         )}
 
-        {/* Type-ahead search bar */}
+        {/* Type-ahead search */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          {searchingMosques && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
           <input
+            ref={searchInputRef}
             type="text"
-            placeholder={searchingMosques ? "Loading nearby mosques..." : "Search nearby mosques by name..."}
+            placeholder={searchingMosques ? "Searching nearby mosques…" : hasLocation ? "Type to filter mosques by name…" : "Set location above first…"}
             value={mosqueTypeAhead}
             onChange={(e) => handleMosqueTypeAhead(e.target.value)}
             disabled={searchingMosques}
-            className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+            className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
             autoComplete="off"
           />
         </div>
 
-        {/* Refresh search button */}
+        {/* Mosque list — always visible with top 15 or filtered */}
+        {!searchingMosques && searchedOnce && (
+          <div className="space-y-1.5 max-h-56 overflow-y-auto rounded-xl pr-0.5">
+            {displayList.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-3">
+                {mosqueTypeAhead ? `No mosques matching "${mosqueTypeAhead}"` : "No mosques found nearby."}
+              </p>
+            ) : (
+              displayList.map((m, idx) => {
+                const dist = calcDist(m);
+                const sel = isSelected(m);
+                const isClosest = idx === 0 && !mosqueTypeAhead;
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => selectMosque(m)}
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
+                      sel
+                        ? "border-primary bg-primary/8 shadow-sm ring-1 ring-primary/20"
+                        : "border-border hover:border-primary/50 hover:bg-muted/40 bg-card"
+                    }`}
+                  >
+                    {/* Icon */}
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-base ${
+                      sel ? "bg-gradient-teal" : "bg-muted"
+                    }`}>
+                      {sel ? <Check className="w-4 h-4 text-primary-foreground" /> : "🕌"}
+                    </div>
+                    {/* Name + details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className={`text-sm font-semibold truncate max-w-[160px] ${sel ? "text-foreground" : "text-foreground/80"}`}>
+                          {m.name}
+                        </p>
+                        {isClosest && (
+                          <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full uppercase tracking-wide shrink-0">
+                            Closest
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        {m.openingHours && (
+                          <span className="text-[9px] text-muted-foreground">🕐 Hours</span>
+                        )}
+                        {m.phone && (
+                          <span className="text-[9px] text-muted-foreground">📞</span>
+                        )}
+                      </div>
+                    </div>
+                    {/* Distance badge */}
+                    <span className={`text-[11px] font-bold px-2 py-1 rounded-lg shrink-0 ${getDistColor(dist)}`}>
+                      {getDistLabel(dist)}
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        )}
+
+        {/* Searching skeleton */}
+        {searchingMosques && (
+          <div className="space-y-1.5">
+            {[1,2,3].map((i) => (
+              <div key={i} className="h-[52px] rounded-xl bg-muted animate-pulse" />
+            ))}
+          </div>
+        )}
+
+        {/* Not searched yet and no location */}
+        {!searchedOnce && !searchingMosques && !hasLocation && (
+          <div className="text-center py-4 space-y-2">
+            <p className="text-2xl">📍</p>
+            <p className="text-sm text-muted-foreground">Go back and set your city or address to find nearby mosques automatically.</p>
+          </div>
+        )}
+
+        {/* Refresh button */}
         <Button
           variant="outline"
           size="sm"
           onClick={handleSearchMosques}
-          disabled={searchingMosques}
+          disabled={searchingMosques || !hasLocation}
           className="w-full"
         >
-          <MapPin className="w-4 h-4 mr-2" />
-          {searchingMosques ? "Searching..." : searchedOnce ? "Refresh Nearby Mosques" : "Find Nearby Mosques"}
+          <MapPin className="w-3.5 h-3.5 mr-2" />
+          {searchingMosques ? "Searching…" : searchedOnce ? "Refresh Nearby Mosques" : "Find Nearby Mosques"}
         </Button>
 
-        {/* Mosques list */}
-        {filteredMosques.length > 0 && (
-          <div className="space-y-1.5 max-h-52 overflow-y-auto rounded-xl">
-            {filteredMosques.map((m) => {
-              const homeLat = s.homeLat || s.cityLat || 0;
-              const homeLng = s.homeLng || s.cityLng || 0;
-              const dist = haversineDistance(homeLat, homeLng, m.lat, m.lon);
-              const isSelected = s.selectedMosqueLat === m.lat && s.selectedMosqueLng === m.lon;
-              return (
-                <button
-                  key={m.id}
-                  onClick={() => selectMosque(m)}
-                  className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
-                    isSelected
-                      ? "border-primary bg-primary/5 shadow-sm"
-                      : "border-border hover:border-primary/40 bg-card"
-                  }`}
-                >
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                    isSelected ? "bg-gradient-teal" : "bg-muted"
-                  }`}>
-                    {isSelected ? <Check className="w-4 h-4 text-primary-foreground" /> : <span className="text-sm">🕌</span>}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium truncate ${isSelected ? "text-foreground" : "text-muted-foreground"}`}>
-                      {m.name}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <p className="text-[10px] text-muted-foreground">{dist.toFixed(2)} km away</p>
-                      {m.openingHours && <span className="text-[10px] text-primary/70">· Hours available</span>}
-                    </div>
-                  </div>
-                  {isSelected && <Check className="w-4 h-4 text-primary shrink-0" />}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {searchedOnce && filteredMosques.length === 0 && !searchingMosques && (
-          <p className="text-xs text-muted-foreground text-center py-2">
-            {mosqueTypeAhead ? `No mosques matching "${mosqueTypeAhead}"` : "No mosques found nearby."} Enter manually below.
-          </p>
-        )}
-
-        {/* Manual entry */}
-        <div className="border-t border-border pt-4 space-y-3">
-          <p className="text-xs font-medium text-muted-foreground">Or enter manually:</p>
-          <div>
-            <label className="text-sm text-muted-foreground block mb-1">Mosque name</label>
-            <input
-              type="text"
-              value={s.selectedMosqueName}
-              onChange={(e) => setSS((prev) => ({ ...prev, selectedMosqueName: e.target.value }))}
-              className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-          <div>
-            <label className="text-sm text-muted-foreground block mb-1">
-              Distance: {s.selectedMosqueDistance} km
-            </label>
-            <input
-              type="range"
-              min="0.1"
-              max="10"
-              step="0.1"
-              value={s.selectedMosqueDistance}
-              onChange={(e) => setSS((prev) => ({ ...prev, selectedMosqueDistance: parseFloat(e.target.value) }))}
-              className="w-full accent-primary"
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>0.1 km</span>
-              <span>10 km</span>
+        {/* Manual entry (collapsible) */}
+        <div className="border-t border-border pt-3">
+          <button
+            onClick={() => setShowManual((v) => !v)}
+            className="w-full flex items-center justify-between text-xs font-medium text-muted-foreground hover:text-foreground py-1 transition-colors"
+          >
+            <span>✏️ Enter mosque manually</span>
+            <span>{showManual ? "▲" : "▼"}</span>
+          </button>
+          {showManual && (
+            <div className="mt-3 space-y-3">
+              <div>
+                <label className="text-sm text-muted-foreground block mb-1">Mosque name</label>
+                <input
+                  type="text"
+                  value={s.selectedMosqueName}
+                  onChange={(e) => setSS((prev) => ({ ...prev, selectedMosqueName: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  placeholder="e.g. East London Mosque"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-muted-foreground block mb-1">
+                  Distance: {s.selectedMosqueDistance} km
+                </label>
+                <input
+                  type="range" min="0.1" max="10" step="0.1"
+                  value={s.selectedMosqueDistance}
+                  onChange={(e) => setSS((prev) => ({ ...prev, selectedMosqueDistance: parseFloat(e.target.value) }))}
+                  className="w-full accent-primary"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>0.1 km</span><span>10 km</span>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
-        <Button variant="hero" onClick={n} className="w-full">
+        <Button variant="hero" onClick={n} className="w-full mt-2">
           Continue <ChevronRight className="w-4 h-4 ml-1" />
         </Button>
         <button onClick={sk} className="w-full text-center text-sm text-muted-foreground hover:text-primary">
