@@ -100,6 +100,8 @@ const Onboarding = () => {
   const [citySuggestions, setCitySuggestions] = useState<LocationSuggestion[]>([]);
   const [showCitySuggestions, setShowCitySuggestions] = useState(false);
   const citySearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [cityValidated, setCityValidated] = useState(false);
+  const [cityError, setCityError] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
   const [selectedPrayers, setSelectedPrayers] = useState<string[]>(
     settings.prayerPreferences || ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]
@@ -110,6 +112,8 @@ const Onboarding = () => {
   const [homeSuggestions, setHomeSuggestions] = useState<LocationSuggestion[]>([]);
   const [showHomeSuggestions, setShowHomeSuggestions] = useState(false);
   const homeSearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [homeValidated, setHomeValidated] = useState(false);
+  const [homeError, setHomeError] = useState<string | null>(null);
 
   // --- OnboardingMosqueStep extracted inline to avoid build errors ---
   const OnboardingMosqueStep = ({ settings: s, setSettingsState: setSS, toast: t, next: n, skip: sk }: {
@@ -532,6 +536,8 @@ const Onboarding = () => {
 
   const handleCityInputChange = (value: string) => {
     setCitySearch(value);
+    setCityValidated(false);
+    setCityError(null);
     if (citySearchTimeoutRef.current) clearTimeout(citySearchTimeoutRef.current);
     if (value.trim().length < 2) {
       setCitySuggestions([]);
@@ -553,6 +559,8 @@ const Onboarding = () => {
     setCitySearch(s.shortName || s.displayName.split(",")[0] || "");
     setShowCitySuggestions(false);
     setCitySuggestions([]);
+    setCityValidated(true);
+    setCityError(null);
     try {
       const tz = await fetchTimezone(s.lat, s.lng);
       setSettingsState((prev) => ({
@@ -569,20 +577,24 @@ const Onboarding = () => {
   };
 
   const handleCitySearch = async () => {
-    if (!citySearch.trim()) return;
+    const q = citySearch.trim();
+    if (!q) return;
+    if (cityValidated) return;
     if (citySuggestions.length > 0) {
       selectCitySuggestion(citySuggestions[0]);
       return;
     }
     try {
-      const list = await fetchLocationSuggestions(citySearch, 1);
-      if (list.length > 0) {
-        await selectCitySuggestion(list[0]);
-      } else {
-        toast({ title: "No results", description: "Try a different city name.", variant: "destructive" });
+      const list = await fetchLocationSuggestions(q, 6);
+      if (list.length === 0) {
+        setCityError("No recognised city found. Please try a different name.");
+        return;
       }
+      setCitySuggestions(list);
+      setShowCitySuggestions(true);
+      setCityError("Please select a city from the list below.");
     } catch {
-      toast({ title: "Search failed", variant: "destructive" });
+      setCityError("Search failed. Check your connection and try again.");
     }
   };
 
@@ -593,6 +605,8 @@ const Onboarding = () => {
 
   const handleHomeInputChange = (value: string) => {
     setHomeSearch(value);
+    setHomeValidated(false);
+    setHomeError(null);
     if (homeSearchTimeoutRef.current) clearTimeout(homeSearchTimeoutRef.current);
     if (value.trim().length < 2) {
       setHomeSuggestions([]);
@@ -602,18 +616,33 @@ const Onboarding = () => {
     homeSearchTimeoutRef.current = setTimeout(async () => {
       try {
         const list = await fetchLocationSuggestions(value, 6, homeRefLat ?? undefined, homeRefLng ?? undefined);
-        setHomeSuggestions(list);
-        setShowHomeSuggestions(list.length > 0);
+        // Filter to only geocoded results with valid coords
+        const valid = list.filter(
+          (r) => Number.isFinite(r.lat) && Number.isFinite(r.lng) &&
+                 r.lat >= -90 && r.lat <= 90 && r.lng >= -180 && r.lng <= 180
+        );
+        setHomeSuggestions(valid);
+        setShowHomeSuggestions(valid.length > 0);
+        if (valid.length === 0 && value.trim().length >= 3) {
+          setHomeError("No verified address found. Try a different search.");
+        }
       } catch {
         setHomeSuggestions([]);
+        setHomeError("Search failed. Check your connection.");
       }
     }, 300);
   };
 
   const selectHomeSuggestion = (s: LocationSuggestion) => {
+    if (!Number.isFinite(s.lat) || !Number.isFinite(s.lng)) {
+      toast({ title: "Invalid address", description: "That address has no valid coordinates.", variant: "destructive" });
+      return;
+    }
     setHomeSearch(s.displayName.split(",").slice(0, 3).join(","));
     setShowHomeSuggestions(false);
     setHomeSuggestions([]);
+    setHomeValidated(true);
+    setHomeError(null);
     setSettingsState((prev) => ({
       ...prev,
       homeAddress: s.displayName.split(",").slice(0, 3).join(","),
@@ -624,20 +653,24 @@ const Onboarding = () => {
   };
 
   const handleHomeSearch = async () => {
-    if (!homeSearch.trim()) return;
+    const q = homeSearch.trim();
+    if (!q) return;
+    if (homeValidated) return;
     if (homeSuggestions.length > 0) {
       selectHomeSuggestion(homeSuggestions[0]);
       return;
     }
     try {
-      const list = await fetchLocationSuggestions(homeSearch, 1, homeRefLat ?? undefined, homeRefLng ?? undefined);
-      if (list.length > 0) {
-        selectHomeSuggestion(list[0]);
-      } else {
-        toast({ title: "No results", description: "Try a more specific address.", variant: "destructive" });
+      const list = await fetchLocationSuggestions(q, 6, homeRefLat ?? undefined, homeRefLng ?? undefined);
+      if (list.length === 0) {
+        setHomeError("No verified address found. Please try a different search.");
+        return;
       }
+      setHomeSuggestions(list);
+      setShowHomeSuggestions(true);
+      setHomeError("Please select your home address from the list below.");
     } catch {
-      toast({ title: "Search failed", variant: "destructive" });
+      setHomeError("Search failed. Check your connection.");
     }
   };
 
@@ -730,36 +763,52 @@ const Onboarding = () => {
                   {locating ? "Detecting..." : "Use Current Location"}
                 </Button>
 
-                <div className="flex gap-2 relative">
-                  <div className="flex-1 relative">
-                    <input
-                      type="text"
-                      placeholder="Or search city or address..."
-                      value={citySearch}
-                      onChange={(e) => handleCityInputChange(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleCitySearch()}
-                      onFocus={() => citySuggestions.length > 0 && setShowCitySuggestions(true)}
-                      onBlur={() => setTimeout(() => setShowCitySuggestions(false), 150)}
-                      className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                      autoComplete="off"
-                    />
-                    {showCitySuggestions && citySuggestions.length > 0 && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden">
-                        {citySuggestions.map((s, i) => (
-                          <button
-                            key={i}
-                            type="button"
-                            onClick={() => selectCitySuggestion(s)}
-                            className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted flex items-center gap-2 border-b border-border/50 last:border-b-0"
-                          >
-                            <MapPin className="w-3.5 h-3.5 text-primary shrink-0" aria-hidden />
-                            <span className="truncate">{s.displayName}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                <div className="space-y-1">
+                  <div className="flex gap-2 relative">
+                    <div className="flex-1 relative">
+                      <input
+                        type="text"
+                        placeholder="Or search city or address..."
+                        value={citySearch}
+                        onChange={(e) => handleCityInputChange(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleCitySearch()}
+                        onFocus={() => citySuggestions.length > 0 && setShowCitySuggestions(true)}
+                        onBlur={() => setTimeout(() => {
+                          setShowCitySuggestions(false);
+                          if (citySearch.trim().length >= 2 && !cityValidated) {
+                            setCityError("Select a city from the dropdown to confirm your location.");
+                          }
+                        }, 150)}
+                        className={`w-full px-3 py-2 rounded-lg border bg-background text-foreground text-sm focus:outline-none focus:ring-2 transition-colors ${
+                          cityError ? "border-destructive focus:ring-destructive/40" : "border-input focus:ring-ring"
+                        }`}
+                        autoComplete="off"
+                        aria-invalid={!!cityError}
+                        aria-describedby={cityError ? "ob-city-error" : undefined}
+                      />
+                      {showCitySuggestions && citySuggestions.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+                          {citySuggestions.map((s, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => selectCitySuggestion(s)}
+                              className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted flex items-center gap-2 border-b border-border/50 last:border-b-0"
+                            >
+                              <MapPin className="w-3.5 h-3.5 text-primary shrink-0" aria-hidden />
+                              <span className="truncate">{s.displayName}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <Button size="sm" onClick={handleCitySearch}>Search</Button>
                   </div>
-                  <Button size="sm" onClick={handleCitySearch}>Search</Button>
+                  {cityError && (
+                    <p id="ob-city-error" className="text-xs text-destructive flex items-center gap-1">
+                      <span>⚠</span> {cityError}
+                    </p>
+                  )}
                 </div>
 
                 {/* Home address */}
@@ -777,7 +826,7 @@ const Onboarding = () => {
                       </p>
                     </div>
                   )}
-                  <div className="relative">
+                  <div className="space-y-1">
                     <div className="flex gap-2">
                       <div className="relative flex-1">
                         <Home className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
@@ -786,11 +835,25 @@ const Onboarding = () => {
                           placeholder={homeRefLat ? "Search your street address…" : "Search home address…"}
                           value={homeSearch}
                           onChange={(e) => handleHomeInputChange(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && handleHomeSearch()}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              if (homeSuggestions.length > 0) selectHomeSuggestion(homeSuggestions[0]);
+                              else handleHomeSearch();
+                            }
+                          }}
                           onFocus={() => homeSuggestions.length > 0 && setShowHomeSuggestions(true)}
-                          onBlur={() => setTimeout(() => setShowHomeSuggestions(false), 180)}
-                          className="w-full pl-9 pr-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                          onBlur={() => setTimeout(() => {
+                            setShowHomeSuggestions(false);
+                            if (homeSearch.trim().length >= 2 && !homeValidated) {
+                              setHomeError("Select an address from the dropdown to confirm.");
+                            }
+                          }, 180)}
+                          className={`w-full pl-9 pr-3 py-2 rounded-lg border bg-background text-foreground text-sm focus:outline-none focus:ring-2 transition-colors ${
+                            homeError ? "border-destructive focus:ring-destructive/40" : "border-input focus:ring-ring"
+                          }`}
                           autoComplete="off"
+                          aria-invalid={!!homeError}
+                          aria-describedby={homeError ? "ob-home-error" : undefined}
                         />
                         {/* Type-ahead dropdown */}
                         {showHomeSuggestions && homeSuggestions.length > 0 && (
@@ -815,8 +878,13 @@ const Onboarding = () => {
                       </div>
                       <Button size="sm" onClick={handleHomeSearch}>Set</Button>
                     </div>
-                    {homeRefLat && (
-                      <p className="text-[10px] text-muted-foreground mt-1.5 flex items-center gap-1">
+                    {homeError && (
+                      <p id="ob-home-error" className="text-xs text-destructive flex items-center gap-1">
+                        <span>⚠</span> {homeError}
+                      </p>
+                    )}
+                    {homeRefLat && !homeError && (
+                      <p className="text-[10px] text-muted-foreground flex items-center gap-1">
                         <MapPin className="w-3 h-3 text-primary shrink-0" />
                         Results biased near {settings.cityName || "your detected location"}
                       </p>
