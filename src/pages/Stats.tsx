@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import {
   Footprints, Clock, Star, Flame, BarChart3,
   TrendingUp, Route as RouteIcon, Target, Edit2, Check, ArrowLeft, Heart, Zap, Activity,
-  MapPin, Calendar, Car, ChevronDown, ChevronUp, Info, Download, FileJson, FileText, FileSpreadsheet
+  MapPin, Calendar, Car, ChevronDown, ChevronUp, Info, Download, FileJson, FileText, FileSpreadsheet, Gauge
 } from "lucide-react";
 import { getWalkHistory, getWalkingStats, getSettings } from "@/lib/walking-history";
 import { getGoals, saveGoals, type WalkingGoals } from "@/lib/goals";
