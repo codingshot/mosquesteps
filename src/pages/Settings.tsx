@@ -157,7 +157,8 @@ function BenchmarkWizard({ onResult }: { onResult: (speedKmh: number, strideCm: 
   );
 }
 
-/** Address type-ahead component for home address, with location bias and validity checks. */
+/** Address type-ahead component for home address, with location bias and validity checks.
+ *  Users MUST select from the geocoded dropdown — free-typed text is rejected. */
 function HomeAddressSearch({
   currentSettings,
   onSelect,
@@ -169,29 +170,36 @@ function HomeAddressSearch({
   const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [loading, setLoading] = useState(false);
+  // false = user is typing (not yet validated), true = user picked from geocoded list
+  const [validated, setValidated] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { toast } = useToast();
 
   const handleChange = (val: string) => {
     setQuery(val);
+    setValidated(false); // any edit invalidates
+    setError(null);
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     if (val.trim().length < 2) { setSuggestions([]); setShowSuggestions(false); return; }
     timeoutRef.current = setTimeout(async () => {
       setLoading(true);
       try {
-        // Bias toward city/home location if available
         const nearLat = currentSettings.homeLat || currentSettings.cityLat;
         const nearLng = currentSettings.homeLng || currentSettings.cityLng;
         const results = await fetchLocationSuggestions(val.trim(), 6, nearLat, nearLng);
-        // Validate each result has sane coords
         const valid = results.filter(
           (r) => Number.isFinite(r.lat) && Number.isFinite(r.lng) &&
                  r.lat >= -90 && r.lat <= 90 && r.lng >= -180 && r.lng <= 180
         );
         setSuggestions(valid);
         setShowSuggestions(valid.length > 0);
+        if (valid.length === 0 && val.trim().length >= 3) {
+          setError("No verified address found. Try a different search term.");
+        }
       } catch {
         setSuggestions([]);
+        setError("Search failed. Check your connection.");
       } finally {
         setLoading(false);
       }
@@ -199,7 +207,6 @@ function HomeAddressSearch({
   };
 
   const handleSelect = (s: LocationSuggestion) => {
-    // Final validity check
     if (!Number.isFinite(s.lat) || !Number.isFinite(s.lng)) {
       toast({ title: "Invalid address coordinates", variant: "destructive" });
       return;
@@ -208,39 +215,73 @@ function HomeAddressSearch({
     setQuery("");
     setSuggestions([]);
     setShowSuggestions(false);
+    setValidated(true);
+    setError(null);
+  };
+
+  /** Called if user presses Enter on the input without selecting — nudge them to pick from list. */
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (suggestions.length > 0) {
+        // Auto-select first result on Enter
+        handleSelect(suggestions[0]);
+      } else if (query.trim().length >= 2 && !loading) {
+        setError("Please select an address from the suggestions list.");
+      }
+    }
   };
 
   return (
-    <div className="relative">
+    <div className="space-y-1">
       <div className="relative">
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => handleChange(e.target.value)}
-          onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
-          onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-          placeholder="Search home address…"
-          className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring pr-8"
-          autoComplete="off"
-        />
-        {loading && (
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border border-primary border-t-transparent rounded-full animate-spin" />
+        <div className="relative">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => handleChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+            onBlur={() => setTimeout(() => {
+              setShowSuggestions(false);
+              // If user typed something but never selected → show error
+              if (query.trim().length >= 2 && !validated) {
+                setError("Select an address from the dropdown to confirm your location.");
+              }
+            }, 150)}
+            placeholder="Search home address…"
+            className={`w-full px-3 py-2 rounded-lg border bg-background text-foreground text-sm focus:outline-none focus:ring-2 transition-colors pr-8 ${
+              error ? "border-destructive focus:ring-destructive/40" : "border-input focus:ring-ring"
+            }`}
+            autoComplete="off"
+            aria-invalid={!!error}
+            aria-describedby={error ? "home-addr-error" : undefined}
+          />
+          {loading && (
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border border-primary border-t-transparent rounded-full animate-spin" />
+          )}
+        </div>
+        {showSuggestions && suggestions.length > 0 && (
+          <ul className="absolute z-50 top-full mt-1 w-full rounded-lg border border-border bg-card shadow-lg overflow-hidden">
+            {suggestions.map((s, i) => (
+              <li
+                key={i}
+                onMouseDown={() => handleSelect(s)}
+                className="px-3 py-2 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
+              >
+                <span className="font-medium">{s.shortName}</span>
+                <span className="text-[11px] text-muted-foreground ml-1 line-clamp-1">{s.displayName.split(",").slice(1, 3).join(",")}</span>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
-      {showSuggestions && suggestions.length > 0 && (
-        <ul className="absolute z-50 top-full mt-1 w-full rounded-lg border border-border bg-card shadow-lg overflow-hidden">
-          {suggestions.map((s, i) => (
-            <li
-              key={i}
-              onMouseDown={() => handleSelect(s)}
-              className="px-3 py-2 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
-            >
-              <span className="font-medium">{s.shortName}</span>
-              <span className="text-[11px] text-muted-foreground ml-1 line-clamp-1">{s.displayName.split(",").slice(1, 3).join(",")}</span>
-            </li>
-          ))}
-        </ul>
+      {error && (
+        <p id="home-addr-error" className="text-xs text-destructive flex items-center gap-1">
+          <span>⚠</span> {error}
+        </p>
       )}
+      <p className="text-[11px] text-muted-foreground">Type to search, then select a verified address from the list.</p>
     </div>
   );
 }
@@ -254,6 +295,9 @@ const Settings = () => {
   const [citySuggestions, setCitySuggestions] = useState<LocationSuggestion[]>([]);
   const [showCitySuggestions, setShowCitySuggestions] = useState(false);
   const citySearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track whether city was confirmed via geocoded suggestion (not free-typed nonsense)
+  const [cityValidated, setCityValidated] = useState(false);
+  const [cityError, setCityError] = useState<string | null>(null);
   const [notifPermission, setNotifPermission] = useState(getNotificationPermission());
   const [locating, setLocating] = useState(false);
   const [homeLocating, setHomeLocating] = useState(false);
@@ -296,6 +340,8 @@ const Settings = () => {
 
   const handleCityInputChange = (value: string) => {
     setCitySearch(value);
+    setCityValidated(false); // user is typing again — invalidate
+    setCityError(null);
     if (citySearchTimeoutRef.current) clearTimeout(citySearchTimeoutRef.current);
     if (value.trim().length < 2) {
       setCitySuggestions([]);
@@ -317,6 +363,8 @@ const Settings = () => {
     setCitySearch(s.shortName || s.displayName.split(",")[0] || "");
     setShowCitySuggestions(false);
     setCitySuggestions([]);
+    setCityValidated(true);
+    setCityError(null);
     try {
       const tz = await fetchTimezone(s.lat, s.lng);
       const cityName = s.shortName || s.displayName.split(",")[0] || citySearch;
@@ -343,21 +391,36 @@ const Settings = () => {
     }
   };
 
+  /**
+   * handleCitySearch — only called when user presses Enter or clicks "Set" manually.
+   * Requires a suggestion to have been selected; otherwise shows an inline error.
+   */
   const handleCitySearch = async () => {
-    if (!citySearch.trim()) return;
+    const q = citySearch.trim();
+    if (!q) return;
+
+    // If user already selected a validated suggestion, nothing more to do
+    if (cityValidated) return;
+
+    // If suggestions are visible, auto-select the first one (geocoded address)
     if (citySuggestions.length > 0) {
       selectCitySuggestion(citySuggestions[0]);
       return;
     }
+
+    // No suggestion selected — try to fetch one last time then require selection
     try {
-      const list = await fetchLocationSuggestions(citySearch, 1);
-      if (list.length > 0) {
-        await selectCitySuggestion(list[0]);
-      } else {
-        toast({ title: "Search failed", description: "Could not find that city.", variant: "destructive" });
+      const list = await fetchLocationSuggestions(q, 6);
+      if (list.length === 0) {
+        setCityError("No recognised location found. Please try a different city name.");
+        return;
       }
+      // Show suggestions so user must pick one — don't auto-apply free text
+      setCitySuggestions(list);
+      setShowCitySuggestions(true);
+      setCityError("Please select a location from the list below.");
     } catch {
-      toast({ title: "Search failed", description: "Could not find that city.", variant: "destructive" });
+      setCityError("Search failed. Check your connection and try again.");
     }
   };
 
@@ -591,36 +654,48 @@ const Settings = () => {
             <Locate className="w-4 h-4 mr-2" />
             {locating ? "Detecting..." : "Use Current Location"}
           </Button>
-          <div className="flex gap-2 relative">
-            <div className="flex-1 relative">
-              <input
-                type="text"
-                placeholder="Or search city or address..."
-                value={citySearch}
-                onChange={(e) => handleCityInputChange(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleCitySearch()}
-                onFocus={() => citySuggestions.length > 0 && setShowCitySuggestions(true)}
-                onBlur={() => setTimeout(() => setShowCitySuggestions(false), 150)}
-                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                autoComplete="off"
-              />
-              {showCitySuggestions && citySuggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden">
-                  {citySuggestions.map((s, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => selectCitySuggestion(s)}
-                      className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted flex items-center gap-2 border-b border-border/50 last:border-b-0"
-                    >
-                      <MapPin className="w-3.5 h-3.5 text-primary shrink-0" aria-hidden />
-                      <span className="truncate">{s.displayName}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+          <div className="space-y-1">
+            <div className="flex gap-2 relative">
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  placeholder="Or search city or address..."
+                  value={citySearch}
+                  onChange={(e) => handleCityInputChange(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleCitySearch()}
+                  onFocus={() => citySuggestions.length > 0 && setShowCitySuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowCitySuggestions(false), 150)}
+                  className={`w-full px-3 py-2 rounded-lg border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-colors ${
+                    cityError ? "border-destructive focus:ring-destructive/40" : "border-input"
+                  }`}
+                  autoComplete="off"
+                  aria-invalid={!!cityError}
+                  aria-describedby={cityError ? "city-error" : undefined}
+                />
+                {showCitySuggestions && citySuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+                    {citySuggestions.map((s, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => selectCitySuggestion(s)}
+                        className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted flex items-center gap-2 border-b border-border/50 last:border-b-0"
+                      >
+                        <MapPin className="w-3.5 h-3.5 text-primary shrink-0" aria-hidden />
+                        <span className="truncate">{s.displayName}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <Button size="sm" onClick={handleCitySearch}>Search</Button>
             </div>
-            <Button size="sm" onClick={handleCitySearch}>Set</Button>
+            {cityError && (
+              <p id="city-error" className="text-xs text-destructive flex items-center gap-1">
+                <span>⚠</span> {cityError}
+              </p>
+            )}
+            <p className="text-[11px] text-muted-foreground">Search and select from the dropdown — type to see verified locations.</p>
           </div>
         </div>
 
