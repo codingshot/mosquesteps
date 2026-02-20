@@ -1,4 +1,6 @@
 import { Link } from "react-router-dom";
+import { Sun, Moon, Monitor } from "lucide-react";
+import { useTheme } from "@/hooks/use-theme";
 import logo from "@/assets/logo.png";
 
 const GITHUB_REPO = "https://github.com/codingshot/mosquesteps";
@@ -22,11 +24,13 @@ const GitHubIcon = () => (
 );
 
 const Footer = () => {
+  const { theme, setTheme } = useTheme();
+
   return (
     <footer className="py-12 border-t border-border">
       <div className="container">
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
-          {/* Brand */}
+          {/* Brand + Theme Toggle */}
           <div>
             <Link to="/" className="flex items-center gap-2 mb-3">
               <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
@@ -34,10 +38,43 @@ const Footer = () => {
                 Mosque<span className="text-primary">Steps</span>
               </span>
             </Link>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground mb-4">
               Turn every step into a blessing. Track your walk to the mosque and
               discover the spiritual rewards.
             </p>
+            {/* Theme toggle */}
+            <div className="flex items-center gap-1 p-1 rounded-lg bg-muted w-fit">
+              <button
+                onClick={() => setTheme("light")}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  theme === "light" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                }`}
+                aria-label="Light mode"
+              >
+                <Sun className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Light</span>
+              </button>
+              <button
+                onClick={() => setTheme("system")}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  theme === "system" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                }`}
+                aria-label="System theme"
+              >
+                <Monitor className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Auto</span>
+              </button>
+              <button
+                onClick={() => setTheme("dark")}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  theme === "dark" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                }`}
+                aria-label="Dark mode"
+              >
+                <Moon className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Dark</span>
+              </button>
+            </div>
           </div>
 
           {/* App */}
@@ -56,7 +93,7 @@ const Footer = () => {
           <div>
             <h4 className="text-sm font-semibold text-foreground mb-3">Resources</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><Link to="/sunnah" className="hover:text-primary transition-colors" title="Hadiths on walking to the mosque: rewards, Fajr & Isha, tranquility. Full Arabic and Sunnah.com links.">Sunnah References</Link></li>
+              <li><Link to="/sunnah" className="hover:text-primary transition-colors">Sunnah References</Link></li>
               <li><Link to="/how-it-works" className="hover:text-primary transition-colors">How It Works</Link></li>
               <li><Link to="/faq" className="hover:text-primary transition-colors">FAQ</Link></li>
               <li><Link to="/changelog" className="hover:text-primary transition-colors">Changelog</Link></li>
@@ -87,43 +124,20 @@ const Footer = () => {
           </div>
         </div>
 
-        {/* Built by ummah.build */}
+        {/* Bottom bar */}
         <div className="border-t border-border pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
           <p>© {new Date().getFullYear()} MosqueSteps. Built with faith and open-source technology.</p>
           <div className="flex items-center gap-4">
-            <a
-              href="https://ummah.build"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium hover:text-primary transition-colors"
-            >
+            <a href="https://ummah.build" target="_blank" rel="noopener noreferrer" className="font-medium hover:text-primary transition-colors">
               Built by ummah.build
             </a>
-            <a
-              href={GITHUB_REPO}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-primary transition-colors"
-              aria-label="View on GitHub"
-            >
+            <a href={GITHUB_REPO} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors" aria-label="View on GitHub">
               <GitHubIcon />
             </a>
-            <a
-              href="https://x.com/ummahbuild"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-primary transition-colors"
-              aria-label="Follow ummah.build on X"
-            >
+            <a href="https://x.com/ummahbuild" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors" aria-label="Follow ummah.build on X">
               <XIcon />
             </a>
-            <a
-              href="https://www.linkedin.com/company/ummah-build/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-primary transition-colors"
-              aria-label="Follow ummah.build on LinkedIn"
-            >
+            <a href="https://www.linkedin.com/company/ummah-build/" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors" aria-label="Follow ummah.build on LinkedIn">
               <LinkedInIcon />
             </a>
           </div>

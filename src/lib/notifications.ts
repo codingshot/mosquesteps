@@ -4,7 +4,7 @@
  * can fire even after tab refresh or when user returns to the app.
  */
 
-import { getNotificationSettings } from "@/lib/notification-store";
+import { getNotificationSettings, addNotification } from "@/lib/notification-store";
 
 const REMINDERS_STORAGE_KEY = "mosquesteps_scheduled_reminders";
 const REMINDER_POLL_INTERVAL_MS = 60 * 1000; // 1 minute
@@ -123,10 +123,13 @@ export function startReminderPolling(): () => void {
     const toRemove: number[] = [];
     list.forEach((r, i) => {
       if (r.reminderAt <= now) {
-        sendNotification(
-          `Time to leave for ${r.prayerName} 🕌`,
-          "Leave now to arrive on time. Walk with tranquility and dignity."
-        );
+        const title = `Time to leave for ${r.prayerName} 🕌`;
+        const body = "Leave now to arrive on time. Walk with tranquility and dignity.";
+        sendNotification(title, body);
+        // Also log to in-app notification store
+        try {
+          addNotification("prayer_reminder", title, body);
+        } catch { /* non-fatal */ }
         toRemove.push(i);
       }
     });

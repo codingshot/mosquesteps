@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, MapPin, Bell, BellOff, Locate, Download, Sun, Moon, Monitor, Ruler, Gauge, Footprints, Home, User, Globe, CheckCircle, Clock, BarChart3, Info } from "lucide-react";
+import { ArrowLeft, MapPin, Bell, BellOff, Locate, Download, Sun, Moon, Monitor, Ruler, Gauge, Footprints, Home, User, Globe, CheckCircle, Clock, BarChart3, Info, BookOpen } from "lucide-react";
 import { useLocale } from "@/hooks/use-locale";
 import { getAvailableLocales, type Locale } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getSettings, saveSettings, getSavedMosques, fetchTimezone, AGE_MIN, AGE_MAX, BODY_WEIGHT_KG_MIN, BODY_WEIGHT_KG_MAX, type UserSettings } from "@/lib/walking-history";
+import { PRAYER_CALCULATION_METHODS } from "@/lib/prayer-times";
 import { fetchLocationSuggestions, type LocationSuggestion } from "@/lib/geocode";
 import { requestNotificationPermission, isNotificationSupported, getNotificationPermission } from "@/lib/notifications";
 import { getRegionalDefaults } from "@/lib/regional-defaults";
@@ -410,6 +411,70 @@ const Settings = () => {
             </div>
             <Button size="sm" onClick={handleCitySearch}>Set</Button>
           </div>
+        </div>
+
+        {/* Prayer Calculation Method */}
+        <div className="glass-card p-5 space-y-4">
+          <div className="flex items-start justify-between gap-2">
+            <h2 className="font-semibold text-foreground flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-primary" /> Prayer Calculation Method
+            </h2>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="shrink-0 mt-0.5">
+                  <Info className="w-4 h-4 text-muted-foreground" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="max-w-64 text-xs">
+                Different Islamic organisations use different angles for Fajr and Isha calculations. 
+                Choose the method endorsed by scholars in your region. The default is ISNA (North America).
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Determines Fajr & Isha angles. Choose the method used in your region for the most accurate prayer times.
+          </p>
+          <div className="space-y-2 max-h-72 overflow-y-auto">
+            {Object.entries(PRAYER_CALCULATION_METHODS).map(([key, method]) => {
+              const isSelected = (settings.prayerCalculationMethod || "ISNA") === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setSettings({ ...settings, prayerCalculationMethod: key })}
+                  className={`w-full text-left flex items-start gap-3 p-3 rounded-xl border transition-all ${
+                    isSelected
+                      ? "border-primary bg-primary/5 shadow-sm"
+                      : "border-border hover:border-primary/40"
+                  }`}
+                >
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
+                    isSelected ? "border-primary" : "border-border"
+                  }`}>
+                    {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-sm font-medium ${isSelected ? "text-foreground" : "text-muted-foreground"}`}>
+                        {method.name}
+                      </span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${
+                        isSelected ? "bg-primary/10 text-primary border-primary/20" : "bg-muted text-muted-foreground border-border"
+                      }`}>{key}</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{method.region}</p>
+                    {isSelected && (
+                      <p className="text-[11px] text-primary/70 mt-1 italic">{method.description}</p>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          {settings.prayerCalculationMethod && settings.prayerCalculationMethod !== "ISNA" && (
+            <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-2 text-center">
+              ℹ️ Changing the calculation method clears the prayer time cache. Times will refresh on next load.
+            </p>
+          )}
         </div>
 
         {/* Notifications */}

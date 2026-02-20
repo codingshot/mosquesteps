@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
-import { MapPin, Footprints, BarChart3, Trophy, LayoutDashboard } from "lucide-react";
+import { MapPin, Footprints, BarChart3, Trophy, LayoutDashboard, Sun, Moon } from "lucide-react";
 import { motion } from "framer-motion";
+import { useTheme } from "@/hooks/use-theme";
 
 const tabs = [
   { path: "/dashboard", label: "Home", icon: LayoutDashboard },
@@ -13,6 +14,7 @@ const tabs = [
 const BottomNav = () => {
   const location = useLocation();
   const currentPath = location.pathname;
+  const { theme, setTheme } = useTheme();
 
   // Don't show on landing, onboarding, legal, or guide pages
   const hiddenPaths = ["/", "/onboarding", "/privacy", "/terms", "/legal", "/guides", "/faq", "/how-it-works", "/sunnah"];
@@ -76,6 +78,18 @@ const BottomNav = () => {
             </Link>
           );
         })}
+        {/* Theme toggle */}
+        <button
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          className="flex flex-col items-center py-1.5 px-2 min-w-[44px] text-muted-foreground hover:text-foreground transition-colors"
+          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+        >
+          {theme === "dark"
+            ? <Sun className="w-5 h-5" />
+            : <Moon className="w-5 h-5" />
+          }
+          <span className="text-[10px] mt-0.5 font-medium">{theme === "dark" ? "Light" : "Dark"}</span>
+        </button>
       </div>
     </nav>
   );

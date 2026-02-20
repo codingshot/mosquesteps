@@ -190,20 +190,43 @@ export function isValidCoordinate(lat: number, lng: number): boolean {
   return isFinite(lat) && isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
 }
 
+/**
+ * Aladhan calculation methods.
+ * method=2 is ISNA (default for North America).
+ * See: https://aladhan.com/calculation-methods
+ */
+export const PRAYER_CALCULATION_METHODS: Record<string, { id: number; name: string; region: string; description: string }> = {
+  MWL:      { id: 3,  name: "Muslim World League",         region: "Europe, Far East, parts of USA",   description: "Fajr 18°, Isha 17°. Standard for many European mosques." },
+  ISNA:     { id: 2,  name: "Islamic Society of North America", region: "North America",               description: "Fajr 15°, Isha 15°. Default for USA & Canada." },
+  Egypt:    { id: 5,  name: "Egyptian General Authority",  region: "Africa, Syria, Lebanon, Malaysia",  description: "Fajr 19.5°, Isha 17.5°. Widely used in Egypt and surrounding region." },
+  Makkah:   { id: 4,  name: "Umm al-Qura (Makkah)",        region: "Arabian Peninsula",                description: "Fajr 18.5°, Isha 90 min after Maghrib (120 in Ramadan)." },
+  Karachi:  { id: 1,  name: "University of Islamic Sciences", region: "Pakistan, Bangladesh, India",   description: "Fajr 18°, Isha 18°. Used across South Asia." },
+  Tehran:   { id: 7,  name: "Institute of Geophysics, Tehran", region: "Iran",                        description: "Fajr 17.7°, Isha 14°, Maghrib 4.5°." },
+  Jafari:   { id: 0,  name: "Shia Ithna Ansari (Jafari)",  region: "Shia communities",                description: "Fajr 16°, Isha 14°, Maghrib 4° above horizon." },
+  Gulf:     { id: 8,  name: "Gulf Region",                  region: "UAE, Kuwait, Qatar, Bahrain",     description: "Fajr 19.5°, Isha 90 min after Maghrib." },
+  Kuwait:   { id: 9,  name: "Kuwait",                       region: "Kuwait",                          description: "Fajr 18°, Isha 17.5°." },
+  Qatar:    { id: 10, name: "Qatar",                         region: "Qatar",                           description: "Fajr 18°, Isha 90 min after Maghrib." },
+  Singapore:{ id: 11, name: "Singapore",                    region: "Singapore, Malaysia",             description: "Fajr 20°, Isha 18°." },
+  France:   { id: 12, name: "Union des Organisations Islamiques de France", region: "France", description: "Fajr 12°, Isha 12°. For high-latitude regions." },
+  Turkey:   { id: 13, name: "Diyanet İşleri Başkanlığı",   region: "Turkey",                          description: "Fajr 18°, Isha 17°. Official Turkish method." },
+};
+
 export async function fetchPrayerTimes(
   latitude: number,
   longitude: number,
   dateOverride?: Date,
-  timezone?: string
+  timezone?: string,
+  methodId?: number
 ): Promise<{ prayers: PrayerTime[]; hijriDate: string; readableDate: string; isNextDay: boolean }> {
   if (!isValidCoordinate(latitude, longitude)) {
     throw new Error("Invalid coordinates for prayer times");
   }
 
+  const method = methodId ?? 2; // Default ISNA
   const now = new Date();
   const dateToFetch = dateOverride ?? now;
   const { dd, mm, yyyy } = getDatePartsInTimezone(dateToFetch, timezone);
-  const cacheKey = getCacheKey(latitude, longitude, dd, mm, yyyy, timezone);
+  const cacheKey = getCacheKey(latitude, longitude, dd, mm, yyyy, timezone) + `|m${method}`;
 
   const { hours: nowH, minutes: nowM } = getNowInTimezone(timezone);
   const currentMinutes = nowH * 60 + nowM;
@@ -223,7 +246,7 @@ export async function fetchPrayerTimes(
   }
 
   const res = await fetch(
-    `https://api.aladhan.com/v1/timings/${dd}-${mm}-${yyyy}?latitude=${latitude}&longitude=${longitude}&method=2`
+    `https://api.aladhan.com/v1/timings/${dd}-${mm}-${yyyy}?latitude=${latitude}&longitude=${longitude}&method=${method}`
   );
   const data = await res.json();
   const d: PrayerTimesData = data.data;
