@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, MapPin, Bell, BellOff, Locate, Download, Sun, Moon, Monitor, Ruler, Gauge, Footprints, Home, User, Globe, CheckCircle, Clock, BarChart3, Info, BookOpen } from "lucide-react";
+import { ArrowLeft, MapPin, Bell, BellOff, Locate, Download, Sun, Moon, Monitor, Ruler, Gauge, Footprints, Home, User, Globe, CheckCircle, Clock, BarChart3, Info, BookOpen, Heart, ChevronUp, ChevronDown } from "lucide-react";
 import { useLocale } from "@/hooks/use-locale";
 import { getAvailableLocales, type Locale } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { getSettings, saveSettings, getSavedMosques, fetchTimezone, AGE_MIN, AGE_MAX, BODY_WEIGHT_KG_MIN, BODY_WEIGHT_KG_MAX, type UserSettings } from "@/lib/walking-history";
+import { getSettings, saveSettings, getSavedMosques, fetchTimezone, AGE_MIN, AGE_MAX, BODY_WEIGHT_KG_MIN, BODY_WEIGHT_KG_MAX, type UserSettings, toggleFavoriteMosque, getFavoriteMosques, reorderFavoriteMosque } from "@/lib/walking-history";
 import { PRAYER_CALCULATION_METHODS } from "@/lib/prayer-times";
 import { fetchLocationSuggestions, type LocationSuggestion } from "@/lib/geocode";
 import { requestNotificationPermission, isNotificationSupported, getNotificationPermission } from "@/lib/notifications";
@@ -20,6 +20,7 @@ const Settings = () => {
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const [settings, setSettings] = useState<UserSettings>(getSettings());
+  const [savedMosques, setSavedMosques] = useState(getSavedMosques());
   const [citySearch, setCitySearch] = useState("");
   const [citySuggestions, setCitySuggestions] = useState<LocationSuggestion[]>([]);
   const [showCitySuggestions, setShowCitySuggestions] = useState(false);
@@ -29,6 +30,21 @@ const Settings = () => {
   const [homeLocating, setHomeLocating] = useState(false);
   const { locale, setLocale } = useLocale();
   const availableLocales = getAvailableLocales();
+
+  const favoriteMosques = savedMosques.filter((m) => m.isFavorite).sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
+
+  const handleToggleFavorite = (id: string) => {
+    toggleFavoriteMosque(id);
+    const updated = getSavedMosques();
+    setSavedMosques(updated);
+    const m = updated.find((x) => x.id === id);
+    toast({ title: m?.isFavorite ? "⭐ Added to favorites" : "Removed from favorites" });
+  };
+
+  const handleReorder = (id: string, dir: "up" | "down") => {
+    reorderFavoriteMosque(id, dir);
+    setSavedMosques(getSavedMosques());
+  };
 
   // Autosave with debounce
   const isFirstRender = useRef(true);
@@ -635,36 +651,137 @@ const Settings = () => {
           </div>
         </div>
 
-        {/* Per-prayer mosque assignment */}
-        {getSavedMosques().length > 1 && (
+        {/* Favorite Mosques & Priority */}
+        {savedMosques.length > 0 && (
+          <div className="glass-card p-5 space-y-4">
+            <h2 className="font-semibold text-foreground flex items-center gap-2">
+              <Heart className="w-4 h-4 text-primary" /> Favorite Mosques
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Mark mosques as favorites and set their priority. Prayer dropdowns use your favorites list.
+            </p>
+
+            {/* All saved mosques — toggle favorite + reorder */}
+            <div className="space-y-2">
+              {savedMosques.map((m) => {
+                const favIdx = favoriteMosques.findIndex((f) => f.id === m.id);
+                const isFav = m.isFavorite;
+                return (
+                  <div key={m.id} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${isFav ? "border-primary bg-primary/5" : "border-border bg-card"}`}>
+                    {/* Priority up/down — only shown for favorites */}
+                    {isFav && (
+                      <div className="flex flex-col gap-0.5">
+                        <button
+                          onClick={() => handleReorder(m.id, "up")}
+                          disabled={favIdx === 0}
+                          className="p-0.5 rounded text-muted-foreground hover:text-foreground disabled:opacity-30"
+                          aria-label="Move up"
+                        >
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleReorder(m.id, "down")}
+                          disabled={favIdx === favoriteMosques.length - 1}
+                          className="p-0.5 rounded text-muted-foreground hover:text-foreground disabled:opacity-30"
+                          aria-label="Move down"
+                        >
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Mosque icon */}
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-sm ${isFav ? "bg-gradient-gold" : "bg-muted"}`}>
+                      {isFav ? <Heart className="w-4 h-4 text-foreground" fill="currentColor" /> : "🕌"}
+                    </div>
+
+                    {/* Name + info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{m.name}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {m.distanceKm.toFixed(2)} km
+                        {m.isPrimary && <span className="ml-1.5 text-primary font-medium">★ Primary</span>}
+                        {isFav && <span className="ml-1.5 text-primary/70">Priority #{favIdx + 1}</span>}
+                      </p>
+                    </div>
+
+                    {/* Favorite toggle */}
+                    <button
+                      onClick={() => handleToggleFavorite(m.id)}
+                      className={`flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg border transition-all ${
+                        isFav
+                          ? "border-primary text-primary bg-primary/5 hover:bg-primary/10"
+                          : "border-border text-muted-foreground hover:border-primary/50 hover:text-primary"
+                      }`}
+                      aria-label={isFav ? "Remove from favorites" : "Add to favorites"}
+                    >
+                      <Heart className={`w-3.5 h-3.5 ${isFav ? "fill-current" : ""}`} />
+                      {isFav ? "Unfavorite" : "Favorite"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {favoriteMosques.length === 0 && (
+              <p className="text-xs text-muted-foreground italic text-center py-2">
+                Tap "Favorite" on any mosque above to add it to your favorites list.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Per-prayer mosque assignment — sourced from favorites */}
+        {savedMosques.length > 1 && (
           <div className="glass-card p-5 space-y-3">
             <h2 className="font-semibold text-foreground flex items-center gap-2">
               <MapPin className="w-4 h-4 text-primary" /> Mosque per Prayer
             </h2>
             <p className="text-sm text-muted-foreground">
-              Assign a different mosque for each prayer. Uses your primary mosque if not set.
+              Assign a specific mosque for each prayer.
+              {favoriteMosques.length > 0 ? " Favorites are listed first." : " Mark mosques as favorites above to pin them here."}
             </p>
-            {(settings.prayerPreferences || ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]).map((prayer) => (
-              <div key={prayer} className="flex items-center justify-between">
-                <span className="text-sm font-medium text-foreground">{prayer}</span>
-                <select
-                  value={settings.prayerMosques?.[prayer] || ""}
-                  onChange={(e) => {
-                    const prayerMosques = { ...(settings.prayerMosques || {}), [prayer]: e.target.value };
-                    if (!e.target.value) delete prayerMosques[prayer];
-                    setSettings({ ...settings, prayerMosques });
-                  }}
-                  className="px-2 py-1 rounded-lg border border-input bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring max-w-[180px]"
-                >
-                  <option value="">Primary mosque</option>
-                  {getSavedMosques().map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} ({m.distanceKm.toFixed(1)} km)
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
+            {(settings.prayerPreferences || ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]).map((prayer) => {
+              // Dropdown: favorites first, then remaining saved
+              const dropdownMosques = [
+                ...favoriteMosques,
+                ...savedMosques.filter((m) => !m.isFavorite),
+              ];
+              return (
+                <div key={prayer} className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-medium text-foreground shrink-0">{prayer}</span>
+                  <select
+                    value={settings.prayerMosques?.[prayer] || ""}
+                    onChange={(e) => {
+                      const prayerMosques = { ...(settings.prayerMosques || {}), [prayer]: e.target.value };
+                      if (!e.target.value) delete prayerMosques[prayer];
+                      setSettings({ ...settings, prayerMosques });
+                    }}
+                    className="flex-1 px-2 py-1.5 rounded-lg border border-input bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring max-w-[200px]"
+                  >
+                    <option value="">Primary mosque</option>
+                    {favoriteMosques.length > 0 && (
+                      <optgroup label="⭐ Favorites">
+                        {favoriteMosques.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name} ({m.distanceKm.toFixed(1)} km)
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {savedMosques.filter((m) => !m.isFavorite).length > 0 && (
+                      <optgroup label="All saved">
+                        {savedMosques.filter((m) => !m.isFavorite).map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name} ({m.distanceKm.toFixed(1)} km)
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
+                </div>
+              );
+            })}
           </div>
         )}
 

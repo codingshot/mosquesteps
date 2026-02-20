@@ -4,7 +4,7 @@ import { ArrowLeft, Play, Square, Pause, MapPin, Footprints, Clock, Star, Naviga
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { estimateSteps, estimateWalkingTime, calculateHasanat, fetchPrayerTimes, calculateLeaveByTime, minutesUntilLeave, getNowInTimezone, getIPGeolocation, type PrayerTime } from "@/lib/prayer-times";
-import { addWalkEntry, getSettings, getSavedMosques } from "@/lib/walking-history";
+import { addWalkEntry, getSettings, getSavedMosques, toggleFavoriteMosque } from "@/lib/walking-history";
 import { markPrayerWalked, updatePrayerLog, getTodayStr } from "@/lib/prayer-log";
 import { StepCounter, isStepCountingAvailable, getPaceCategory } from "@/lib/step-counter";
 import { fetchWalkingRoute } from "@/lib/routing";

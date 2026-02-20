@@ -17,6 +17,12 @@ export interface SavedMosque {
   lng: number;
   distanceKm: number;
   isPrimary?: boolean;
+  isFavorite?: boolean;
+  priority?: number; // lower = higher priority; undefined = not set
+  address?: string;
+  phone?: string;
+  website?: string;
+  openingHours?: string;
 }
 
 export interface WalkingStats {
@@ -187,6 +193,44 @@ export function setPrimaryMosque(id: string) {
       selectedMosqueLng: primary.lng,
     });
   }
+}
+
+/** Toggle a mosque's favorite status. Returns the updated list. */
+export function toggleFavoriteMosque(id: string): SavedMosque[] {
+  const all = getSavedMosques();
+  const favCount = all.filter((m) => m.isFavorite && m.id !== id).length;
+  const mosques = all.map((m) => {
+    if (m.id !== id) return m;
+    const nowFav = !m.isFavorite;
+    return { ...m, isFavorite: nowFav, priority: nowFav ? favCount : undefined };
+  });
+  localStorage.setItem(MOSQUES_KEY, JSON.stringify(mosques));
+  return mosques;
+}
+
+/** Return saved mosques that are favorites, sorted by priority. */
+export function getFavoriteMosques(): SavedMosque[] {
+  return getSavedMosques()
+    .filter((m) => m.isFavorite)
+    .sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
+}
+
+/** Move a favorite mosque up or down in priority order. */
+export function reorderFavoriteMosque(id: string, direction: "up" | "down"): void {
+  const all = getSavedMosques();
+  const favs = all.filter((m) => m.isFavorite).sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999));
+  const idx = favs.findIndex((m) => m.id === id);
+  if (idx === -1) return;
+  const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= favs.length) return;
+  const tmpPriority = favs[idx].priority ?? idx;
+  const newFavs = favs.map((m, i) => {
+    if (i === idx) return { ...m, priority: favs[swapIdx].priority ?? swapIdx };
+    if (i === swapIdx) return { ...m, priority: tmpPriority };
+    return m;
+  });
+  const updated = all.map((m) => newFavs.find((f) => f.id === m.id) ?? m);
+  localStorage.setItem(MOSQUES_KEY, JSON.stringify(updated));
 }
 
 export function getWalkHistory(): WalkEntry[] {
