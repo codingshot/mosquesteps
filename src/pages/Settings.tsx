@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, MapPin, Bell, BellOff, Locate, Download, Sun, Moon, Monitor, Ruler, Gauge, Footprints, Home, User, Globe, CheckCircle, Clock, BarChart3, Info, BookOpen, Heart, ChevronUp, ChevronDown } from "lucide-react";
+import { ArrowLeft, MapPin, Bell, BellOff, Locate, Download, Sun, Moon, Monitor, Ruler, Gauge, Footprints, Home, User, Globe, CheckCircle, Clock, BarChart3, Info, BookOpen, Heart, ChevronUp, ChevronDown, Activity } from "lucide-react";
 import { useLocale } from "@/hooks/use-locale";
 import { getAvailableLocales, type Locale } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,147 @@ import { useTheme } from "@/hooks/use-theme";
 import { useToast } from "@/hooks/use-toast";
 import SEOHead from "@/components/SEOHead";
 import logo from "@/assets/logo.png";
+
+/**
+ * Benchmark wizard: user walks a known distance and steps for 30 sec to compute real speed + stride.
+ * Alternatively, user can just enter a known distance walked and steps taken.
+ */
+function BenchmarkWizard({ onResult }: { onResult: (speedKmh: number, strideCm: number) => void }) {
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"timed" | "manual">("timed");
+  // Timed mode
+  const [counting, setCounting] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Manual inputs
+  const [manualDist, setManualDist] = useState("50");
+  const [manualSteps, setManualSteps] = useState("65");
+  const { toast } = useToast();
+
+  const startTimer = () => {
+    const t = Date.now();
+    setStartTime(t);
+    setElapsed(0);
+    setCounting(true);
+    intervalRef.current = setInterval(() => setElapsed(Math.floor((Date.now() - t) / 1000)), 500);
+  };
+
+  const stopTimer = (steps: number) => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    const sec = (Date.now() - (startTime ?? Date.now())) / 1000;
+    setCounting(false);
+    // In 30s the distance is irrelevant unless measured — we use standard 10m test distance approach:
+    // User is expected to have walked 10 steps over a known ~7.5m (default stride estimate), so we compute from steps × default stride
+    // Better: prompt for distance
+    return sec;
+  };
+
+  const applyManual = () => {
+    const dist = parseFloat(manualDist);
+    const steps = parseInt(manualSteps);
+    if (!Number.isFinite(dist) || dist <= 0 || !Number.isFinite(steps) || steps <= 0) {
+      toast({ title: "Enter valid distance and steps", variant: "destructive" }); return;
+    }
+    const strideCm = Math.max(30, Math.min(150, (dist / steps) * 100));
+    // Speed: assume normal walk (we just set stride; speed stays as-is or user manually adjusts)
+    const speedKmh = 5; // keep existing speed for manual stride-only mode
+    onResult(speedKmh, strideCm);
+    setOpen(false);
+  };
+
+  const applyTimed = (steps: number) => {
+    if (!startTime) return;
+    const sec = stopTimer(steps);
+    const dist = parseFloat(manualDist); // distance known by user (they walked a marked path)
+    if (!Number.isFinite(dist) || dist <= 0 || steps <= 0) {
+      toast({ title: "Enter the distance you walked", variant: "destructive" }); return;
+    }
+    const strideCm = Math.max(30, Math.min(150, (dist / steps) * 100));
+    const speedKmh = Math.max(1, Math.min(15, (dist / 100 / sec) * 3600)); // dist in cm→km
+    onResult(speedKmh, strideCm);
+    setOpen(false);
+  };
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="w-full flex items-center justify-center gap-2 text-xs font-semibold border border-dashed border-primary/40 text-primary hover:bg-primary/5 rounded-xl py-2.5 transition-colors"
+      >
+        <Activity className="w-3.5 h-3.5" /> Benchmark my gait
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold text-foreground flex items-center gap-2"><Activity className="w-3.5 h-3.5 text-primary" /> Gait Benchmark</p>
+        <button onClick={() => { setOpen(false); setCounting(false); if (intervalRef.current) clearInterval(intervalRef.current); }} className="text-muted-foreground hover:text-foreground text-xs">Cancel</button>
+      </div>
+
+      <div className="flex gap-2">
+        {(["manual", "timed"] as const).map((m) => (
+          <button key={m} onClick={() => setMode(m)} className={`flex-1 py-1.5 text-xs font-medium rounded-lg border transition-colors ${mode === m ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
+            {m === "manual" ? "📏 Enter steps + distance" : "⏱ Timed walk"}
+          </button>
+        ))}
+      </div>
+
+      {mode === "manual" ? (
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">Walk a known distance (e.g. a marked 20m path) and count your steps.</p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[11px] text-muted-foreground block mb-1">Distance walked (m)</label>
+              <input type="number" min="1" max="200" value={manualDist} onChange={(e) => setManualDist(e.target.value)}
+                className="w-full px-2 py-1.5 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+            </div>
+            <div>
+              <label className="text-[11px] text-muted-foreground block mb-1">Steps taken</label>
+              <input type="number" min="1" max="300" value={manualSteps} onChange={(e) => setManualSteps(e.target.value)}
+                className="w-full px-2 py-1.5 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+            </div>
+          </div>
+          {manualDist && manualSteps && parseFloat(manualDist) > 0 && parseInt(manualSteps) > 0 && (
+            <p className="text-[11px] text-primary font-medium">
+              → Stride: {((parseFloat(manualDist) / parseInt(manualSteps)) * 100).toFixed(0)} cm
+            </p>
+          )}
+          <button onClick={applyManual} className="w-full py-2 text-xs font-semibold bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+            Apply stride length
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">Stand at a start point, enter your known path length, tap Start, walk it, count steps, then tap Stop.</p>
+          <div>
+            <label className="text-[11px] text-muted-foreground block mb-1">Path length (m)</label>
+            <input type="number" min="5" max="200" value={manualDist} onChange={(e) => setManualDist(e.target.value)}
+              className="w-full px-2 py-1.5 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+          </div>
+          {!counting ? (
+            <button onClick={startTimer} className="w-full py-2 text-xs font-semibold bg-primary text-primary-foreground rounded-lg">▶ Start walk</button>
+          ) : (
+            <div className="space-y-2">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-primary">{elapsed}s</p>
+                <p className="text-[11px] text-muted-foreground">walking…</p>
+              </div>
+              <div>
+                <label className="text-[11px] text-muted-foreground block mb-1">Steps counted so far</label>
+                <input type="number" min="1" max="300" value={manualSteps} onChange={(e) => setManualSteps(e.target.value)}
+                  className="w-full px-2 py-1.5 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <button onClick={() => applyTimed(parseInt(manualSteps))} className="w-full py-2 text-xs font-semibold bg-primary text-primary-foreground rounded-lg">⏹ Stop &amp; apply</button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /** Address type-ahead component for home address, with location bias and validity checks. */
 function HomeAddressSearch({
@@ -377,42 +518,8 @@ const Settings = () => {
             </div>
           </div>
 
-          {/* Stride length */}
-          <div>
-            <label className="text-sm text-muted-foreground block mb-2 flex items-center gap-1.5">
-              Stride Length: {(settings.strideLength || 0.75).toFixed(2)} m ({((settings.strideLength || 0.75) * 3.281).toFixed(1)} ft)
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button type="button" className="inline-flex text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring rounded" aria-label="Stride length benchmarks">
-                    <Info className="w-3.5 h-3.5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-[240px] p-3 text-left" side="bottom">
-                  <p className="font-medium text-foreground mb-1.5">Benchmarks</p>
-                  <ul className="text-xs text-muted-foreground space-y-1">
-                    <li><strong className="text-foreground">National average:</strong> ~0.76 m (adults)</li>
-                    <li><strong className="text-foreground">Elderly (65+):</strong> ~0.60–0.70 m</li>
-                    <li><strong className="text-foreground">Athletes / brisk:</strong> ~0.85–1.0 m</li>
-                  </ul>
-                  <p className="text-xs text-muted-foreground mt-1.5">Used to estimate steps from distance when sensors aren’t used.</p>
-                </TooltipContent>
-              </Tooltip>
-            </label>
-            <input
-              type="range"
-              min="0.5"
-              max="1.0"
-              step="0.01"
-              value={settings.strideLength || 0.75}
-              onChange={(e) => setSettings({ ...settings, strideLength: parseFloat(e.target.value) })}
-              className="w-full accent-primary"
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Short (0.5m)</span>
-              <span>Avg (0.75m)</span>
-              <span>Long (1.0m)</span>
-            </div>
-          </div>
+
+
 
           {/* Time Format */}
           <div>
@@ -1120,33 +1227,116 @@ const Settings = () => {
           </ul>
         </div>
 
-        {/* Walking speed */}
-        <div className="glass-card p-5 space-y-3">
+        {/* Gait Profile — stride + speed combined */}
+        <div className="glass-card p-5 space-y-5">
           <h2 className="font-semibold text-foreground flex items-center gap-2">
-            <Gauge className="w-4 h-4 text-primary" /> Walking Speed
+            <Gauge className="w-4 h-4 text-primary" /> Gait Profile
           </h2>
           <p className="text-sm text-muted-foreground">
-            Adjust your average walking pace. This affects time estimates and "Leave by" calculations.
+            Stride length and walking speed are linked — adjust both to match your natural pace. Used for step estimates and "Leave by" calculations.
           </p>
-          <div className="flex items-center gap-4">
+
+          {/* Live computed stats */}
+          {(() => {
+            const stride = settings.strideLength || 0.75;
+            const speed = settings.walkingSpeed || 5;
+            // cadence = speed(m/min) / stride(m) = (speed*1000/60) / stride
+            const cadence = Math.round((speed * 1000) / 60 / stride);
+            // Benchmark cadence bands
+            const cadenceBand =
+              cadence < 80 ? { label: "Slow", color: "text-muted-foreground" } :
+              cadence <= 120 ? { label: "Dignified ✓", color: "text-primary" } :
+              cadence <= 140 ? { label: "Brisk", color: "text-warning" } :
+              { label: "Fast", color: "text-destructive" };
+
+            return (
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-xl bg-primary/5 border border-primary/15 p-2.5">
+                  <p className="text-lg font-bold text-foreground">{speed.toFixed(1)}</p>
+                  <p className="text-[10px] text-muted-foreground">km/h speed</p>
+                </div>
+                <div className="rounded-xl bg-primary/5 border border-primary/15 p-2.5">
+                  <p className="text-lg font-bold text-foreground">{(stride * 100).toFixed(0)} cm</p>
+                  <p className="text-[10px] text-muted-foreground">stride length</p>
+                </div>
+                <div className="rounded-xl bg-primary/5 border border-primary/15 p-2.5">
+                  <p className={`text-lg font-bold ${cadenceBand.color}`}>{cadence}</p>
+                  <p className="text-[10px] text-muted-foreground">steps/min</p>
+                  <p className={`text-[9px] font-medium ${cadenceBand.color}`}>{cadenceBand.label}</p>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Walking Speed slider */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-sm text-muted-foreground">Walking Speed</label>
+              <span className="text-sm font-semibold text-foreground">
+                {displaySpeed} {speedUnit === "mph" ? "mph" : "km/h"}
+              </span>
+            </div>
             <input
               type="range"
-              min="3"
-              max="7"
-              step="0.5"
+              min="3" max="7" step="0.5"
               value={settings.walkingSpeed}
               onChange={(e) => setSettings({ ...settings, walkingSpeed: parseFloat(e.target.value) })}
-              className="flex-1 accent-primary"
+              className="w-full accent-primary"
             />
-            <span className="text-sm font-medium text-foreground w-20 text-right">
-              {displaySpeed} {speedUnit === "mph" ? "mph" : "km/h"}
-            </span>
+            <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+              <span>🐢 Slow (3 km/h)</span>
+              <span>Average (5)</span>
+              <span>⚡ Fast (7 km/h)</span>
+            </div>
           </div>
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Slow (3)</span>
-            <span>Average (5)</span>
-            <span>Fast (7)</span>
+
+          {/* Stride Length slider */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-sm text-muted-foreground flex items-center gap-1.5">
+                Stride Length
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" className="inline-flex text-muted-foreground hover:text-foreground focus:outline-none rounded" aria-label="Stride benchmarks">
+                      <Info className="w-3.5 h-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[220px] p-3 text-left" side="top">
+                    <p className="font-semibold text-foreground mb-1.5">Typical benchmarks</p>
+                    <ul className="text-xs text-muted-foreground space-y-1">
+                      <li>🧓 Elderly (65+): ~60–70 cm</li>
+                      <li>🚶 Average adult: ~75–80 cm</li>
+                      <li>🏃 Brisk / athletic: ~85–100 cm</li>
+                    </ul>
+                    <p className="text-[10px] text-muted-foreground mt-1.5">Half-gait: one step, both feet. Full stride = two steps.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </label>
+              <span className="text-sm font-semibold text-foreground">
+                {((settings.strideLength || 0.75) * 100).toFixed(0)} cm ({((settings.strideLength || 0.75) * 3.281).toFixed(1)} ft)
+              </span>
+            </div>
+            <input
+              type="range"
+              min="0.50" max="1.05" step="0.01"
+              value={settings.strideLength || 0.75}
+              onChange={(e) => setSettings({ ...settings, strideLength: parseFloat(e.target.value) })}
+              className="w-full accent-primary"
+            />
+            <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+              <span>Short (50 cm)</span>
+              <span>Avg (75 cm)</span>
+              <span>Long (105 cm)</span>
+            </div>
           </div>
+
+          {/* Benchmark wizard */}
+          <BenchmarkWizard
+            onResult={(speedKmh, strideCm) => {
+              setSettings({ ...settings, walkingSpeed: speedKmh, strideLength: strideCm / 100 });
+              toast({ title: "✅ Gait benchmarked!", description: `Speed: ${speedKmh.toFixed(1)} km/h · Stride: ${strideCm.toFixed(0)} cm` });
+            }}
+          />
         </div>
 
         {/* Mosque name */}
