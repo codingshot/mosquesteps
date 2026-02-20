@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Play, Square, Pause, MapPin, Footprints, Clock, Star, Navigation, AlertTriangle, Smartphone, Share2, Map, Image, CheckCircle, ArrowUp, CornerDownLeft, CornerDownRight, ArrowRight, ChevronDown, Volume2, VolumeX, Route, Download, Copy, ExternalLink, Award, Flame, Trophy, WifiOff, Search, Home, Locate } from "lucide-react";
+import { ArrowLeft, Play, Square, Pause, MapPin, Footprints, Clock, Star, Navigation, AlertTriangle, Smartphone, Share2, Map, Image, CheckCircle, ArrowUp, CornerDownLeft, CornerDownRight, ArrowRight, ChevronDown, Volume2, VolumeX, Route, Download, Copy, ExternalLink, Award, Flame, Trophy, WifiOff, Search, Home, Locate, Wind, CloudRain, Thermometer, Info, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { estimateSteps, estimateWalkingTime, calculateHasanat, fetchPrayerTimes, calculateLeaveByTime, minutesUntilLeave, getNowInTimezone, getIPGeolocation, type PrayerTime } from "@/lib/prayer-times";
@@ -11,6 +11,7 @@ import { fetchWalkingRoute } from "@/lib/routing";
 import { formatDirection, formatDistanceForStep } from "@/lib/directions-utils";
 import { getCachedRoute, getCachedRouteToMosque, setCachedRoute, isOnline } from "@/lib/offline-cache";
 import { fetchLocationSuggestions } from "@/lib/geocode";
+import { fetchWeather, type WeatherCondition } from "@/lib/weather";
 import { useToast } from "@/hooks/use-toast";
 import { generateShareCard, shareOrDownload } from "@/lib/share-card";
 import { downloadFile } from "@/lib/stats-export";
@@ -103,6 +104,10 @@ const ActiveWalk = () => {
   const [showReturnDestSearch, setShowReturnDestSearch] = useState(false);
   const [offline, setOffline] = useState(!isOnline());
   const [autoDetecting, setAutoDetecting] = useState(false);
+  const [weather, setWeather] = useState<WeatherCondition | null>(null);
+  const [locationSource, setLocationSource] = useState<"gps" | "ip" | "city" | "none">("none");
+  const [locationPermission, setLocationPermission] = useState<"unknown" | "granted" | "denied" | "prompt">("unknown");
+  const [showLocationDialog, setShowLocationDialog] = useState(false);
   const prevDirectionIdx = useRef(-1);
   const prepareAnnouncedForStep = useRef(-1);
   const prayerMarginAlerted = useRef(false);
@@ -276,6 +281,24 @@ const ActiveWalk = () => {
       window.removeEventListener("offline", onOffline);
     };
   }, []);
+
+  // Check location permission state
+  useEffect(() => {
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: "geolocation" as PermissionName }).then((result) => {
+        setLocationPermission(result.state as "granted" | "denied" | "prompt");
+        result.onchange = () => setLocationPermission(result.state as "granted" | "denied" | "prompt");
+      }).catch(() => {});
+    }
+  }, []);
+
+  // Fetch weather once we have any position coords
+  useEffect(() => {
+    const lat = currentPosition?.lat ?? settings.cityLat ?? settings.homeLat;
+    const lng = currentPosition?.lng ?? settings.cityLng ?? settings.homeLng;
+    if (!lat || !lng) return;
+    fetchWeather(lat, lng).then((w) => { if (w) setWeather(w); }).catch(() => {});
+  }, [currentPosition?.lat, currentPosition?.lng]);
 
   // Return walk: fetch route from mosque to home (or override destination)
   useEffect(() => {
@@ -711,6 +734,7 @@ const ActiveWalk = () => {
           const newPos: Position = { lat: pos.coords.latitude, lng: pos.coords.longitude };
           const accuracy = pos.coords.accuracy;
           setCurrentPosition(newPos);
+          setLocationSource("gps");
           setPositions((prev) => {
             if (prev.length > 0) {
               const last = prev[prev.length - 1];
@@ -727,13 +751,15 @@ const ActiveWalk = () => {
           });
         },
         (err) => {
-          if (err.code === 1) toast({ title: "Location off", description: "Steps still count. Enable location for map & live directions.", variant: "default" });
+          if (err.code === 1) {
+            setLocationSource("city");
+          }
         },
         { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
       );
       setWatchId(id);
     } else {
-      toast({ title: "Location unavailable", description: "Steps still count. Directions use home/city as start.", variant: "default" });
+      setLocationSource("city");
     }
   }, [toast]);
 
@@ -942,7 +968,127 @@ const ActiveWalk = () => {
               )}
             </div>
 
+            {/* ── Location permission banner ────────────────────────────────── */}
+            {locationPermission !== "granted" && (
+              <div className="glass-card p-3 text-left border border-gold/30 bg-gold/5">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-gold/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <MapPin className="w-4 h-4 text-gold" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground">Location is {locationPermission === "denied" ? "blocked" : "not enabled"}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Currently using <span className="font-medium text-gold">IP-based location</span> — less accurate. Enable device GPS for precise map tracking and directions.
+                    </p>
+                    <button
+                      onClick={() => setShowLocationDialog(true)}
+                      className="mt-2 text-xs font-semibold text-primary underline underline-offset-2 hover:no-underline"
+                    >
+                      How to enable location →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Location how-to dialog ────────────────────────────────────── */}
+            {showLocationDialog && (
+              <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-background/80 backdrop-blur-sm px-4 pb-6" onClick={() => setShowLocationDialog(false)}>
+                <div className="bg-card border border-border rounded-2xl p-5 w-full max-w-sm shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-foreground text-base">Enable Location Access</h3>
+                    <button onClick={() => setShowLocationDialog(false)} className="p-1 rounded-lg hover:bg-muted text-muted-foreground">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    MosqueSteps uses your location <span className="font-medium text-foreground">only while walking</span> to show your position on the map and give turn-by-turn directions.
+                  </p>
+                  {/* iOS instructions */}
+                  <div className="mb-3">
+                    <p className="text-xs font-bold text-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <span className="text-base">🍎</span> iPhone / Safari
+                    </p>
+                    <ol className="space-y-1 text-xs text-muted-foreground list-decimal list-inside">
+                      <li>Open <span className="font-medium text-foreground">Settings → Privacy → Location Services</span></li>
+                      <li>Find <span className="font-medium text-foreground">Safari Websites</span> → set to <span className="font-medium text-primary">While Using</span></li>
+                      <li>Return here and tap <span className="font-medium text-foreground">Start Walking</span></li>
+                    </ol>
+                  </div>
+                  <div className="mb-4">
+                    <p className="text-xs font-bold text-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <span className="text-base">🤖</span> Android / Chrome
+                    </p>
+                    <ol className="space-y-1 text-xs text-muted-foreground list-decimal list-inside">
+                      <li>Tap the <span className="font-medium text-foreground">lock icon 🔒</span> in the address bar</li>
+                      <li>Tap <span className="font-medium text-foreground">Site settings → Location → Allow</span></li>
+                      <li>Refresh the page and tap <span className="font-medium text-foreground">Start Walking</span></li>
+                    </ol>
+                  </div>
+                  <Button className="w-full" onClick={() => {
+                    setShowLocationDialog(false);
+                    // Trigger browser permission prompt
+                    navigator.geolocation?.getCurrentPosition(
+                      (pos) => {
+                        setCurrentPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                        setLocationSource("gps");
+                        setLocationPermission("granted");
+                        toast({ title: "📍 Location enabled!", description: "Your position will be tracked live on the map." });
+                      },
+                      () => {
+                        toast({ title: "Location still blocked", description: "Please follow the steps above in your device settings.", variant: "default" });
+                      },
+                      { enableHighAccuracy: true, timeout: 10000 }
+                    );
+                  }}>
+                    <Locate className="w-4 h-4 mr-2" /> Request Location Now
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* ── Weather-aware walking ETA ─────────────────────────────────── */}
+            {weather && selectedPrayer && (
+              (() => {
+                const prayerData = prayerTimes.find((pt) => pt.name === selectedPrayer);
+                if (!prayerData) return null;
+                const baseWalkMin = routeInfo?.durationMin || estimateWalkingTime(mosqueDist, settings.walkingSpeed);
+                const adjustedMin = Math.ceil(baseWalkMin / weather.speedFactor);
+                const extraMin = adjustedMin - baseWalkMin;
+                const minsLeft = minutesUntilLeave(prayerData.time, adjustedMin, settings.cityTimezone);
+                const isUrgent = minsLeft <= 10;
+                const isModified = weather.speedFactor < 0.98;
+                return (
+                  <div className={`glass-card p-3 text-left border ${isUrgent ? "border-destructive/30 bg-destructive/5" : "border-border"}`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-lg">{weather.emoji}</span>
+                      <div className="flex-1">
+                        <p className="text-xs font-semibold text-foreground">
+                          {weather.description} · {Math.round(weather.temperatureC)}°C
+                          {weather.windspeedKmh > 15 && <span className="text-muted-foreground"> · {Math.round(weather.windspeedKmh)} km/h wind</span>}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">{weather.advice}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 bg-muted/50 rounded-lg px-3 py-2">
+                      <Clock className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-xs font-semibold text-foreground">
+                          Weather-adjusted walk: <span className={isUrgent ? "text-destructive" : "text-primary"}>{adjustedMin} min</span>
+                          {isModified && <span className="text-muted-foreground font-normal"> (+{extraMin} min)</span>}
+                        </p>
+                        <p className={`text-[10px] font-medium ${minsLeft <= 0 ? "text-destructive" : minsLeft <= 10 ? "text-amber-500" : "text-muted-foreground"}`}>
+                          {minsLeft <= 0 ? "⚠️ Leave now!" : `Leave in ${minsLeft} min for ${selectedPrayer}`}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()
+            )}
+
             {/* Mosque / destination info card */}
+
             <div className="glass-card p-4 text-left space-y-2">
               {(effectiveDestination || mosquePosition) ? (
                 <>
