@@ -137,35 +137,41 @@ const Guides = () => {
         ))}
 
         {/* PWA Install */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="glass-card p-5 space-y-3"
-        >
-          <h2 className="font-bold text-foreground flex items-center gap-2">
-            <Smartphone className="w-5 h-5 text-primary" /> Install as App (PWA)
-          </h2>
-          {isInstalled ? (
-            <p className="text-sm text-primary font-medium">✓ MosqueSteps is already installed on this device!</p>
-          ) : canInstall ? (
-            <>
-              <p className="text-sm text-muted-foreground">Install MosqueSteps directly to your home screen for the best experience.</p>
-              <Button onClick={install} className="w-full" variant="hero" size="lg">
-                <Download className="w-5 h-5 mr-2" /> Install MosqueSteps
-              </Button>
-            </>
-          ) : (
-            <div className="space-y-2 text-sm text-muted-foreground">
-              <p><strong>iOS Safari:</strong> Tap the Share button → "Add to Home Screen"</p>
-              <p><strong>Android Chrome:</strong> Tap the menu (⋮) → "Add to Home Screen" or "Install App"</p>
-              <p><strong>Desktop Chrome/Edge:</strong> Click the install icon in the address bar</p>
+        {/* Install prompt — hidden when already installed */}
+        {!isInstalled && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="glass-card p-4 space-y-3 border-primary/20"
+          >
+            <div className="flex items-center gap-3">
+              <Smartphone className="w-8 h-8 text-primary flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <h2 className="font-bold text-foreground text-sm">Add to Home Screen</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Install for offline access, faster loading &amp; a native app feel.
+                </p>
+              </div>
             </div>
-          )}
-          <p className="text-xs text-muted-foreground italic">
-            Installing as a PWA enables offline support, push notifications, and a native app-like experience.
-          </p>
-        </motion.div>
+            {canInstall ? (
+              <Button
+                onClick={async () => { await install(); }}
+                className="w-full"
+                variant="hero"
+                size="lg"
+              >
+                <Download className="w-5 h-5 mr-2" /> Add to Home Screen
+              </Button>
+            ) : (
+              <div className="space-y-1.5 text-xs text-muted-foreground">
+                <p>🍎 <strong>iPhone/iPad:</strong> Safari → Share → "Add to Home Screen"</p>
+                <p>🤖 <strong>Android:</strong> Chrome menu (⋮) → "Add to Home Screen"</p>
+                <p>💻 <strong>Desktop:</strong> Click the install icon in the address bar</p>
+              </div>
+            )}
+          </motion.div>
+        )}
 
         <div className="text-center pt-4">
           <Link to="/" className="text-sm text-primary hover:underline">

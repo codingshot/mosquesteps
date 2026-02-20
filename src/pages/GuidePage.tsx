@@ -228,33 +228,35 @@ const GuidePage = () => {
           </Link>
         </motion.div>
 
-        {/* PWA Install - show on all guide pages */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25 }}
-          className="glass-card p-5 space-y-3"
-        >
-          <h3 className="font-semibold text-foreground flex items-center gap-2">
-            <Smartphone className="w-5 h-5 text-primary" /> Install as App
-          </h3>
-          {isInstalled ? (
-            <p className="text-sm text-primary font-medium">✓ MosqueSteps is already installed!</p>
-          ) : canInstall ? (
-            <Button onClick={install} className="w-full" variant="hero">
-              <Download className="w-4 h-4 mr-2" /> Install MosqueSteps
-            </Button>
-          ) : (
-            <div className="space-y-2 text-sm text-muted-foreground">
-              <p><strong>iOS Safari:</strong> Tap Share → "Add to Home Screen"</p>
-              <p><strong>Android Chrome:</strong> Tap menu (⋮) → "Install App"</p>
-              <p><strong>Desktop Chrome/Edge:</strong> Click install icon in address bar</p>
+        {/* PWA Install — hidden when already installed */}
+        {!isInstalled && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="glass-card p-4 flex items-center gap-3 border-primary/20"
+          >
+            <Smartphone className="w-8 h-8 text-primary flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-foreground text-sm">Add to Home Screen</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Offline support, faster loading &amp; native feel.</p>
+              {canInstall ? (
+                <Button
+                  onClick={async () => { await install(); }}
+                  className="mt-2"
+                  variant="hero"
+                  size="sm"
+                >
+                  <Download className="w-4 h-4 mr-1.5" /> Add to Home Screen
+                </Button>
+              ) : (
+                <p className="text-xs text-primary font-medium mt-1.5">
+                  Tap Share ➜ "Add to Home Screen"
+                </p>
+              )}
             </div>
-          )}
-          <p className="text-xs text-muted-foreground italic">
-            Installing enables offline support, push notifications, and native app-like experience.
-          </p>
-        </motion.div>
+          </motion.div>
+        )}
 
         {/* Prev/Next navigation */}
         <div className="flex gap-3">
