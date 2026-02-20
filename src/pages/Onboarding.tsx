@@ -510,6 +510,7 @@ const Onboarding = () => {
   };
 
   // Pre-fill location from IP when user reaches location step (prioritize current/IP before manual city)
+  // Also stores IP coords so home address type-ahead is always biased even before GPS/city is set
   useEffect(() => {
     if (step !== 1) return;
     if (settings.cityLat && settings.cityLng) return;
@@ -521,6 +522,9 @@ const Onboarding = () => {
         cityName: ip.city,
         cityLat: ip.lat,
         cityLng: ip.lng,
+        // Also prime homeLat/Lng so type-ahead bias works immediately
+        // (only if no home address set yet)
+        ...(!s.homeLat && !s.homeLng ? { homeLat: ip.lat, homeLng: ip.lng } : {}),
         ...(tz ? { cityTimezone: tz } : {}),
       }));
     }).catch(() => {});
@@ -582,7 +586,8 @@ const Onboarding = () => {
     }
   };
 
-  // Reference point for home address bias: GPS > saved coords > IP (filled in useEffect)
+  // Reference point for home address bias: GPS > saved city coords > IP geolocation
+  // homeRefLat/Lng are populated via IP on step 1 load, so always have a bias
   const homeRefLat = settings.homeLat || settings.cityLat;
   const homeRefLng = settings.homeLng || settings.cityLng;
 
