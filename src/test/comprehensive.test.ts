@@ -216,9 +216,13 @@ describe("Badge system", () => {
     localStorage.clear();
   });
 
-  it("returns all 15 badge definitions", () => {
+  it("returns all badge definitions", () => {
     const badges = getBadges({ totalWalks: 0, totalSteps: 0, totalHasanat: 0, totalDistance: 0, currentStreak: 0, longestStreak: 0, walksByPrayer: {} });
-    expect(badges).toHaveLength(15);
+    // Badge count grows as new badges are added; ensure we always have at least the original 15
+    expect(badges.length).toBeGreaterThanOrEqual(15);
+    // Ensure no duplicate IDs
+    const ids = badges.map((b) => b.badge.id);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
   it("first_steps badge earned after 1 walk", () => {

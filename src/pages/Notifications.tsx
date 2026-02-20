@@ -202,12 +202,16 @@ export default function Notifications() {
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setShowFilters(!showFilters); setShowSettings(false); }}>
-              <Filter className={`w-4 h-4 ${showFilters ? "text-primary" : ""}`} />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setShowSettings(!showSettings); setShowFilters(false); }}>
-              <Settings2 className={`w-4 h-4 ${showSettings ? "text-primary" : ""}`} />
-            </Button>
+          <Button
+            variant="ghost" size="icon" className="h-8 w-8"
+            aria-label="Toggle filters"
+            aria-pressed={showFilters}
+            onClick={() => { setShowFilters(!showFilters); setShowSettings(false); }}>
+            <Filter className={`w-4 h-4 ${showFilters ? "text-primary" : ""}`} />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setShowSettings(!showSettings); setShowFilters(false); }}>
+            <Settings2 className={`w-4 h-4 ${showSettings ? "text-primary" : ""}`} />
+          </Button>
           </div>
         </div>
 
