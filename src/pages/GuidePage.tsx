@@ -113,20 +113,53 @@ const GuidePage = () => {
       </header>
 
       <div className="container py-6 space-y-6 max-w-2xl">
-        {/* Screenshot */}
+        {/* Live app preview in a phone frame */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="glass-card overflow-hidden"
         >
-          <div className="bg-muted/50 flex justify-center p-4">
-            <img
-              src={guide.screenshot}
-              alt={`${guide.title} screenshot`}
-              className="rounded-xl shadow-lg max-h-80 w-auto object-contain"
-              loading="lazy"
-            />
+          <div className="bg-muted/30 flex justify-center p-5">
+            {/* Phone frame */}
+            <div className="relative w-[220px]">
+              {/* Phone shell */}
+              <div className="relative rounded-[28px] border-4 border-foreground/20 bg-foreground/10 shadow-2xl overflow-hidden"
+                style={{ paddingTop: "18px", paddingBottom: "14px" }}>
+                {/* Top notch/camera */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-16 h-4 bg-foreground/20 rounded-b-xl z-10 flex items-center justify-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-foreground/40" />
+                  <div className="w-4 h-1 rounded-full bg-foreground/25" />
+                </div>
+                {/* Screen with live iframe */}
+                <div className="overflow-hidden rounded-[16px] mx-1" style={{ height: "380px" }}>
+                  <iframe
+                    src={guide.page}
+                    title={`${guide.title} live preview`}
+                    className="w-full origin-top-left pointer-events-none select-none border-0"
+                    style={{
+                      width: "390px",
+                      height: "844px",
+                      transform: "scale(0.538)",
+                      transformOrigin: "top left",
+                    }}
+                    loading="lazy"
+                    aria-label={`Live preview of ${guide.title}`}
+                  />
+                </div>
+                {/* Home indicator */}
+                <div className="mt-1.5 flex justify-center">
+                  <div className="w-16 h-1 rounded-full bg-foreground/30" />
+                </div>
+              </div>
+              {/* Side buttons */}
+              <div className="absolute -right-1.5 top-20 w-1 h-8 rounded-r-sm bg-foreground/20" />
+              <div className="absolute -left-1.5 top-16 w-1 h-6 rounded-l-sm bg-foreground/20" />
+              <div className="absolute -left-1.5 top-24 w-1 h-6 rounded-l-sm bg-foreground/20" />
+            </div>
           </div>
+          <p className="text-center text-[10px] text-muted-foreground pb-3">
+            Live preview — tap <a href={guide.page} className="text-primary underline">Open page →</a>
+          </p>
         </motion.div>
 
         {/* Steps */}

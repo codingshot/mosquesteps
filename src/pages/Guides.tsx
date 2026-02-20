@@ -90,14 +90,44 @@ const Guides = () => {
             transition={{ delay: i * 0.05 }}
           >
             <Link to={`/guides/${guide.id}`} className="block">
-              <div className="glass-card overflow-hidden hover:shadow-teal transition-shadow group">
-                <div className="flex items-center gap-4 p-4">
-                  <div className="w-14 h-14 rounded-xl bg-gradient-teal flex items-center justify-center flex-shrink-0">
-                    <span className="text-2xl">{guide.iconEmoji}</span>
+              <div className="glass-card overflow-hidden hover:shadow-teal transition-shadow group flex items-stretch">
+                {/* Mini live phone preview */}
+                <div className="w-[90px] flex-shrink-0 bg-muted/30 flex items-center justify-center p-2 border-r border-border/50">
+                  <div className="relative w-full">
+                    <div className="rounded-[10px] border-2 border-foreground/20 bg-background overflow-hidden shadow-md"
+                      style={{ paddingTop: "6px", paddingBottom: "4px" }}>
+                      {/* tiny notch */}
+                      <div className="w-8 h-1.5 bg-foreground/20 rounded-b-md mx-auto mb-0.5" />
+                      <div className="overflow-hidden rounded-[4px] mx-0.5" style={{ height: "130px" }}>
+                        <iframe
+                          src={guide.page}
+                          title={guide.title}
+                          className="border-0 pointer-events-none select-none"
+                          style={{
+                            width: "390px",
+                            height: "844px",
+                            transform: "scale(0.196)",
+                            transformOrigin: "top left",
+                          }}
+                          loading="lazy"
+                          tabIndex={-1}
+                          aria-hidden="true"
+                        />
+                      </div>
+                      <div className="mt-0.5 flex justify-center">
+                        <div className="w-6 h-0.5 rounded-full bg-foreground/20" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {/* Text */}
+                <div className="flex items-center gap-3 p-4 flex-1 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-teal flex items-center justify-center flex-shrink-0">
+                    <span className="text-xl">{guide.iconEmoji}</span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h2 className="font-bold text-foreground group-hover:text-primary transition-colors">{guide.title}</h2>
-                    <p className="text-xs text-muted-foreground line-clamp-2">{guide.description}</p>
+                    <h2 className="font-bold text-foreground group-hover:text-primary transition-colors text-sm">{guide.title}</h2>
+                    <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{guide.description}</p>
                   </div>
                   <ArrowLeft className="w-4 h-4 text-muted-foreground rotate-180 flex-shrink-0" />
                 </div>
