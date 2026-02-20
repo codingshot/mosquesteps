@@ -67,6 +67,7 @@ export interface UserSettings {
   prayerPreferences?: string[]; // which prayers user walks to
   optionalPrayers?: string[]; // voluntary prayers: Taraweeh, Tahajjud, Witr, Qiyam, Jumuah
   ramadanMode?: boolean; // enables Taraweeh tracking and Ramadan-specific features
+  prayerCalculationMethod?: string; // key from PRAYER_CALCULATION_METHODS e.g. "ISNA", "MWL"
   prayerMosques?: Record<string, string>; // prayer name -> mosque id
   notifyMinutesBefore?: number; // minutes before "leave by" time to notify
   age?: number;
