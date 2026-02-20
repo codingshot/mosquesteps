@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import SEOHead from "@/components/SEOHead";
 import { hasCompletedOnboarding } from "./Onboarding";
 import { Button } from "@/components/ui/button";
-import { MapPin, Clock, Footprints, Star, Navigation, Settings2, Flame, Bell, Trophy, Info, Play, ChevronDown, Locate, AlertTriangle, Download, Smartphone, X } from "lucide-react";
+import { MapPin, Clock, Footprints, Star, Navigation, Settings2, Flame, Bell, Trophy, Info, Play, ChevronDown, Locate, AlertTriangle, Download, Smartphone, X, Route } from "lucide-react";
 import { motion } from "framer-motion";
 import {
   fetchPrayerTimes,
@@ -61,6 +61,8 @@ const Dashboard = () => {
   const [summaryPeriod, setSummaryPeriod] = useState<"daily" | "weekly" | "monthly">("daily");
   const [periodDropdownOpen, setPeriodDropdownOpen] = useState(false);
   const [locationStatus, setLocationStatus] = useState<"unknown" | "granted" | "denied" | "prompt">("unknown");
+  const [mosqueRoute, setMosqueRoute] = useState<{ distanceKm: number; durationMin: number } | null>(null);
+  const [mosqueRouteLoading, setMosqueRouteLoading] = useState(false);
 
   // Live clock
   useEffect(() => {
@@ -88,6 +90,26 @@ const Dashboard = () => {
   useEffect(() => {
     const stop = startReminderPolling();
     return stop;
+  }, []);
+
+  // Fetch real walking route to mosque for accurate distance/time on dashboard
+  useEffect(() => {
+    const s = getSettings();
+    const fromLat = s.homeLat || s.cityLat;
+    const fromLng = s.homeLng || s.cityLng;
+    const toLat = s.selectedMosqueLat;
+    const toLng = s.selectedMosqueLng;
+    if (!fromLat || !fromLng || !toLat || !toLng) return;
+    if (Math.abs(fromLat - toLat) < 1e-5 && Math.abs(fromLng - toLng) < 1e-5) return;
+    setMosqueRouteLoading(true);
+    import("@/lib/routing").then(({ fetchWalkingRoute }) => {
+      fetchWalkingRoute(fromLat, fromLng, toLat, toLng)
+        .then((route) => {
+          if (route) setMosqueRoute({ distanceKm: route.distanceKm, durationMin: route.durationMin });
+        })
+        .catch(() => {})
+        .finally(() => setMosqueRouteLoading(false));
+    });
   }, []);
 
   // Weekly health insight notification
@@ -733,15 +755,58 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* Mosque info */}
-        <div className="glass-card p-4 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-foreground">{settings.selectedMosqueName}</p>
-            <p className="text-xs text-muted-foreground">
-              {mosqueDistance} km · {walkMin} min walk · {estimateSteps(mosqueDistance)} steps one way
-            </p>
+        {/* Mosque info — enhanced with live route distance/steps */}
+        <div className="glass-card p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-base shrink-0">🕌</span>
+              <p className="text-sm font-semibold text-foreground truncate">{settings.selectedMosqueName}</p>
+            </div>
+            <Link to="/mosques" className="text-xs text-primary font-medium hover:underline shrink-0 ml-2">Change</Link>
           </div>
-          <Link to="/mosques" className="text-xs text-primary font-medium hover:underline">Change</Link>
+
+          {/* Distance / time / steps row */}
+          <div className="flex items-center gap-3 flex-wrap">
+            {mosqueRouteLoading ? (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <div className="w-3 h-3 border border-primary border-t-transparent rounded-full animate-spin" />
+                Getting walking route…
+              </span>
+            ) : mosqueRoute ? (
+              <>
+                <span className="flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                  <Route className="w-3 h-3" />
+                  {mosqueRoute.distanceKm.toFixed(2)} km
+                </span>
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Clock className="w-3 h-3" />
+                  ~{mosqueRoute.durationMin} min walk
+                </span>
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Footprints className="w-3 h-3" />
+                  ~{estimateSteps(mosqueRoute.distanceKm).toLocaleString()} steps
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="text-xs text-muted-foreground">{mosqueDistance.toFixed(1)} km straight-line</span>
+                <span className="text-xs text-muted-foreground">·</span>
+                <span className="text-xs text-muted-foreground">{walkMin} min · {estimateSteps(mosqueDistance).toLocaleString()} steps</span>
+              </>
+            )}
+          </div>
+
+          {/* View route link */}
+          {settings.selectedMosqueLat && settings.selectedMosqueLng && (
+            <div className="mt-2 pt-2 border-t border-border/40">
+              <Link
+                to="/walk"
+                className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+              >
+                <Play className="w-3 h-3" /> Start walk to {settings.selectedMosqueName.split(" ").slice(0, 3).join(" ")}
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* Prayer times - only upcoming */}
