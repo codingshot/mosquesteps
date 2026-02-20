@@ -6,7 +6,7 @@ import { getAvailableLocales, type Locale } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { getSettings, saveSettings, getSavedMosques, fetchTimezone, AGE_MIN, AGE_MAX, BODY_WEIGHT_KG_MIN, BODY_WEIGHT_KG_MAX, type UserSettings, toggleFavoriteMosque, getFavoriteMosques, reorderFavoriteMosque } from "@/lib/walking-history";
+import { getSettings, saveSettings, getSavedMosques, fetchTimezone, AGE_MIN, AGE_MAX, BODY_WEIGHT_KG_MIN, BODY_WEIGHT_KG_MAX, type UserSettings, toggleFavoriteMosque, getFavoriteMosques, reorderFavoriteMosque, recomputeMosqueDistancesFromHome } from "@/lib/walking-history";
 import { PRAYER_CALCULATION_METHODS } from "@/lib/prayer-times";
 import { fetchLocationSuggestions, type LocationSuggestion } from "@/lib/geocode";
 import { requestNotificationPermission, isNotificationSupported, getNotificationPermission } from "@/lib/notifications";
@@ -15,6 +15,94 @@ import { useTheme } from "@/hooks/use-theme";
 import { useToast } from "@/hooks/use-toast";
 import SEOHead from "@/components/SEOHead";
 import logo from "@/assets/logo.png";
+
+/** Address type-ahead component for home address, with location bias and validity checks. */
+function HomeAddressSearch({
+  currentSettings,
+  onSelect,
+}: {
+  currentSettings: UserSettings;
+  onSelect: (addr: string, lat: number, lng: number) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { toast } = useToast();
+
+  const handleChange = (val: string) => {
+    setQuery(val);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (val.trim().length < 2) { setSuggestions([]); setShowSuggestions(false); return; }
+    timeoutRef.current = setTimeout(async () => {
+      setLoading(true);
+      try {
+        // Bias toward city/home location if available
+        const nearLat = currentSettings.homeLat || currentSettings.cityLat;
+        const nearLng = currentSettings.homeLng || currentSettings.cityLng;
+        const results = await fetchLocationSuggestions(val.trim(), 6, nearLat, nearLng);
+        // Validate each result has sane coords
+        const valid = results.filter(
+          (r) => Number.isFinite(r.lat) && Number.isFinite(r.lng) &&
+                 r.lat >= -90 && r.lat <= 90 && r.lng >= -180 && r.lng <= 180
+        );
+        setSuggestions(valid);
+        setShowSuggestions(valid.length > 0);
+      } catch {
+        setSuggestions([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+  };
+
+  const handleSelect = (s: LocationSuggestion) => {
+    // Final validity check
+    if (!Number.isFinite(s.lat) || !Number.isFinite(s.lng)) {
+      toast({ title: "Invalid address coordinates", variant: "destructive" });
+      return;
+    }
+    onSelect(s.displayName.split(",").slice(0, 3).join(","), s.lat, s.lng);
+    setQuery("");
+    setSuggestions([]);
+    setShowSuggestions(false);
+  };
+
+  return (
+    <div className="relative">
+      <div className="relative">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => handleChange(e.target.value)}
+          onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+          onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+          placeholder="Search home address…"
+          className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring pr-8"
+          autoComplete="off"
+        />
+        {loading && (
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border border-primary border-t-transparent rounded-full animate-spin" />
+        )}
+      </div>
+      {showSuggestions && suggestions.length > 0 && (
+        <ul className="absolute z-50 top-full mt-1 w-full rounded-lg border border-border bg-card shadow-lg overflow-hidden">
+          {suggestions.map((s, i) => (
+            <li
+              key={i}
+              onMouseDown={() => handleSelect(s)}
+              className="px-3 py-2 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
+            >
+              <span className="font-medium">{s.shortName}</span>
+              <span className="text-[11px] text-muted-foreground ml-1 line-clamp-1">{s.displayName.split(",").slice(1, 3).join(",")}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 const Settings = () => {
   const { theme, setTheme } = useTheme();
@@ -807,26 +895,41 @@ const Settings = () => {
               setHomeLocating(true);
               navigator.geolocation.getCurrentPosition(
                 async (pos) => {
+                  const { latitude, longitude } = pos.coords;
+                  // Validate coords
+                  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) ||
+                      latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+                    toast({ title: "Invalid GPS coordinates", variant: "destructive" });
+                    setHomeLocating(false);
+                    return;
+                  }
                   try {
                     const res = await fetch(
-                      `https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json&addressdetails=1`
+                      `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`
                     );
                     const data = await res.json();
                     const addr = data.display_name?.split(",").slice(0, 3).join(",") || "Current Location";
                     setSettings((s) => ({
                       ...s,
                       homeAddress: addr,
-                      homeLat: pos.coords.latitude,
-                      homeLng: pos.coords.longitude,
+                      homeLat: latitude,
+                      homeLng: longitude,
                     }));
-                    toast({ title: "Home address detected!", description: addr });
+                    // Recalculate all mosque distances from new home
+                    saveSettings({ homeAddress: addr, homeLat: latitude, homeLng: longitude });
+                    recomputeMosqueDistancesFromHome();
+                    setSavedMosques(getSavedMosques());
+                    toast({ title: "✅ Home address detected!", description: addr });
                   } catch {
                     setSettings((s) => ({
                       ...s,
                       homeAddress: "Current Location",
-                      homeLat: pos.coords.latitude,
-                      homeLng: pos.coords.longitude,
+                      homeLat: latitude,
+                      homeLng: longitude,
                     }));
+                    saveSettings({ homeAddress: "Current Location", homeLat: latitude, homeLng: longitude });
+                    recomputeMosqueDistancesFromHome();
+                    setSavedMosques(getSavedMosques());
                   }
                   setHomeLocating(false);
                 },
@@ -842,36 +945,18 @@ const Settings = () => {
             <Locate className="w-4 h-4 mr-2" />
             {homeLocating ? "Detecting..." : "Detect My Home Address"}
           </Button>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Or search home address..."
-              id="homeSearchInput"
-              onKeyDown={async (e) => {
-                if (e.key !== "Enter") return;
-                const val = (e.target as HTMLInputElement).value;
-                if (!val.trim()) return;
-                try {
-                  const res = await fetch(
-                    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val)}&format=json&limit=1`
-                  );
-                  const data = await res.json();
-                  if (data.length > 0) {
-                    setSettings({
-                      ...settings,
-                      homeAddress: data[0].display_name?.split(",").slice(0, 3).join(",") || val,
-                      homeLat: parseFloat(data[0].lat),
-                      homeLng: parseFloat(data[0].lon),
-                    });
-                    toast({ title: "Home address updated!" });
-                  }
-                } catch {
-                  toast({ title: "Search failed", variant: "destructive" });
-                }
-              }}
-              className="flex-1 px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
+
+          {/* Address search using fetchLocationSuggestions with bias toward city */}
+          <HomeAddressSearch
+            currentSettings={settings}
+            onSelect={(addr, lat, lng) => {
+              setSettings((s) => ({ ...s, homeAddress: addr, homeLat: lat, homeLng: lng }));
+              saveSettings({ homeAddress: addr, homeLat: lat, homeLng: lng });
+              recomputeMosqueDistancesFromHome();
+              setSavedMosques(getSavedMosques());
+              toast({ title: "✅ Home address updated!", description: addr });
+            }}
+          />
         </div>
 
         {/* Age, Gender, Body weight (for health recommendations and advanced metrics) */}
