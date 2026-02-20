@@ -515,7 +515,7 @@ const Dashboard = () => {
             <Tooltip open={hasanatTooltipOpen} onOpenChange={setHasanatTooltipOpen}>
               <TooltipTrigger asChild>
                 <button
-                  className="text-gold flex items-center gap-1"
+                  className="text-accent flex items-center gap-1"
                   onClick={() => setHasanatTooltipOpen(!hasanatTooltipOpen)}
                 >
                   {hasanat.toLocaleString()} hasanat
