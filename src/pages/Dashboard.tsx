@@ -3,7 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import SEOHead from "@/components/SEOHead";
 import { hasCompletedOnboarding } from "./Onboarding";
 import { Button } from "@/components/ui/button";
-import { MapPin, Clock, Footprints, Star, Navigation, Settings2, Flame, Bell, Trophy, Info, Play, ChevronDown, Locate, AlertTriangle, Download, Smartphone, X, Route } from "lucide-react";
+import { MapPin, Clock, Footprints, Star, Navigation, Settings2, Flame, Bell, Trophy, Info, Play, ChevronDown, Locate, AlertTriangle, Download, Smartphone, X, Route, Sun, Moon } from "lucide-react";
+import { useTheme } from "@/hooks/use-theme";
 import { motion } from "framer-motion";
 import {
   fetchPrayerTimes,
@@ -50,6 +51,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { canInstall, isInstalled, install, showIOSInstructions } = usePWAInstall();
+  const { theme, setTheme } = useTheme();
   const [installPromptDismissed, setInstallPromptDismissed] = useState(false);
   const [prayers, setPrayers] = useState<PrayerTime[]>([]);
   const [readableDate, setReadableDate] = useState("");
@@ -398,6 +400,13 @@ const Dashboard = () => {
                 )}
               </Button>
             </Link>
+            <button
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              className="flex items-center justify-center w-9 h-9 rounded-md text-primary-foreground hover:bg-primary-foreground/10 transition-colors"
+            >
+              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
             <Link to="/settings" aria-label="Settings">
               <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10 w-9 h-9" aria-label="Settings">
                 <Settings2 className="w-4 h-4" />
@@ -531,7 +540,7 @@ const Dashboard = () => {
               <p className="font-medium text-foreground text-sm">Enable Location</p>
               <p className="text-xs text-muted-foreground">Required for accurate prayer times, mosque finder, timezone, and walking routes</p>
             </div>
-            <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+            <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0" />
           </button>
         )}
 
