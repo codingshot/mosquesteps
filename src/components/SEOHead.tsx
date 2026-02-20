@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 
 const SITE_URL = "https://mosquesteps.com";
-const DEFAULT_OG_IMAGE = `${SITE_URL}/favicon.png`;
+/** Default social preview image (1200×630 recommended for og:image / twitter:card) */
+const DEFAULT_OG_IMAGE = `${SITE_URL}/mosquestepsmeta.jpg`;
 
 export interface SEOHeadProps {
   title: string;
