@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import SEOHead from "@/components/SEOHead";
 import { Button } from "@/components/ui/button";
-import { Search, MapPin, Footprints, Clock, Check, Star, Trash2, Home, Navigation, ArrowLeft, Route as RouteIcon, Play, Timer, Share2, Copy, X, ExternalLink, CornerDownLeft, CornerDownRight, ArrowUp } from "lucide-react";
+import { Search, MapPin, Footprints, Clock, Check, Star, Trash2, Home, Navigation, ArrowLeft, Route as RouteIcon, Play, Timer, Share2, Copy, X, ExternalLink, CornerDownLeft, CornerDownRight, ArrowUp, Heart } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { estimateSteps, estimateWalkingTime, fetchPrayerTimes, calculateLeaveByTime, minutesUntilLeave, getNowInTimezone, type PrayerTime } from "@/lib/prayer-times";
@@ -15,6 +15,7 @@ import { formatTime as formatTimeStr, formatSmallDistance, formatMinutes } from 
 import {
   saveSettings, getSettings,
   saveMosque, getSavedMosques, removeSavedMosque, setPrimaryMosque,
+  toggleFavoriteMosque,
   type SavedMosque,
 } from "@/lib/walking-history";
 import { useToast } from "@/hooks/use-toast";
@@ -797,6 +798,23 @@ const MosqueFinder = () => {
                     </div>
                   </div>
                   <div className="flex gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                    {/* Favorite toggle */}
+                    <button
+                      onClick={() => {
+                        if (!saved) handleSaveMosque(m, false);
+                        toggleFavoriteMosque(String(m.id));
+                        setSavedList(getSavedMosques());
+                        toast({ title: getSavedMosques().find((s) => s.id === String(m.id))?.isFavorite ? "⭐ Favorited!" : "Removed from favorites" });
+                      }}
+                      className={`h-7 w-7 rounded-lg border flex items-center justify-center transition-all ${
+                        savedList.find((s) => s.id === String(m.id))?.isFavorite
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground hover:border-primary/50 hover:text-primary"
+                      }`}
+                      aria-label={savedList.find((s) => s.id === String(m.id))?.isFavorite ? "Unfavorite" : "Favorite"}
+                    >
+                      <Heart className={`w-3.5 h-3.5 ${savedList.find((s) => s.id === String(m.id))?.isFavorite ? "fill-current" : ""}`} />
+                    </button>
                     {!saved && (
                       <Button variant="outline" size="sm" className="text-[10px] h-7 px-2" onClick={() => handleSaveMosque(m, false)}>
                         Save
@@ -840,6 +858,22 @@ const MosqueFinder = () => {
                   </div>
                 </div>
                 <div className="flex gap-1 flex-shrink-0">
+                  {/* Favorite toggle */}
+                  <button
+                    onClick={() => {
+                      toggleFavoriteMosque(m.id);
+                      setSavedList(getSavedMosques());
+                      toast({ title: getSavedMosques().find((s) => s.id === m.id)?.isFavorite ? "⭐ Favorited!" : "Removed from favorites" });
+                    }}
+                    className={`h-7 w-7 rounded-lg border flex items-center justify-center transition-all ${
+                      m.isFavorite
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground hover:border-primary/50 hover:text-primary"
+                    }`}
+                    aria-label={m.isFavorite ? "Unfavorite" : "Favorite"}
+                  >
+                    <Heart className={`w-3.5 h-3.5 ${m.isFavorite ? "fill-current" : ""}`} />
+                  </button>
                   {!m.isPrimary && (
                     <Button variant="outline" size="sm" className="text-[10px] h-7 px-2" onClick={() => handleSetPrimary(m.id)}>
                       Set Primary
