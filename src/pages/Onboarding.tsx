@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { MapPin, Bell, Locate, ChevronRight, Check, Home } from "lucide-react";
+import { MapPin, Bell, Locate, ChevronRight, Check, Home, Moon, Search, Star } from "lucide-react";
 import { saveSettings, getSettings, fetchTimezone, type UserSettings } from "@/lib/walking-history";
 import { fetchLocationSuggestions, type LocationSuggestion } from "@/lib/geocode";
 import { getIPGeolocation } from "@/lib/prayer-times";
@@ -35,6 +35,54 @@ export function getOnboardingDate(): Date {
 
 const ALL_PRAYERS = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"] as const;
 
+const OPTIONAL_PRAYERS = [
+  {
+    id: "Taraweeh",
+    label: "Taraweeh",
+    arabic: "تراويح",
+    icon: "🌙",
+    description: "Night prayers during Ramadan — special reward for congregation",
+    hadith: "Whoever prays Taraweeh with the imam until he finishes, Allah will record for him as if he prayed the whole night. — Tirmidhi 806",
+    ramadanOnly: true,
+  },
+  {
+    id: "Tahajjud",
+    label: "Tahajjud",
+    arabic: "تهجد",
+    icon: "⭐",
+    description: "Late-night voluntary prayer — one of the most beloved acts",
+    hadith: "The best prayer after the obligatory is the night prayer. — Sahih Muslim 1163",
+    ramadanOnly: false,
+  },
+  {
+    id: "Witr",
+    label: "Witr",
+    arabic: "وتر",
+    icon: "🤲",
+    description: "Concluding night prayer — highly recommended sunnah",
+    hadith: "Allah is Witr (one) and loves Witr, so pray Witr. — Abu Dawud 1416",
+    ramadanOnly: false,
+  },
+  {
+    id: "Qiyam",
+    label: "Qiyam al-Layl",
+    arabic: "قيام الليل",
+    icon: "✨",
+    description: "Standing in prayer at night — particularly in last 10 nights",
+    hadith: "Whoever stands in prayer during Laylat al-Qadr with faith and hoping for reward will have his previous sins forgiven. — Bukhari 1901",
+    ramadanOnly: false,
+  },
+  {
+    id: "Jumuah",
+    label: "Jumuah (Friday)",
+    arabic: "الجمعة",
+    icon: "🕋",
+    description: "Friday congregational prayer — obligatory for men",
+    hadith: "The best day on which the sun rises is Friday. — Sahih Muslim 854",
+    ramadanOnly: false,
+  },
+] as const;
+
 const steps = [
   { id: "welcome", title: "Welcome to MosqueSteps", icon: "🕌" },
   { id: "location", title: "Set Your Location", icon: "📍" },
@@ -56,6 +104,8 @@ const Onboarding = () => {
   const [selectedPrayers, setSelectedPrayers] = useState<string[]>(
     settings.prayerPreferences || ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]
   );
+  const [selectedOptionalPrayers, setSelectedOptionalPrayers] = useState<string[]>([]);
+  const [ramadanMode, setRamadanMode] = useState(false);
   const [homeSearch, setHomeSearch] = useState("");
 
   // --- OnboardingMosqueStep extracted inline to avoid build errors ---
@@ -66,10 +116,12 @@ const Onboarding = () => {
     next: () => void;
     skip: () => void;
   }) => {
-    const [mosqueSearch, setMosqueSearch] = useState("");
+    const [mosqueTypeAhead, setMosqueTypeAhead] = useState("");
     const [nearbyMosques, setNearbyMosques] = useState<MosqueResult[]>([]);
+    const [filteredMosques, setFilteredMosques] = useState<MosqueResult[]>([]);
     const [searchingMosques, setSearchingMosques] = useState(false);
     const [searchedOnce, setSearchedOnce] = useState(false);
+    const typeAheadRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Auto-search on mount if we have coords — auto-select closest
     useEffect(() => {
@@ -81,11 +133,12 @@ const Onboarding = () => {
         setSearchedOnce(true);
         searchNearbyMosques(lat, lng)
           .then((results) => {
-            const sliced = results.slice(0, 8);
+            const sliced = results.slice(0, 12);
             setNearbyMosques(sliced);
+            setFilteredMosques(sliced);
             // Auto-select closest mosque if none is set
             if (sliced.length > 0 && (!s.selectedMosqueName || s.selectedMosqueName === "My Mosque")) {
-              const closest = sliced[0]; // already sorted by distance from API
+              const closest = sliced[0];
               selectMosque(closest);
             }
           })
@@ -93,6 +146,31 @@ const Onboarding = () => {
           .finally(() => setSearchingMosques(false));
       }
     }, [s.homeLat, s.homeLng, s.cityLat, s.cityLng, searchedOnce]);
+
+    // Type-ahead filter — filter already-fetched results + fuzzy name search
+    const handleMosqueTypeAhead = (value: string) => {
+      setMosqueTypeAhead(value);
+      if (typeAheadRef.current) clearTimeout(typeAheadRef.current);
+      if (!value.trim()) {
+        setFilteredMosques(nearbyMosques);
+        return;
+      }
+      const q = value.toLowerCase();
+      // Filter from cached results first (instant)
+      const immediate = nearbyMosques.filter((m) => m.name.toLowerCase().includes(q));
+      setFilteredMosques(immediate);
+      // Also trigger a fresh nearby search with the typed query acting as a name filter
+      typeAheadRef.current = setTimeout(async () => {
+        const lat = s.homeLat || s.cityLat;
+        const lng = s.homeLng || s.cityLng;
+        if (!lat || !lng) return;
+        try {
+          const results = await searchNearbyMosques(lat, lng);
+          const matched = results.filter((m) => m.name.toLowerCase().includes(q)).slice(0, 8);
+          setFilteredMosques(matched.length > 0 ? matched : immediate);
+        } catch { /* keep immediate results */ }
+      }, 400);
+    };
 
     const handleSearchMosques = async () => {
       const lat = s.homeLat || s.cityLat;
@@ -104,7 +182,10 @@ const Onboarding = () => {
       setSearchingMosques(true);
       try {
         const results = await searchNearbyMosques(lat, lng);
-        setNearbyMosques(results.slice(0, 10));
+        const sliced = results.slice(0, 12);
+        setNearbyMosques(sliced);
+        setFilteredMosques(sliced);
+        setSearchedOnce(true);
         if (results.length === 0) t({ title: "No mosques found", description: "Try the Mosque Finder on the dashboard." });
       } catch {
         t({ title: "Search failed", description: "Check your internet and try again.", variant: "destructive" });
@@ -124,45 +205,63 @@ const Onboarding = () => {
         selectedMosqueLng: m.lon,
         selectedMosqueDistance: Math.max(0.1, dist),
       }));
-      t({ title: `Selected: ${m.name}`, description: `${dist.toFixed(1)} km away` });
     };
 
     return (
-      <div className="space-y-5">
+      <div className="space-y-4">
         <div className="text-center">
           <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">🕌</span>
           </div>
           <h2 className="text-2xl font-bold text-foreground">Your Mosque</h2>
           <p className="text-muted-foreground mt-2 text-sm">
-            Find nearby mosques based on your location, or enter manually.
+            We'll find real mosques near you. Select yours.
           </p>
         </div>
 
-        {/* Selected mosque */}
+        {/* Selected mosque banner */}
         {s.selectedMosqueName && s.selectedMosqueName !== "My Mosque" && (
-          <div className="glass-card p-3 text-center">
-            <p className="text-sm font-medium text-primary">
-              <Check className="w-4 h-4 inline mr-1" /> {s.selectedMosqueName} ({s.selectedMosqueDistance.toFixed(1)} km)
-            </p>
+          <div className="flex items-center gap-3 p-3 rounded-xl border border-primary bg-primary/5">
+            <div className="w-8 h-8 rounded-full bg-gradient-teal flex items-center justify-center shrink-0">
+              <Check className="w-4 h-4 text-primary-foreground" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground truncate">{s.selectedMosqueName}</p>
+              <p className="text-xs text-muted-foreground">{s.selectedMosqueDistance.toFixed(1)} km away · Selected</p>
+            </div>
           </div>
         )}
 
-        {/* Auto-search button */}
+        {/* Type-ahead search bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder={searchingMosques ? "Loading nearby mosques..." : "Search nearby mosques by name..."}
+            value={mosqueTypeAhead}
+            onChange={(e) => handleMosqueTypeAhead(e.target.value)}
+            disabled={searchingMosques}
+            className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+            autoComplete="off"
+          />
+        </div>
+
+        {/* Refresh search button */}
         <Button
           variant="outline"
+          size="sm"
           onClick={handleSearchMosques}
           disabled={searchingMosques}
           className="w-full"
         >
           <MapPin className="w-4 h-4 mr-2" />
-          {searchingMosques ? "Searching nearby mosques..." : "Find Nearby Mosques"}
+          {searchingMosques ? "Searching..." : searchedOnce ? "Refresh Nearby Mosques" : "Find Nearby Mosques"}
         </Button>
 
-        {/* Nearby mosques list */}
-        {nearbyMosques.length > 0 && (
-          <div className="space-y-1.5 max-h-48 overflow-y-auto">
-            {nearbyMosques.map((m) => {
+        {/* Mosques list */}
+        {filteredMosques.length > 0 && (
+          <div className="space-y-1.5 max-h-52 overflow-y-auto rounded-xl">
+            {filteredMosques.map((m) => {
               const homeLat = s.homeLat || s.cityLat || 0;
               const homeLng = s.homeLng || s.cityLng || 0;
               const dist = haversineDistance(homeLat, homeLng, m.lat, m.lon);
@@ -174,32 +273,34 @@ const Onboarding = () => {
                   className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
                     isSelected
                       ? "border-primary bg-primary/5 shadow-sm"
-                      : "border-border hover:border-primary/40"
+                      : "border-border hover:border-primary/40 bg-card"
                   }`}
                 >
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
                     isSelected ? "bg-gradient-teal" : "bg-muted"
                   }`}>
-                    {isSelected ? (
-                      <Check className="w-4 h-4 text-primary-foreground" />
-                    ) : (
-                      <span className="text-sm">🕌</span>
-                    )}
+                    {isSelected ? <Check className="w-4 h-4 text-primary-foreground" /> : <span className="text-sm">🕌</span>}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm font-medium truncate ${isSelected ? "text-foreground" : "text-muted-foreground"}`}>
                       {m.name}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">{dist.toFixed(1)} km away</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[10px] text-muted-foreground">{dist.toFixed(2)} km away</p>
+                      {m.openingHours && <span className="text-[10px] text-primary/70">· Hours available</span>}
+                    </div>
                   </div>
+                  {isSelected && <Check className="w-4 h-4 text-primary shrink-0" />}
                 </button>
               );
             })}
           </div>
         )}
 
-        {searchedOnce && nearbyMosques.length === 0 && !searchingMosques && (
-          <p className="text-xs text-muted-foreground text-center">No mosques found nearby. Enter manually below.</p>
+        {searchedOnce && filteredMosques.length === 0 && !searchingMosques && (
+          <p className="text-xs text-muted-foreground text-center py-2">
+            {mosqueTypeAhead ? `No mosques matching "${mosqueTypeAhead}"` : "No mosques found nearby."} Enter manually below.
+          </p>
         )}
 
         {/* Manual entry */}
@@ -244,6 +345,8 @@ const Onboarding = () => {
     );
   };
 
+
+
   // Helper for distance
   const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
     const R = 6371;
@@ -262,13 +365,15 @@ const Onboarding = () => {
   };
 
   const finish = () => {
-    saveSettings({ ...settings, prayerPreferences: selectedPrayers });
+    const allPrayers = [...selectedPrayers, ...selectedOptionalPrayers];
+    saveSettings({ ...settings, prayerPreferences: allPrayers, ramadanMode, optionalPrayers: selectedOptionalPrayers });
     markOnboardingComplete();
     navigate("/dashboard");
   };
 
   const skip = () => {
-    saveSettings({ ...settings, prayerPreferences: selectedPrayers });
+    const allPrayers = [...selectedPrayers, ...selectedOptionalPrayers];
+    saveSettings({ ...settings, prayerPreferences: allPrayers, ramadanMode, optionalPrayers: selectedOptionalPrayers });
     markOnboardingComplete();
     navigate("/dashboard");
   };
@@ -564,57 +669,132 @@ const Onboarding = () => {
 
             {/* Step 2: Which prayers do you walk to? */}
             {step === 2 && (
-              <div className="space-y-6">
+              <div className="space-y-5">
                 <div className="text-center">
                   <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                     <span className="text-3xl">🤲</span>
                   </div>
                   <h2 className="text-2xl font-bold text-foreground">Which prayers do you walk to?</h2>
                   <p className="text-muted-foreground mt-2 text-sm">
-                    Select the prayers you typically walk to the mosque for. You can change this later.
+                    Select prayers you typically walk to the mosque for. You can change this later.
                   </p>
                 </div>
 
-                <div className="space-y-2">
-                  {ALL_PRAYERS.map((prayer) => {
-                    const isSelected = selectedPrayers.includes(prayer);
-                    return (
-                      <button
-                        key={prayer}
-                        onClick={() => togglePrayer(prayer)}
-                        className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${
-                          isSelected
-                            ? "border-primary bg-primary/5 shadow-sm"
-                            : "border-border hover:border-primary/40"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            isSelected ? "bg-gradient-teal" : "bg-muted"
-                          }`}>
-                            {isSelected ? (
-                              <Check className="w-4 h-4 text-primary-foreground" />
-                            ) : (
-                              <span className="text-sm text-muted-foreground">🕌</span>
-                            )}
+                {/* Ramadan Mode toggle */}
+                <button
+                  onClick={() => setRamadanMode((v) => !v)}
+                  className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
+                    ramadanMode
+                      ? "border-gold/60 bg-gold/5 shadow-sm"
+                      : "border-border hover:border-gold/30"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center ${
+                      ramadanMode ? "bg-gold/20" : "bg-muted"
+                    }`}>
+                      <Moon className={`w-5 h-5 ${ramadanMode ? "text-gold" : "text-muted-foreground"}`} />
+                    </div>
+                    <div className="text-left">
+                      <p className={`font-semibold text-sm ${ramadanMode ? "text-foreground" : "text-muted-foreground"}`}>
+                        Ramadan Mode 🌙
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">Enables Taraweeh tracking & Ramadan badges</p>
+                    </div>
+                  </div>
+                  <div className={`w-10 h-6 rounded-full transition-colors relative ${ramadanMode ? "bg-gold" : "bg-muted"}`}>
+                    <div className={`w-4 h-4 rounded-full bg-background absolute top-1 transition-all ${ramadanMode ? "left-5" : "left-1"}`} />
+                  </div>
+                </button>
+
+                {/* Fard prayers */}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Fard (Obligatory)</p>
+                  <div className="space-y-2">
+                    {ALL_PRAYERS.map((prayer) => {
+                      const isSelected = selectedPrayers.includes(prayer);
+                      const prayerIcons: Record<string, string> = {
+                        Fajr: "🌅", Dhuhr: "☀️", Asr: "🌤️", Maghrib: "🌅", Isha: "🌙"
+                      };
+                      return (
+                        <button
+                          key={prayer}
+                          onClick={() => togglePrayer(prayer)}
+                          className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${
+                            isSelected
+                              ? "border-primary bg-primary/5 shadow-sm"
+                              : "border-border hover:border-primary/40"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-base ${
+                              isSelected ? "bg-gradient-teal" : "bg-muted"
+                            }`}>
+                              {isSelected ? <Check className="w-4 h-4 text-primary-foreground" /> : prayerIcons[prayer]}
+                            </div>
+                            <span className={`font-medium text-sm ${isSelected ? "text-foreground" : "text-muted-foreground"}`}>
+                              {prayer}
+                            </span>
                           </div>
-                          <span className={`font-medium ${isSelected ? "text-foreground" : "text-muted-foreground"}`}>
-                            {prayer}
-                          </span>
-                        </div>
-                        {prayer === "Fajr" && (
-                          <span className="text-[10px] text-gold font-medium bg-gold/10 px-2 py-0.5 rounded-full">Extra reward</span>
-                        )}
-                        {prayer === "Isha" && (
-                          <span className="text-[10px] text-gold font-medium bg-gold/10 px-2 py-0.5 rounded-full">Extra reward</span>
-                        )}
-                      </button>
-                    );
-                  })}
+                          {(prayer === "Fajr" || prayer === "Isha") && (
+                            <span className="text-[10px] text-gold font-medium bg-gold/10 px-2 py-0.5 rounded-full">
+                              ✨ Full light promised
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                <p className="text-xs text-muted-foreground text-center italic">
-                  Walking to Fajr and Isha in darkness earns "complete light on the Day of Resurrection" — Abu Dawud 561
+                {/* Optional / Voluntary prayers */}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Voluntary (Sunnah / Nafl)</p>
+                  <div className="space-y-2">
+                    {OPTIONAL_PRAYERS.filter((p) => !p.ramadanOnly || ramadanMode).map((prayer) => {
+                      const isSelected = selectedOptionalPrayers.includes(prayer.id);
+                      return (
+                        <button
+                          key={prayer.id}
+                          onClick={() =>
+                            setSelectedOptionalPrayers((prev) =>
+                              prev.includes(prayer.id) ? prev.filter((x) => x !== prayer.id) : [...prev, prayer.id]
+                            )
+                          }
+                          className={`w-full flex items-start gap-3 p-3 rounded-xl border transition-all text-left ${
+                            isSelected
+                              ? "border-gold/60 bg-gold/5 shadow-sm"
+                              : "border-border hover:border-gold/30"
+                          }`}
+                        >
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-base shrink-0 mt-0.5 ${
+                            isSelected ? "bg-gold/20" : "bg-muted"
+                          }`}>
+                            {isSelected ? <Star className="w-4 h-4 text-gold" /> : <span>{prayer.icon}</span>}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`font-medium text-sm ${isSelected ? "text-foreground" : "text-muted-foreground"}`}>
+                                {prayer.label}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground font-arabic">{prayer.arabic}</span>
+                              {prayer.ramadanOnly && (
+                                <span className="text-[10px] text-gold bg-gold/10 px-1.5 py-0.5 rounded-full">Ramadan</span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{prayer.description}</p>
+                            {isSelected && (
+                              <p className="text-[10px] text-primary/80 mt-1 italic leading-snug">"{prayer.hadith}"</p>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <p className="text-xs text-muted-foreground text-center italic px-2">
+                  "Walking to Fajr and Isha in darkness earns complete light on the Day of Resurrection" — Abu Dawud 561
                 </p>
 
                 <Button variant="hero" onClick={next} className="w-full">
