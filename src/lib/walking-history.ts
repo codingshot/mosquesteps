@@ -165,13 +165,55 @@ export function getSavedMosques(): SavedMosque[] {
   }
 }
 
+/** Haversine distance in km between two lat/lng points. */
+export function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/**
+ * Recalculate distanceKm for all saved mosques using the home address coords.
+ * Also updates selectedMosqueDistance in settings for the primary mosque.
+ * Call this whenever home address changes.
+ */
+export function recomputeMosqueDistancesFromHome(): void {
+  const s = getSettings();
+  const homeLat = s.homeLat;
+  const homeLng = s.homeLng;
+  if (!homeLat || !homeLng || !Number.isFinite(homeLat) || !Number.isFinite(homeLng)) return;
+
+  const mosques = getSavedMosques().map((m) => {
+    if (!Number.isFinite(m.lat) || !Number.isFinite(m.lng)) return m;
+    return { ...m, distanceKm: Math.max(0.01, haversineKm(homeLat, homeLng, m.lat, m.lng)) };
+  });
+  localStorage.setItem(MOSQUES_KEY, JSON.stringify(mosques));
+
+  // Update settings for primary mosque
+  const primary = mosques.find((m) => m.isPrimary);
+  if (primary) {
+    saveSettings({ selectedMosqueDistance: primary.distanceKm });
+  }
+}
+
 export function saveMosque(mosque: SavedMosque) {
   const mosques = getSavedMosques();
   const existing = mosques.findIndex((m) => m.id === mosque.id);
+  // If home address exists, recalculate distanceKm from home
+  const s = getSettings();
+  let entry = mosque;
+  if (s.homeLat && s.homeLng && Number.isFinite(s.homeLat) && Number.isFinite(s.homeLng) &&
+      Number.isFinite(mosque.lat) && Number.isFinite(mosque.lng)) {
+    entry = { ...mosque, distanceKm: Math.max(0.01, haversineKm(s.homeLat, s.homeLng, mosque.lat, mosque.lng)) };
+  }
   if (existing >= 0) {
-    mosques[existing] = mosque;
+    mosques[existing] = entry;
   } else {
-    mosques.push(mosque);
+    mosques.push(entry);
   }
   localStorage.setItem(MOSQUES_KEY, JSON.stringify(mosques));
 }

@@ -94,14 +94,16 @@ const Dashboard = () => {
     return stop;
   }, []);
 
-  // Fetch real walking route to mosque for accurate distance/time on dashboard
+  // Fetch real walking route to mosque — only from home address (not city/GPS fallback)
   useEffect(() => {
     const s = getSettings();
-    const fromLat = s.homeLat || s.cityLat;
-    const fromLng = s.homeLng || s.cityLng;
+    const fromLat = s.homeLat;
+    const fromLng = s.homeLng;
     const toLat = s.selectedMosqueLat;
     const toLng = s.selectedMosqueLng;
-    if (!fromLat || !fromLng || !toLat || !toLng) return;
+    // Only compute if home address is properly set
+    if (!fromLat || !fromLng || !Number.isFinite(fromLat) || !Number.isFinite(fromLng)) return;
+    if (!toLat || !toLng || !Number.isFinite(toLat) || !Number.isFinite(toLng)) return;
     if (Math.abs(fromLat - toLat) < 1e-5 && Math.abs(fromLng - toLng) < 1e-5) return;
     setMosqueRouteLoading(true);
     import("@/lib/routing").then(({ fetchWalkingRoute }) => {
@@ -764,7 +766,7 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* Mosque info — enhanced with live route distance/steps */}
+        {/* Mosque info — distance calculated from home address */}
         <div className="glass-card p-4">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2 min-w-0">
@@ -775,35 +777,54 @@ const Dashboard = () => {
           </div>
 
           {/* Distance / time / steps row */}
-          <div className="flex items-center gap-3 flex-wrap">
-            {mosqueRouteLoading ? (
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <div className="w-3 h-3 border border-primary border-t-transparent rounded-full animate-spin" />
-                Getting walking route…
-              </span>
-            ) : mosqueRoute ? (
-              <>
-                <span className="flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                  <Route className="w-3 h-3" />
-                  {mosqueRoute.distanceKm.toFixed(2)} km
+          {!settings.homeLat || !settings.homeLng ? (
+            /* No home address — grey out with CTA */
+            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50 border border-border/60">
+              <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground">
+                  Distance calculated from your home address
+                </p>
+                <p className="text-[11px] text-muted-foreground/70">Set your home address to see walking distance &amp; route</p>
+              </div>
+              <Link
+                to="/settings"
+                className="text-[11px] font-semibold text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-md shrink-0 transition-colors"
+              >
+                Set address
+              </Link>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 flex-wrap">
+              {mosqueRouteLoading ? (
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <div className="w-3 h-3 border border-primary border-t-transparent rounded-full animate-spin" />
+                  Getting walking route…
                 </span>
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Clock className="w-3 h-3" />
-                  ~{mosqueRoute.durationMin} min walk
-                </span>
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Footprints className="w-3 h-3" />
-                  ~{estimateSteps(mosqueRoute.distanceKm).toLocaleString()} steps
-                </span>
-              </>
-            ) : (
-              <>
-                <span className="text-xs text-muted-foreground">{mosqueDistance.toFixed(1)} km straight-line</span>
-                <span className="text-xs text-muted-foreground">·</span>
-                <span className="text-xs text-muted-foreground">{walkMin} min · {estimateSteps(mosqueDistance).toLocaleString()} steps</span>
-              </>
-            )}
-          </div>
+              ) : mosqueRoute ? (
+                <>
+                  <span className="flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                    <Route className="w-3 h-3" />
+                    {mosqueRoute.distanceKm.toFixed(2)} km
+                  </span>
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Clock className="w-3 h-3" />
+                    ~{mosqueRoute.durationMin} min walk
+                  </span>
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Footprints className="w-3 h-3" />
+                    ~{estimateSteps(mosqueRoute.distanceKm).toLocaleString()} steps
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="text-xs text-muted-foreground">{mosqueDistance.toFixed(1)} km from home</span>
+                  <span className="text-xs text-muted-foreground">·</span>
+                  <span className="text-xs text-muted-foreground">{walkMin} min · {estimateSteps(mosqueDistance).toLocaleString()} steps</span>
+                </>
+              )}
+            </div>
+          )}
 
           {/* View route link */}
           {settings.selectedMosqueLat && settings.selectedMosqueLng && (
