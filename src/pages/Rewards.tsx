@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import SEOHead from "@/components/SEOHead";
-import { ArrowLeft, Star, Footprints, BookOpen, Trophy, Lock } from "lucide-react";
-import { motion } from "framer-motion";
-import { getWalkingStats } from "@/lib/walking-history";
-import { getBadges, type BadgeProgress } from "@/lib/badges";
+import { Star, Footprints, BookOpen, Trophy, Lock, Filter } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { getWalkHistory, getWalkingStats } from "@/lib/walking-history";
+import { getBadges, type BadgeProgress, BADGE_CATEGORIES } from "@/lib/badges";
 import HadithTooltip, { VERIFIED_HADITHS } from "@/components/HadithTooltip";
 import logo from "@/assets/logo.png";
 
@@ -12,10 +12,23 @@ const hadithKeys = ["muslim_666", "abudawud_561", "bukhari_636", "muslim_662", "
 
 const Rewards = () => {
   const stats = getWalkingStats();
+  const history = getWalkHistory();
   const allBadges = getBadges(stats);
   const earned = allBadges.filter((b) => b.badge.earned);
   const inProgress = allBadges.filter((b) => !b.badge.earned);
   const [activeTab, setActiveTab] = useState<"badges" | "hadiths">("badges");
+  const [filterCategory, setFilterCategory] = useState<string>("all");
+
+  // Ramadan / Friday stats from history
+  const ramadanWalks = stats.ramadanWalks || 0;
+  const fridayWalks = stats.fridayWalks || 0;
+  const fajrWalks = stats.walksByPrayer?.Fajr || 0;
+  const ishaWalks = stats.walksByPrayer?.Isha || 0;
+
+  const categories = ["all", ...Object.keys(BADGE_CATEGORIES)];
+
+  const filteredEarned = earned.filter(b => filterCategory === "all" || b.badge.category === filterCategory);
+  const filteredInProgress = inProgress.filter(b => filterCategory === "all" || b.badge.category === filterCategory);
 
   return (
     <div className="min-h-screen bg-background pb-bottom-nav">
@@ -37,9 +50,11 @@ const Rewards = () => {
               Each step toward the mosque earns you immense spiritual rewards — one step erases a sin, another raises you a degree.
             </HadithTooltip>
           </p>
-          <div className="flex justify-center gap-6 mt-3 text-sm text-foreground/80">
+          <div className="flex justify-center gap-4 mt-3 text-sm text-foreground/80 flex-wrap">
             <span><Trophy className="w-4 h-4 inline mr-1" />{earned.length}/{allBadges.length} badges</span>
             <span><Star className="w-4 h-4 inline mr-1" />{stats.totalHasanat.toLocaleString()} hasanat</span>
+            {ramadanWalks > 0 && <span>🌙 {ramadanWalks} Ramadan walks</span>}
+            {fridayWalks > 0 && <span>🕌 {fridayWalks} Fridays</span>}
           </div>
         </div>
       </header>
@@ -74,7 +89,7 @@ const Rewards = () => {
         </div>
 
         {activeTab === "badges" && (
-          <div id="rewards-badges-panel" role="tabpanel" aria-labelledby="rewards-tab-badges" className="space-y-6">
+          <div id="rewards-badges-panel" role="tabpanel" aria-labelledby="rewards-tab-badges" className="space-y-5">
             {/* Reward calculation */}
             <div className="glass-card p-5">
               <h2 className="font-semibold text-foreground mb-3 flex items-center gap-2">
@@ -88,25 +103,83 @@ const Rewards = () => {
               </div>
             </div>
 
-            {/* Earned badges */}
-            {earned.length > 0 && (
-              <>
-                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
-                  Earned ({earned.length})
+            {/* Special walk stats */}
+            {(ramadanWalks > 0 || fajrWalks > 0 || ishaWalks > 0 || fridayWalks > 0) && (
+              <div className="glass-card p-4">
+                <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                  <Star className="w-4 h-4 text-gold" /> Special Walks
                 </h3>
                 <div className="grid grid-cols-2 gap-3">
-                  {earned.map((bp, i) => (
+                  {ramadanWalks > 0 && (
+                    <div className="bg-primary/5 rounded-lg p-3 text-center">
+                      <p className="text-2xl font-bold text-foreground">{ramadanWalks}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">🌙 Ramadan walks</p>
+                    </div>
+                  )}
+                  {fridayWalks > 0 && (
+                    <div className="bg-primary/5 rounded-lg p-3 text-center">
+                      <p className="text-2xl font-bold text-foreground">{fridayWalks}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">🕌 Friday walks</p>
+                    </div>
+                  )}
+                  {fajrWalks > 0 && (
+                    <div className="bg-primary/5 rounded-lg p-3 text-center">
+                      <p className="text-2xl font-bold text-foreground">{fajrWalks}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">🌅 Fajr walks</p>
+                    </div>
+                  )}
+                  {ishaWalks > 0 && (
+                    <div className="bg-primary/5 rounded-lg p-3 text-center">
+                      <p className="text-2xl font-bold text-foreground">{ishaWalks}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">🌃 Isha walks</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Category filter */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+              <Filter className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              {categories.map((cat) => {
+                const meta = BADGE_CATEGORIES[cat];
+                const label = cat === "all" ? "All" : meta?.label ?? cat;
+                const emoji = cat === "all" ? "🏅" : meta?.emoji ?? "";
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setFilterCategory(cat)}
+                    className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+                      filterCategory === cat
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    }`}
+                  >
+                    {emoji} {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Earned badges */}
+            {filteredEarned.length > 0 && (
+              <>
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                  Earned ({filteredEarned.length})
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  {filteredEarned.map((bp, i) => (
                     <motion.div
                       key={bp.badge.id}
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: i * 0.05 }}
+                      transition={{ delay: i * 0.04 }}
                       className="glass-card p-4 text-center ring-2 ring-gold/30"
                     >
                       <span className="text-3xl block mb-2">{bp.badge.icon}</span>
                       <p className="font-semibold text-foreground text-sm">{bp.badge.name}</p>
                       <p className="text-xs text-muted-foreground mt-1">{bp.badge.description}</p>
-                      <p className="text-[10px] text-gold mt-1">✓ Earned</p>
+                      <p className="text-[10px] text-gold mt-1.5">✓ Earned{bp.badge.earnedDate ? ` ${new Date(bp.badge.earnedDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}</p>
                     </motion.div>
                   ))}
                 </div>
@@ -114,13 +187,13 @@ const Rewards = () => {
             )}
 
             {/* In-progress badges */}
-            {inProgress.length > 0 && (
+            {filteredInProgress.length > 0 && (
               <>
-                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
-                  In Progress ({inProgress.length})
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide mt-2">
+                  In Progress ({filteredInProgress.length})
                 </h3>
                 <div className="space-y-2">
-                  {inProgress.map((bp) => (
+                  {filteredInProgress.map((bp) => (
                     <div key={bp.badge.id} className="glass-card p-4 flex items-center gap-3">
                       <span className="text-2xl opacity-40">{bp.badge.icon}</span>
                       <div className="flex-1 min-w-0">
@@ -132,12 +205,19 @@ const Rewards = () => {
                         <div className="mt-1.5 w-full bg-muted rounded-full h-1.5 overflow-hidden">
                           <div className="h-full bg-gradient-teal rounded-full transition-all duration-500" style={{ width: `${bp.percent}%` }} />
                         </div>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{bp.current.toLocaleString()} / {bp.target.toLocaleString()}</p>
                       </div>
                       <span className="text-xs text-muted-foreground flex-shrink-0">{Math.round(bp.percent)}%</span>
                     </div>
                   ))}
                 </div>
               </>
+            )}
+
+            {filteredEarned.length === 0 && filteredInProgress.length === 0 && (
+              <div className="glass-card p-8 text-center">
+                <p className="text-muted-foreground text-sm">No badges in this category yet.</p>
+              </div>
             )}
           </div>
         )}

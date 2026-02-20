@@ -1897,35 +1897,54 @@ const ActiveWalk = () => {
               </div>
             </motion.div>
 
-            {/* Newly earned badges */}
+            {/* Newly earned badges — prominent celebration */}
             {newBadges.length > 0 && (
               <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.8, type: "spring" }}
-                className="glass-card p-4 space-y-2"
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ delay: 0.75, type: "spring", stiffness: 200 }}
+                className="rounded-2xl border-2 border-gold/50 bg-gradient-to-br from-gold/15 to-gold/5 p-5 space-y-4"
               >
                 <div className="flex items-center gap-2 justify-center">
-                  <Trophy className="w-5 h-5 text-gold" />
-                  <p className="text-sm font-bold text-foreground">New Badge{newBadges.length > 1 ? "s" : ""} Earned!</p>
+                  <motion.span
+                    animate={{ rotate: [0, -15, 15, -10, 10, 0] }}
+                    transition={{ delay: 1, duration: 0.6 }}
+                    className="text-2xl"
+                  >
+                    🏆
+                  </motion.span>
+                  <p className="text-base font-black text-foreground">
+                    {newBadges.length > 1 ? `${newBadges.length} New Badges Unlocked!` : "New Badge Unlocked!"}
+                  </p>
                 </div>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {newBadges.map((badge) => (
+                <div className="space-y-3">
+                  {newBadges.map((badge, i) => (
                     <motion.div
                       key={badge.id}
-                      initial={{ scale: 0, rotate: -180 }}
-                      animate={{ scale: 1, rotate: 0 }}
-                      transition={{ type: "spring", stiffness: 300, damping: 15 }}
-                      className="flex items-center gap-2 bg-gold/10 rounded-full px-3 py-1.5"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.85 + i * 0.1, type: "spring" }}
+                      className="flex items-center gap-3 bg-card/80 backdrop-blur-sm rounded-xl px-4 py-3 ring-1 ring-gold/20"
                     >
-                      <span className="text-lg">{badge.icon}</span>
-                      <div className="text-left">
-                        <p className="text-xs font-bold text-foreground">{badge.name}</p>
-                        <p className="text-[10px] text-muted-foreground">{badge.description}</p>
+                      <motion.span
+                        initial={{ scale: 0, rotate: -180 }}
+                        animate={{ scale: 1, rotate: 0 }}
+                        transition={{ delay: 0.9 + i * 0.1, type: "spring", stiffness: 300, damping: 12 }}
+                        className="text-4xl flex-shrink-0"
+                      >
+                        {badge.icon}
+                      </motion.span>
+                      <div className="flex-1 text-left">
+                        <p className="font-bold text-foreground text-sm">{badge.name}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{badge.description}</p>
                       </div>
+                      <span className="text-[10px] text-gold font-bold bg-gold/10 rounded-full px-2 py-0.5">NEW</span>
                     </motion.div>
                   ))}
                 </div>
+                <Link to="/rewards" className="block text-center text-xs text-primary font-semibold hover:underline mt-1">
+                  View all your badges →
+                </Link>
               </motion.div>
             )}
 

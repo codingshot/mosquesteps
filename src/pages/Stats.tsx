@@ -934,6 +934,68 @@ const Stats = () => {
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <div className="mt-4 space-y-5">
+
+                  {/* Export buttons — prominently inside the report */}
+                  <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-2">
+                    <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                      <Download className="w-3.5 h-3.5 text-primary" /> Export Your Data
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">Download your full walking report to share, archive, or analyse.</p>
+                    <div className="flex gap-2 flex-wrap">
+                      <button
+                        onClick={() => handleExport("csv")}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-card border border-border text-xs font-medium text-foreground hover:bg-muted transition-colors"
+                      >
+                        <FileSpreadsheet className="w-3.5 h-3.5 text-primary" /> CSV
+                      </button>
+                      <button
+                        onClick={() => handleExport("json")}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-card border border-border text-xs font-medium text-foreground hover:bg-muted transition-colors"
+                      >
+                        <FileJson className="w-3.5 h-3.5 text-primary" /> JSON
+                      </button>
+                      <button
+                        onClick={() => handleExport("md")}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-card border border-border text-xs font-medium text-foreground hover:bg-muted transition-colors"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-primary" /> Markdown
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Special walk highlights */}
+                  {(stats.ramadanWalks > 0 || stats.fridayWalks > 0) && (
+                    <div>
+                      <p className="text-xs font-medium text-foreground mb-2">Special Walks</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {stats.ramadanWalks > 0 && (
+                          <div className="rounded-lg bg-primary/5 p-3 text-center">
+                            <p className="text-xl font-bold text-foreground">{stats.ramadanWalks}</p>
+                            <p className="text-[10px] text-muted-foreground">🌙 Ramadan walks</p>
+                          </div>
+                        )}
+                        {stats.fridayWalks > 0 && (
+                          <div className="rounded-lg bg-primary/5 p-3 text-center">
+                            <p className="text-xl font-bold text-foreground">{stats.fridayWalks}</p>
+                            <p className="text-[10px] text-muted-foreground">🕌 Friday walks</p>
+                          </div>
+                        )}
+                        {(stats.walksByPrayer?.Fajr || 0) > 0 && (
+                          <div className="rounded-lg bg-primary/5 p-3 text-center">
+                            <p className="text-xl font-bold text-foreground">{stats.walksByPrayer?.Fajr}</p>
+                            <p className="text-[10px] text-muted-foreground">🌅 Fajr walks</p>
+                          </div>
+                        )}
+                        {(stats.walksByPrayer?.Isha || 0) > 0 && (
+                          <div className="rounded-lg bg-primary/5 p-3 text-center">
+                            <p className="text-xl font-bold text-foreground">{stats.walksByPrayer?.Isha}</p>
+                            <p className="text-[10px] text-muted-foreground">🌃 Isha walks</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {/* By mosque */}
                   {mosqueRanking.length > 0 && (
                     <div>
@@ -975,11 +1037,6 @@ const Stats = () => {
                       </div>
                     </div>
                   )}
-
-                  {/* Export reminder */}
-                  <p className="text-[10px] text-muted-foreground">
-                    Export your full report as CSV, JSON, or Markdown using the Export button above.
-                  </p>
                 </div>
               </CollapsibleContent>
             </div>

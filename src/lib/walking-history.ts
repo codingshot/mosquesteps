@@ -27,6 +27,11 @@ export interface WalkingStats {
   currentStreak: number;
   longestStreak: number;
   walksByPrayer: Record<string, number>;
+  // Extended special tracking
+  ramadanWalks: number;
+  fridayWalks: number;
+  fajrThisWeek: number;
+  jumuahStreak: number;
 }
 
 const STORAGE_KEY = "mosquesteps_history";
@@ -277,6 +282,42 @@ export function getWalkingStats(): WalkingStats {
     longestStreak = Math.max(longestStreak, tempStreak, currentStreak);
   }
 
+  // Extended stats: Ramadan, Friday, Fajr-this-week, Jumuah streak
+  let ramadanWalks = 0;
+  let fridayWalks = 0;
+  let fajrThisWeek = 0;
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  const jumuahWeeks = new Set<string>();
+
+  for (const e of history) {
+    const d = new Date(e.date);
+    // Ramadan detection via Intl Hijri calendar
+    try {
+      const hijriMonth = parseInt(new Intl.DateTimeFormat("en-u-ca-islamic", { month: "numeric" }).format(d));
+      if (hijriMonth === 9) ramadanWalks++;
+    } catch { /* skip */ }
+    if (d.getDay() === 5) fridayWalks++;
+    if (e.prayer === "Fajr" && d >= weekAgo) fajrThisWeek++;
+    if (e.prayer === "Jumuah" && d.getDay() === 5) {
+      const ws = new Date(d);
+      ws.setDate(d.getDate() - d.getDay());
+      jumuahWeeks.add(`${ws.getFullYear()}-${String(ws.getMonth() + 1).padStart(2, "0")}-${String(ws.getDate()).padStart(2, "0")}`);
+    }
+  }
+
+  // Jumuah streak: consecutive weeks
+  const sortedJumuahWeeks = [...jumuahWeeks].sort().reverse();
+  let jumuahStreak = 0;
+  const nowWeekStart = new Date();
+  nowWeekStart.setDate(nowWeekStart.getDate() - nowWeekStart.getDay());
+  for (let i = 0; i < sortedJumuahWeeks.length; i++) {
+    const expW = new Date(nowWeekStart);
+    expW.setDate(nowWeekStart.getDate() - i * 7);
+    const expKey = `${expW.getFullYear()}-${String(expW.getMonth() + 1).padStart(2, "0")}-${String(expW.getDate()).padStart(2, "0")}`;
+    if (sortedJumuahWeeks[i] === expKey) { jumuahStreak++; } else { break; }
+  }
+
   return {
     totalSteps,
     totalDistance,
@@ -285,5 +326,9 @@ export function getWalkingStats(): WalkingStats {
     currentStreak,
     longestStreak,
     walksByPrayer,
+    ramadanWalks,
+    fridayWalks,
+    fajrThisWeek,
+    jumuahStreak,
   };
 }

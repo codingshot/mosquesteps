@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Footprints, Clock, Star, Flame, Trash2, Calendar, BarChart3 } from "lucide-react";
+import { ArrowLeft, Footprints, Clock, Star, Flame, Trash2, Calendar, BarChart3, Download, FileSpreadsheet, FileJson, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { getWalkHistory, getWalkingStats, deleteWalkEntry, getSettings, type WalkEntry } from "@/lib/walking-history";
+import { buildExportReport, exportAsJSON, exportAsCSV, exportAsMarkdown, downloadFile } from "@/lib/stats-export";
 import SEOHead from "@/components/SEOHead";
 import logo from "@/assets/logo.png";
 import {
@@ -37,6 +38,18 @@ const History = () => {
     deleteWalkEntry(id);
     setHistory(getWalkHistory());
     setStats(getWalkingStats());
+  };
+
+  const handleExport = (format: "csv" | "json" | "md") => {
+    const report = buildExportReport(history, stats);
+    const date = new Date().toISOString().slice(0, 10);
+    if (format === "csv") {
+      downloadFile(exportAsCSV(history, report), `mosquesteps-walks-${date}.csv`, "text/csv;charset=utf-8");
+    } else if (format === "json") {
+      downloadFile(exportAsJSON(report), `mosquesteps-report-${date}.json`, "application/json");
+    } else {
+      downloadFile(exportAsMarkdown(report, formatDist), `mosquesteps-report-${date}.md`, "text/markdown");
+    }
   };
 
   const formatDate = (dateStr: string) => {
@@ -88,13 +101,26 @@ const History = () => {
         noindex
       />
       <header className="bg-card border-b border-border">
-        <div className="container py-3 flex items-center gap-2">
+        <div className="container py-3 flex items-center justify-between gap-2">
           <Link to="/dashboard" className="flex items-center gap-2" aria-label="Go back to dashboard">
             <ArrowLeft className="w-5 h-5 text-foreground" />
             <span className="text-sm font-medium">Back</span>
             <img src={logo} alt="MosqueSteps" className="w-7 h-7" />
             <span className="font-bold text-foreground">Walking History</span>
           </Link>
+          {history.length > 0 && (
+            <div className="flex items-center gap-1">
+              <button onClick={() => handleExport("csv")} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-muted transition-colors" title="Export as CSV">
+                <FileSpreadsheet className="w-3.5 h-3.5" /> CSV
+              </button>
+              <button onClick={() => handleExport("json")} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-muted transition-colors" title="Export as JSON">
+                <FileJson className="w-3.5 h-3.5" /> JSON
+              </button>
+              <button onClick={() => handleExport("md")} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-muted transition-colors" title="Export as Markdown">
+                <FileText className="w-3.5 h-3.5" /> MD
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
