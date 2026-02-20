@@ -19,7 +19,7 @@ import {
 import { getSettings, saveSettings, getWalkingStats, getWalkHistory, getSavedMosques, fetchTimezone, type WalkEntry } from "@/lib/walking-history";
 import { formatTime as formatTimeStr, formatMinutes } from "@/lib/regional-defaults";
 import { getRegionalDefaults } from "@/lib/regional-defaults";
-import { requestNotificationPermission, isNotificationSupported, getNotificationPermission, schedulePrayerReminder, checkAndSendWeeklyInsight, startReminderPolling, clearScheduledReminders } from "@/lib/notifications";
+import { requestNotificationPermission, isNotificationSupported, getNotificationPermission, schedulePrayerReminder, schedulePrayerTimeReminder, checkAndSendWeeklyInsight, startReminderPolling, clearScheduledReminders } from "@/lib/notifications";
 import { getUnreadCount, getNotificationSettings } from "@/lib/notification-store";
 import { getStepRecommendation } from "@/lib/health-recommendations";
 import { getOnboardingDate } from "./Onboarding";
@@ -329,10 +329,19 @@ const Dashboard = () => {
 
       if (getNotificationPermission() === "granted" && getNotificationSettings().prayerReminders) {
         clearScheduledReminders();
+        const s2 = getSettings();
+        const leaveByEnabled = s2.notifyLeaveByEnabled !== false;
+        const prayerTimeEnabled = s2.notifyPrayerTimeEnabled !== false;
+        const minBeforePrayer = s2.notifyMinutesBeforePrayer ?? 10;
         data.prayers.forEach((p) => {
           if (prayerPrefs.includes(p.name) && !p.isPast) {
-            const leaveBy = calculateLeaveByTime(p.time, walkMin);
-            schedulePrayerReminder(p.name, leaveBy, notifyMinBefore);
+            if (leaveByEnabled) {
+              const leaveBy = calculateLeaveByTime(p.time, walkMin);
+              schedulePrayerReminder(p.name, leaveBy, notifyMinBefore);
+            }
+            if (prayerTimeEnabled) {
+              schedulePrayerTimeReminder(p.name, p.time, minBeforePrayer);
+            }
           }
         });
       }
@@ -361,12 +370,21 @@ const Dashboard = () => {
     }
     const granted = await requestNotificationPermission();
     if (granted) {
-      toast({ title: "Notifications enabled! 🔔", description: `You'll be reminded ${notifyMinBefore} min before leave time.` });
+      toast({ title: "Notifications enabled! 🔔", description: `Departure & prayer-time reminders scheduled.` });
       clearScheduledReminders();
+      const s2 = getSettings();
+      const leaveByEnabled = s2.notifyLeaveByEnabled !== false;
+      const prayerTimeEnabled = s2.notifyPrayerTimeEnabled !== false;
+      const minBeforePrayer = s2.notifyMinutesBeforePrayer ?? 10;
       prayers.forEach((p) => {
         if (prayerPrefs.includes(p.name) && !p.isPast) {
-          const leaveBy = calculateLeaveByTime(p.time, walkMin);
-          schedulePrayerReminder(p.name, leaveBy, notifyMinBefore);
+          if (leaveByEnabled) {
+            const leaveBy = calculateLeaveByTime(p.time, walkMin);
+            schedulePrayerReminder(p.name, leaveBy, notifyMinBefore);
+          }
+          if (prayerTimeEnabled) {
+            schedulePrayerTimeReminder(p.name, p.time, minBeforePrayer);
+          }
         }
       });
     } else {

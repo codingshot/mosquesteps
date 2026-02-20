@@ -13,6 +13,7 @@ let reminderPollIntervalId: ReturnType<typeof setInterval> | null = null;
 export interface ScheduledReminder {
   prayerName: string;
   reminderAt: number; // Unix ms
+  kind: "leave_by" | "prayer_time"; // type of reminder
 }
 
 function getStoredReminders(): ScheduledReminder[] {
@@ -86,9 +87,8 @@ export function sendNotification(title: string, body: string, icon?: string): vo
 }
 
 /**
- * Schedule a prayer departure reminder. Stored in localStorage and fired by the
- * reminder poll when due (so it works after tab refresh / return to app).
- * Handles next-day Fajr (reminder time in the past => add one day).
+ * Schedule a prayer departure reminder ("leave now" alert).
+ * Fires `minutesBefore` minutes before the leave-by time.
  */
 export function schedulePrayerReminder(
   prayerName: string,
@@ -104,15 +104,37 @@ export function schedulePrayerReminder(
   }
   const reminderAt = reminderTime.getTime();
   const list = getStoredReminders();
-  if (list.some((r) => r.prayerName === prayerName && r.reminderAt === reminderAt)) return;
-  list.push({ prayerName, reminderAt });
+  if (list.some((r) => r.prayerName === prayerName && Math.abs(r.reminderAt - reminderAt) < 60_000 && r.kind === "leave_by")) return;
+  list.push({ prayerName, reminderAt, kind: "leave_by" });
+  list.sort((a, b) => a.reminderAt - b.reminderAt);
+  setStoredReminders(list);
+}
+
+/**
+ * Schedule a prayer-time reminder (fires before the prayer starts, not before departure).
+ */
+export function schedulePrayerTimeReminder(
+  prayerName: string,
+  prayerTime: string, // "HH:MM" 24h
+  minutesBefore: number = 10
+): void {
+  const [h, m] = prayerTime.split(":").map(Number);
+  const now = new Date();
+  const reminderTime = new Date(now);
+  reminderTime.setHours(h, m - minutesBefore, 0, 0);
+  if (reminderTime.getTime() <= now.getTime()) {
+    reminderTime.setDate(reminderTime.getDate() + 1);
+  }
+  const reminderAt = reminderTime.getTime();
+  const list = getStoredReminders();
+  if (list.some((r) => r.prayerName === prayerName && Math.abs(r.reminderAt - reminderAt) < 60_000 && r.kind === "prayer_time")) return;
+  list.push({ prayerName, reminderAt, kind: "prayer_time" });
   list.sort((a, b) => a.reminderAt - b.reminderAt);
   setStoredReminders(list);
 }
 
 /**
  * Poll scheduled reminders and send browser notifications when due.
- * Call once when the app (e.g. Dashboard) mounts; cleanup on unmount.
  */
 export function startReminderPolling(): () => void {
   if (reminderPollIntervalId) return () => {};
@@ -123,19 +145,22 @@ export function startReminderPolling(): () => void {
     const toRemove: number[] = [];
     list.forEach((r, i) => {
       if (r.reminderAt <= now) {
-        const title = `Time to leave for ${r.prayerName} 🕌`;
-        const body = "Leave now to arrive on time. Walk with tranquility and dignity.";
+        let title: string;
+        let body: string;
+        if (r.kind === "prayer_time") {
+          title = `${r.prayerName} prayer starting soon 🕌`;
+          body = `${r.prayerName} begins in a few minutes. Make your intention and prepare.`;
+        } else {
+          title = `Time to leave for ${r.prayerName} 🕌`;
+          body = "Leave now to arrive on time. Walk with tranquility and dignity.";
+        }
         sendNotification(title, body);
-        // Also log to in-app notification store
-        try {
-          addNotification("prayer_reminder", title, body);
-        } catch { /* non-fatal */ }
+        try { addNotification("prayer_reminder", title, body); } catch { /* non-fatal */ }
         toRemove.push(i);
       }
     });
     if (toRemove.length) {
-      const next = list.filter((_, i) => !toRemove.includes(i));
-      setStoredReminders(next);
+      setStoredReminders(list.filter((_, i) => !toRemove.includes(i)));
     }
   }, REMINDER_POLL_INTERVAL_MS);
   return () => {

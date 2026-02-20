@@ -75,7 +75,14 @@ export interface UserSettings {
   ramadanMode?: boolean; // enables Taraweeh tracking and Ramadan-specific features
   prayerCalculationMethod?: string; // key from PRAYER_CALCULATION_METHODS e.g. "ISNA", "MWL"
   prayerMosques?: Record<string, string>; // prayer name -> mosque id
-  notifyMinutesBefore?: number; // minutes before "leave by" time to notify
+  /** Minutes before "Leave by" time to fire a departure reminder. Default 5. */
+  notifyMinutesBefore?: number;
+  /** Enable departure ("leave by") reminders. Default true. */
+  notifyLeaveByEnabled?: boolean;
+  /** Enable prayer-time reminders (X min before prayer starts). Default true. */
+  notifyPrayerTimeEnabled?: boolean;
+  /** Minutes before prayer start time to fire a prayer-time reminder. Default 10. */
+  notifyMinutesBeforePrayer?: number;
   age?: number;
   gender?: "male" | "female" | "";
   /** Optional body weight in kg for calorie estimates and future gait metrics. */
