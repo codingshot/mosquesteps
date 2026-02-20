@@ -6,7 +6,7 @@ import { getBlogBySlug, getRelatedPosts, BlogPost as BlogPostType } from "@/lib/
 import SEOHead from "@/components/SEOHead";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import logo from "@/assets/logo.png?w=256&format=webp";
+import logo from "@/assets/logo.png";
 
 const SITE_URL = "https://mosquesteps.com";
 

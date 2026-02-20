@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, FileText, BookOpen, Code, RefreshCw, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import SEOHead from "@/components/SEOHead";
-import logo from "@/assets/logo.png?w=256&format=webp";
+import logo from "@/assets/logo.png";
 
 const GITHUB = "https://github.com/codingshot/mosquesteps";
 const blob = (path: string) => `${GITHUB}/blob/main/${path}`;

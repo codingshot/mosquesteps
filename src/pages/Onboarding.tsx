@@ -10,7 +10,7 @@ import { requestNotificationPermission, isNotificationSupported } from "@/lib/no
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import SEOHead from "@/components/SEOHead";
-import logo from "@/assets/logo.png?w=256&format=webp";
+import logo from "@/assets/logo.png";
 
 const ONBOARDING_KEY = "mosquesteps_onboarded";
 const ONBOARDING_DATE_KEY = "mosquesteps_onboarded_date";

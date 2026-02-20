@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import logo from "@/assets/logo.png?w=256&format=webp";
+import logo from "@/assets/logo.png";
 
 const GITHUB_REPO = "https://github.com/codingshot/mosquesteps";
 

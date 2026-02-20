@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import HadithTooltip from "@/components/HadithTooltip";
-import heroImage from "@/assets/hero-image.jpg?w=1200&format=webp";
+import heroImage from "@/assets/hero-image.jpg";
 
 const Hero = () => {
   return (
@@ -14,7 +14,7 @@ const Hero = () => {
           alt="Walking toward a mosque at sunrise"
           className="w-full h-full object-cover opacity-20"
           loading="eager"
-          fetchpriority="high"
+          fetchPriority="high"
           decoding="async"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/40 to-background" />
