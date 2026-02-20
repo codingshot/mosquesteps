@@ -107,6 +107,9 @@ const Onboarding = () => {
   const [selectedOptionalPrayers, setSelectedOptionalPrayers] = useState<string[]>([]);
   const [ramadanMode, setRamadanMode] = useState(false);
   const [homeSearch, setHomeSearch] = useState("");
+  const [homeSuggestions, setHomeSuggestions] = useState<LocationSuggestion[]>([]);
+  const [showHomeSuggestions, setShowHomeSuggestions] = useState(false);
+  const homeSearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // --- OnboardingMosqueStep extracted inline to avoid build errors ---
   const OnboardingMosqueStep = ({ settings: s, setSettingsState: setSS, toast: t, next: n, skip: sk }: {
@@ -579,21 +582,54 @@ const Onboarding = () => {
     }
   };
 
+  // Reference point for home address bias: GPS > saved coords > IP (filled in useEffect)
+  const homeRefLat = settings.homeLat || settings.cityLat;
+  const homeRefLng = settings.homeLng || settings.cityLng;
+
+  const handleHomeInputChange = (value: string) => {
+    setHomeSearch(value);
+    if (homeSearchTimeoutRef.current) clearTimeout(homeSearchTimeoutRef.current);
+    if (value.trim().length < 2) {
+      setHomeSuggestions([]);
+      setShowHomeSuggestions(false);
+      return;
+    }
+    homeSearchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const list = await fetchLocationSuggestions(value, 6, homeRefLat ?? undefined, homeRefLng ?? undefined);
+        setHomeSuggestions(list);
+        setShowHomeSuggestions(list.length > 0);
+      } catch {
+        setHomeSuggestions([]);
+      }
+    }, 300);
+  };
+
+  const selectHomeSuggestion = (s: LocationSuggestion) => {
+    setHomeSearch(s.displayName.split(",").slice(0, 3).join(","));
+    setShowHomeSuggestions(false);
+    setHomeSuggestions([]);
+    setSettingsState((prev) => ({
+      ...prev,
+      homeAddress: s.displayName.split(",").slice(0, 3).join(","),
+      homeLat: s.lat,
+      homeLng: s.lng,
+    }));
+    toast({ title: "Home address set!", description: s.displayName.split(",").slice(0, 2).join(",") });
+  };
+
   const handleHomeSearch = async () => {
     if (!homeSearch.trim()) return;
+    if (homeSuggestions.length > 0) {
+      selectHomeSuggestion(homeSuggestions[0]);
+      return;
+    }
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(homeSearch)}&format=json&limit=1`
-      );
-      const data = await res.json();
-      if (data.length > 0) {
-        setSettingsState((s) => ({
-          ...s,
-          homeAddress: data[0].display_name?.split(",").slice(0, 3).join(",") || homeSearch,
-          homeLat: parseFloat(data[0].lat),
-          homeLng: parseFloat(data[0].lon),
-        }));
-        toast({ title: "Home address set!" });
+      const list = await fetchLocationSuggestions(homeSearch, 1, homeRefLat ?? undefined, homeRefLng ?? undefined);
+      if (list.length > 0) {
+        selectHomeSuggestion(list[0]);
+      } else {
+        toast({ title: "No results", description: "Try a more specific address.", variant: "destructive" });
       }
     } catch {
       toast({ title: "Search failed", variant: "destructive" });
@@ -736,16 +772,50 @@ const Onboarding = () => {
                       </p>
                     </div>
                   )}
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Search home address..."
-                      value={homeSearch}
-                      onChange={(e) => setHomeSearch(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleHomeSearch()}
-                      className="flex-1 px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                    />
-                    <Button size="sm" onClick={handleHomeSearch}>Set</Button>
+                  <div className="relative">
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Home className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                        <input
+                          type="text"
+                          placeholder={homeRefLat ? "Search your street address…" : "Search home address…"}
+                          value={homeSearch}
+                          onChange={(e) => handleHomeInputChange(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleHomeSearch()}
+                          onFocus={() => homeSuggestions.length > 0 && setShowHomeSuggestions(true)}
+                          onBlur={() => setTimeout(() => setShowHomeSuggestions(false), 180)}
+                          className="w-full pl-9 pr-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                          autoComplete="off"
+                        />
+                        {/* Type-ahead dropdown */}
+                        {showHomeSuggestions && homeSuggestions.length > 0 && (
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-xl z-50 overflow-hidden max-h-52 overflow-y-auto">
+                            {homeSuggestions.map((s, i) => (
+                              <button
+                                key={i}
+                                type="button"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => selectHomeSuggestion(s)}
+                                className="w-full text-left px-3 py-2.5 text-sm text-foreground hover:bg-muted flex items-start gap-2.5 border-b border-border/50 last:border-b-0"
+                              >
+                                <MapPin className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" aria-hidden />
+                                <div className="min-w-0">
+                                  <p className="font-medium truncate text-sm leading-tight">{s.shortName || s.displayName.split(",")[0]}</p>
+                                  <p className="text-[10px] text-muted-foreground truncate leading-tight mt-0.5">{s.displayName}</p>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <Button size="sm" onClick={handleHomeSearch}>Set</Button>
+                    </div>
+                    {homeRefLat && (
+                      <p className="text-[10px] text-muted-foreground mt-1.5 flex items-center gap-1">
+                        <MapPin className="w-3 h-3 text-primary shrink-0" />
+                        Results biased near {settings.cityName || "your detected location"}
+                      </p>
+                    )}
                   </div>
                 </div>
 

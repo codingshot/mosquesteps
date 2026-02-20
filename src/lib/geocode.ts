@@ -15,28 +15,38 @@ export interface LocationSuggestion {
 
 /**
  * Fetch address/place suggestions for type-ahead. Use with debounced input (e.g. 300ms).
- * Min 2 characters recommended to avoid too many generic results.
+ * Min 2 characters recommended. Pass `nearLat/nearLng` to bias results toward a location.
  */
 export async function fetchLocationSuggestions(
   query: string,
-  limit = 8
+  limit = 8,
+  nearLat?: number,
+  nearLng?: number,
 ): Promise<LocationSuggestion[]> {
   const q = query.trim();
   if (q.length < 2) return [];
 
-  const params = new URLSearchParams({
+  const params: Record<string, string> = {
     q,
     format: "json",
     limit: String(limit),
     addressdetails: "1",
-  });
+  };
+
+  // Bias results toward a reference point using a ~50km viewbox
+  if (nearLat != null && nearLng != null && Number.isFinite(nearLat) && Number.isFinite(nearLng)) {
+    const delta = 0.45; // ~50 km
+    params.viewbox = `${nearLng - delta},${nearLat + delta},${nearLng + delta},${nearLat - delta}`;
+    params.bounded = "0"; // soft-bias: fall back outside viewbox if no results inside
+  }
+
   const fetchOpts: RequestInit = {
     headers: { Accept: "application/json", "Accept-Language": "en" },
   };
   if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
     fetchOpts.signal = AbortSignal.timeout(8000);
   }
-  const res = await fetch(`${NOMINATIM_SEARCH}?${params}`, fetchOpts);
+  const res = await fetch(`${NOMINATIM_SEARCH}?${new URLSearchParams(params)}`, fetchOpts);
   if (!res.ok) return [];
   let data: Array<{ lat: string; lon: string; display_name: string; address?: Record<string, string> }>;
   try {
@@ -51,7 +61,10 @@ export async function fetchLocationSuggestions(
       const lng = parseFloat(d.lon);
       return {
         displayName: d.display_name,
-        shortName: (d.address?.city || d.address?.town || d.address?.village || d.display_name.split(",")[0] || d.display_name).trim(),
+        shortName: (d.address?.house_number
+          ? `${d.address.house_number} ${d.address.road || d.address.street || ""}`.trim()
+          : d.address?.road || d.address?.city || d.address?.town || d.address?.village || d.display_name.split(",")[0] || d.display_name
+        ).trim(),
         lat,
         lng,
       };
