@@ -693,36 +693,98 @@ const Settings = () => {
             </div>
           )}
 
-          {/* Minutes-before slider */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm text-muted-foreground">
-                Remind me <strong className="text-foreground">{settings.notifyMinutesBefore ?? 5} min</strong> before "Leave by" time
-              </label>
+          {/* ── Leave-by reminder ── */}
+          <div className="space-y-3 pt-3 border-t border-border">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🚶</span>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Departure reminder</p>
+                  <p className="text-[11px] text-muted-foreground">Notify when it's time to leave for the mosque</p>
+                </div>
+              </div>
+              <Switch
+                checked={settings.notifyLeaveByEnabled !== false}
+                onCheckedChange={(v) => setSettings({ ...settings, notifyLeaveByEnabled: v })}
+              />
             </div>
-            <input
-              type="range"
-              min="0"
-              max="30"
-              step="5"
-              value={settings.notifyMinutesBefore ?? 5}
-              onChange={(e) => setSettings({ ...settings, notifyMinutesBefore: parseInt(e.target.value) })}
-              className="w-full accent-primary"
-            />
-            <div className="flex justify-between text-xs text-muted-foreground mt-1">
-              <span>At leave time</span>
-              <span>5 min</span>
-              <span>15 min</span>
-              <span>30 min early</span>
-            </div>
+
+            {settings.notifyLeaveByEnabled !== false && (
+              <div className="space-y-2 pl-2">
+                {/* Show computed walk time if home + mosque set */}
+                {settings.homeLat && settings.homeLng && settings.selectedMosqueLat && settings.selectedMosqueLng ? (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20 text-xs">
+                    <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span className="text-foreground">
+                      ~<strong>{Math.ceil(settings.selectedMosqueDistance / (settings.walkingSpeed / 60))} min</strong> walk
+                      · {settings.selectedMosqueDistance.toFixed(2)} km from home
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border text-xs text-muted-foreground">
+                    <MapPin className="w-3.5 h-3.5 shrink-0" />
+                    <span>Set your home address to see your calculated walk time</span>
+                    <Link to="/settings" className="text-primary font-semibold ml-auto shrink-0">Set address</Link>
+                  </div>
+                )}
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1.5">
+                    Notify <strong className="text-foreground">{settings.notifyMinutesBefore ?? 5} min</strong> before leave time
+                  </label>
+                  <input
+                    type="range" min="0" max="30" step="5"
+                    value={settings.notifyMinutesBefore ?? 5}
+                    onChange={(e) => setSettings({ ...settings, notifyMinutesBefore: parseInt(e.target.value) })}
+                    className="w-full accent-primary"
+                  />
+                  <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+                    <span>At leave time</span><span>5 min</span><span>15 min</span><span>30 min</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Per-prayer reminder toggles */}
-          <div className="space-y-2 pt-1 border-t border-border">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Remind me for these prayers</p>
+          {/* ── Prayer-time reminder ── */}
+          <div className="space-y-3 pt-3 border-t border-border">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🕐</span>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Prayer-time reminder</p>
+                  <p className="text-[11px] text-muted-foreground">Notify before each prayer starts</p>
+                </div>
+              </div>
+              <Switch
+                checked={settings.notifyPrayerTimeEnabled !== false}
+                onCheckedChange={(v) => setSettings({ ...settings, notifyPrayerTimeEnabled: v })}
+              />
+            </div>
+
+            {settings.notifyPrayerTimeEnabled !== false && (
+              <div className="pl-2">
+                <label className="text-xs text-muted-foreground block mb-1.5">
+                  Notify <strong className="text-foreground">{settings.notifyMinutesBeforePrayer ?? 10} min</strong> before prayer starts
+                </label>
+                <input
+                  type="range" min="0" max="30" step="5"
+                  value={settings.notifyMinutesBeforePrayer ?? 10}
+                  onChange={(e) => setSettings({ ...settings, notifyMinutesBeforePrayer: parseInt(e.target.value) })}
+                  className="w-full accent-primary"
+                />
+                <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+                  <span>At prayer time</span><span>5 min</span><span>15 min</span><span>30 min</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Per-prayer toggles */}
+          <div className="space-y-2 pt-2 border-t border-border">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Active prayers</p>
             {["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"].map((prayer) => {
               const key = `prayer_${prayer.toLowerCase()}` as keyof typeof settings;
-              const enabled = settings[key] !== false; // default true
+              const enabled = settings[key] !== false;
               return (
                 <div key={prayer} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
