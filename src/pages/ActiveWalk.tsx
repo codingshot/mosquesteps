@@ -109,6 +109,7 @@ const ActiveWalk = () => {
   const [locationPermission, setLocationPermission] = useState<"unknown" | "granted" | "denied" | "prompt">("unknown");
   const [showLocationDialog, setShowLocationDialog] = useState(false);
   const [showMapsSheet, setShowMapsSheet] = useState(false);
+  const [deviceHeading, setDeviceHeading] = useState<number | null>(null);
   const prevDirectionIdx = useRef(-1);
   const prepareAnnouncedForStep = useRef(-1);
   const prayerMarginAlerted = useRef(false);
@@ -666,6 +667,22 @@ const ActiveWalk = () => {
       }
     }).catch(() => {});
   }, [offRoute, isWalking, currentPosition, effectiveDestination, voiceEnabled]);
+
+  // Device compass heading (DeviceOrientationEvent alpha = degrees clockwise from north)
+  useEffect(() => {
+    if (!isWalking) { setDeviceHeading(null); return; }
+    const handleOrientation = (e: DeviceOrientationEvent) => {
+      // `webkitCompassHeading` on iOS, or derive from `alpha` on Android
+      const h = (e as DeviceOrientationEvent & { webkitCompassHeading?: number }).webkitCompassHeading;
+      if (h != null && Number.isFinite(h)) {
+        setDeviceHeading(h);
+      } else if (e.alpha != null && Number.isFinite(e.alpha)) {
+        setDeviceHeading((360 - e.alpha) % 360);
+      }
+    };
+    window.addEventListener("deviceorientation", handleOrientation, true);
+    return () => window.removeEventListener("deviceorientation", handleOrientation, true);
+  }, [isWalking]);
 
   // Stop speech when walk ends
   useEffect(() => {
@@ -1582,6 +1599,7 @@ const ActiveWalk = () => {
                   isWalking={true}
                   offRoute={offRoute}
                   eta={eta}
+                  deviceHeading={deviceHeading}
                   directionOverlay={currentDirection ? {
                     distance: formatDistanceForStep(distanceToTurnM ?? currentDirection.distance, useImperial),
                     instruction: formatDirection(currentDirection.instruction),

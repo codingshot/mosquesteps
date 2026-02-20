@@ -20,6 +20,8 @@ interface WalkMapProps {
   isWalking: boolean;
   offRoute?: boolean;
   eta?: string;
+  /** Compass heading in degrees (0=north, 90=east). Controls pin direction arrow. */
+  deviceHeading?: number | null;
   /** Compact direction overlay at bottom of map (e.g. "In 150 m · Turn left") */
   directionOverlay?: { distance: string; instruction: string };
   className?: string;
@@ -34,16 +36,44 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
 });
 
-/** Big animated "walking person" icon — clearly visible on the map */
-function makeUserIcon(isWalking: boolean) {
+/**
+ * User position pin: large pulsing circle + 🚶 emoji + optional heading arrow.
+ * The heading arrow (▲) rotates to show the direction of travel so users always
+ * know which way they're heading — especially useful on pedestrian streets.
+ */
+function makeUserIcon(isWalking: boolean, heading?: number | null) {
+  const showHeading = isWalking && heading != null && Number.isFinite(heading);
   const pulse = isWalking
     ? `<div style="
+        position:absolute;
+        top:-14px;left:-14px;
+        width:48px;height:48px;
+        border-radius:50%;
+        background:rgba(13,115,119,0.22);
+        animation:walkPulse 1.4s ease-out infinite;
+        pointer-events:none;
+      "></div>
+      <div style="
         position:absolute;
         top:-8px;left:-8px;
         width:36px;height:36px;
         border-radius:50%;
-        background:rgba(13,115,119,0.25);
-        animation:walkPulse 1.2s ease-out infinite;
+        background:rgba(13,115,119,0.14);
+        animation:walkPulse 1.4s ease-out 0.5s infinite;
+        pointer-events:none;
+      "></div>`
+    : "";
+
+  const headingArrow = showHeading
+    ? `<div style="
+        position:absolute;
+        top:-22px;left:50%;transform:translateX(-50%) rotate(${heading}deg);
+        width:0;height:0;
+        border-left:5px solid transparent;
+        border-right:5px solid transparent;
+        border-bottom:14px solid #0D7377;
+        filter:drop-shadow(0 1px 3px rgba(0,0,0,0.5));
+        pointer-events:none;
       "></div>`
     : "";
 
@@ -51,26 +81,28 @@ function makeUserIcon(isWalking: boolean) {
     html: `
       <style>
         @keyframes walkPulse {
-          0%   { transform:scale(1);   opacity:0.8; }
-          100% { transform:scale(2.2); opacity:0;   }
+          0%   { transform:scale(1);   opacity:0.9; }
+          100% { transform:scale(2.4); opacity:0;   }
         }
         @keyframes walkBob {
-          0%,100% { transform:translateY(0);   }
-          50%      { transform:translateY(-3px);}
+          0%,100% { transform:translateY(0)   scale(1);    }
+          50%      { transform:translateY(-4px) scale(1.05); }
         }
       </style>
       <div style="position:relative;width:20px;height:20px;">
         ${pulse}
+        ${headingArrow}
         <div style="
           position:relative;
-          width:20px;height:20px;
+          width:26px;height:26px;
+          top:-3px;left:-3px;
           border-radius:50%;
-          background:#0D7377;
+          background:linear-gradient(135deg,#0D7377,#14a0a5);
           border:3px solid white;
-          box-shadow:0 3px 10px rgba(0,0,0,0.45);
+          box-shadow:0 4px 14px rgba(0,0,0,0.5),0 0 0 2px rgba(13,115,119,0.35);
           display:flex;align-items:center;justify-content:center;
-          font-size:11px;
-          ${isWalking ? "animation:walkBob 0.7s ease-in-out infinite;" : ""}
+          font-size:13px;
+          ${isWalking ? "animation:walkBob 0.75s ease-in-out infinite;" : ""}
           z-index:2;
         ">🚶</div>
       </div>`,
@@ -82,21 +114,21 @@ function makeUserIcon(isWalking: boolean) {
 
 const mosqueIcon = L.divIcon({
   html: `<div style="
-    width:36px;height:36px;
-    background:#D4A017;
+    width:40px;height:40px;
+    background:linear-gradient(135deg,#D4A017,#c48f0d);
     border:3px solid white;
     border-radius:50%;
     display:flex;align-items:center;justify-content:center;
-    font-size:18px;
-    box-shadow:0 3px 10px rgba(0,0,0,0.4);
+    font-size:20px;
+    box-shadow:0 4px 14px rgba(0,0,0,0.45),0 0 0 2px rgba(212,160,23,0.3);
   ">🕌</div>`,
   className: "mosque-marker",
-  iconSize: [36, 36],
-  iconAnchor: [18, 18],
+  iconSize: [40, 40],
+  iconAnchor: [20, 20],
 });
 
 const PAN_THROTTLE_MS = 2500;
-const USER_OFFSET_FRACTION = 0.38; // user at ~38% from top so more route is visible ahead
+const USER_OFFSET_FRACTION = 0.38;
 
 export default function WalkMap({
   userPosition,
@@ -109,6 +141,7 @@ export default function WalkMap({
   isWalking,
   offRoute,
   eta,
+  deviceHeading,
   directionOverlay,
   className = "",
   onRecenter,
@@ -119,8 +152,8 @@ export default function WalkMap({
   const accuracyCircleRef = useRef<L.Circle | null>(null);
   const mosqueMarkerRef = useRef<L.Marker | null>(null);
   const routeLineRef = useRef<L.Polyline | null>(null);
-  const walkedLineRef = useRef<L.Polyline | null>(null); // greyed-out already-walked portion
-  const remainingLineRef = useRef<L.Polyline | null>(null); // bright upcoming portion
+  const walkedLineRef = useRef<L.Polyline | null>(null);
+  const remainingLineRef = useRef<L.Polyline | null>(null);
   const returnRouteLineRef = useRef<L.Polyline | null>(null);
   const walkLineRef = useRef<L.Polyline | null>(null);
   const stepMarkersRef = useRef<L.Marker[]>([]);
@@ -152,11 +185,11 @@ export default function WalkMap({
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── User marker + smooth camera ─────────────────────────────────────────────
+  // ── User marker + heading + smooth camera ───────────────────────────────────
   useEffect(() => {
     if (!mapRef.current || !userPosition) return;
 
-    const icon = makeUserIcon(isWalking);
+    const icon = makeUserIcon(isWalking, deviceHeading);
 
     if (userMarkerRef.current) {
       userMarkerRef.current.setLatLng([userPosition.lat, userPosition.lng]);
@@ -164,11 +197,11 @@ export default function WalkMap({
     } else {
       userMarkerRef.current = L.marker([userPosition.lat, userPosition.lng], {
         icon,
-        zIndexOffset: 1000, // always on top
+        zIndexOffset: 1500, // always on top
       }).addTo(mapRef.current);
     }
 
-    // Accuracy circle (subtle, 20 m radius to hint GPS accuracy)
+    // Accuracy halo
     if (accuracyCircleRef.current) {
       accuracyCircleRef.current.setLatLng([userPosition.lat, userPosition.lng]);
     } else {
@@ -176,9 +209,9 @@ export default function WalkMap({
         radius: 18,
         color: "#0D7377",
         fillColor: "#0D7377",
-        fillOpacity: 0.12,
-        weight: 1,
-        opacity: 0.4,
+        fillOpacity: 0.1,
+        weight: 1.5,
+        opacity: 0.5,
       }).addTo(mapRef.current);
     }
 
@@ -201,7 +234,7 @@ export default function WalkMap({
         }
       }
     }
-  }, [userPosition, isWalking]);
+  }, [userPosition, isWalking, deviceHeading]);
 
   // ── Mosque marker ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -219,7 +252,6 @@ export default function WalkMap({
   useEffect(() => {
     if (!mapRef.current) return;
 
-    // Remove existing layers
     if (routeLineRef.current) { mapRef.current.removeLayer(routeLineRef.current); routeLineRef.current = null; }
     if (walkedLineRef.current) { mapRef.current.removeLayer(walkedLineRef.current); walkedLineRef.current = null; }
     if (remainingLineRef.current) { mapRef.current.removeLayer(remainingLineRef.current); remainingLineRef.current = null; }
@@ -227,18 +259,18 @@ export default function WalkMap({
     if (!routeCoords || routeCoords.length < 2) return;
 
     if (!isWalking || !userPosition) {
-      // Pre-walk: show full dashed preview route
+      // Pre-walk: full dashed preview
       routeLineRef.current = L.polyline(routeCoords, {
         color: "#0D7377",
         weight: 5,
-        opacity: 0.7,
+        opacity: 0.75,
         dashArray: "10, 8",
       }).addTo(mapRef.current);
       mapRef.current.fitBounds(routeLineRef.current.getBounds(), { padding: [40, 40] });
       return;
     }
 
-    // During walk: split route at closest point to user for visual progress
+    // During walk: split at closest point to user
     let closestIdx = 0;
     let minDist = Infinity;
     for (let i = 0; i < routeCoords.length; i++) {
@@ -255,16 +287,16 @@ export default function WalkMap({
       walkedLineRef.current = L.polyline(walked, {
         color: "#9ca3af",
         weight: 4,
-        opacity: 0.55,
+        opacity: 0.5,
       }).addTo(mapRef.current);
     }
 
     if (remaining.length > 1) {
       remainingLineRef.current = L.polyline(remaining, {
         color: "#0D7377",
-        weight: 6,
-        opacity: 0.9,
-        dashArray: "12, 6",
+        weight: 7,
+        opacity: 0.92,
+        dashArray: "14, 7",
       }).addTo(mapRef.current);
     }
   }, [routeCoords, isWalking, userPosition?.lat, userPosition?.lng]);
@@ -290,7 +322,7 @@ export default function WalkMap({
     if (walkPath.length > 1) {
       walkLineRef.current = L.polyline(
         walkPath.map((p) => [p.lat, p.lng] as [number, number]),
-        { color: "#D4A017", weight: 3, opacity: 0.75 }
+        { color: "#D4A017", weight: 3, opacity: 0.7 }
       ).addTo(mapRef.current);
     }
   }, [walkPath]);
@@ -324,17 +356,17 @@ export default function WalkMap({
       else if (lower.includes("arrive") || isLast) arrow = "🕌";
       else if (lower.includes("depart")) arrow = "▶";
 
-      const size = isCurrent ? 30 : 20;
+      const size = isCurrent ? 32 : 20;
       const bg = isPast ? "#6b7280" : isCurrent ? "#D4A017" : "#0D7377";
       const icon = L.divIcon({
         html: `<div style="
           width:${size}px;height:${size}px;border-radius:50%;
           background:${bg};color:white;
           display:flex;align-items:center;justify-content:center;
-          font-size:${isCurrent ? 15 : 10}px;
-          border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.35);
-          opacity:${isPast ? 0.45 : 1};
-          ${isCurrent ? "animation:walkPulse 1.5s infinite;" : ""}
+          font-size:${isCurrent ? 16 : 10}px;
+          border:2.5px solid white;box-shadow:0 2px 10px rgba(0,0,0,0.4);
+          opacity:${isPast ? 0.4 : 1};
+          ${isCurrent ? "box-shadow:0 0 0 4px rgba(212,160,23,0.35),0 2px 10px rgba(0,0,0,0.4);" : ""}
         ">${arrow}</div>`,
         className: "step-marker",
         iconSize: [size, size],
@@ -361,15 +393,16 @@ export default function WalkMap({
 
     const labelIcon = L.divIcon({
       html: `<div style="
-        background:rgba(13,115,119,0.92);
+        background:rgba(13,115,119,0.95);
         color:white;padding:3px 10px;
         border-radius:14px;font-size:11px;font-weight:700;
         white-space:nowrap;pointer-events:none;
-        box-shadow:0 2px 8px rgba(0,0,0,0.3);
-        border:1.5px solid rgba(255,255,255,0.3);
+        box-shadow:0 2px 10px rgba(0,0,0,0.35);
+        border:1.5px solid rgba(255,255,255,0.25);
+        letter-spacing:0.01em;
       ">${distText} to 🕌</div>`,
       className: "dist-label",
-      iconAnchor: [-6, 28],
+      iconAnchor: [-6, 30],
     });
 
     distLabelRef.current = L.marker([userPosition.lat, userPosition.lng], { icon: labelIcon, interactive: false })
@@ -414,6 +447,22 @@ export default function WalkMap({
               </svg>
             </button>
           )}
+          {/* Compass heading indicator */}
+          {deviceHeading != null && Number.isFinite(deviceHeading) && (
+            <div
+              className="w-9 h-9 rounded-lg bg-background/95 backdrop-blur border border-border shadow-lg flex items-center justify-center"
+              title={`Heading: ${Math.round(deviceHeading)}°`}
+              aria-label={`Compass: ${Math.round(deviceHeading)} degrees`}
+            >
+              <svg
+                width="18" height="18" viewBox="0 0 24 24"
+                style={{ transform: `rotate(${deviceHeading}deg)`, transition: "transform 0.4s ease" }}
+              >
+                <polygon points="12,3 15,12 12,10 9,12" fill="#0D7377"/>
+                <polygon points="12,21 9,12 12,14 15,12" fill="#9ca3af"/>
+              </svg>
+            </div>
+          )}
         </div>
       )}
 
@@ -425,31 +474,34 @@ export default function WalkMap({
         </div>
       )}
 
-      {/* Direction strip (bottom) */}
+      {/* Direction strip (bottom) — prominent with icon */}
       {isWalking && directionOverlay && (
-        <div className="absolute bottom-2 left-2 right-2 z-[1000] bg-background/96 backdrop-blur rounded-xl px-3 py-2.5 border border-border shadow-lg flex items-center gap-3">
-          <span className="text-xs font-bold text-primary shrink-0">{directionOverlay.distance}</span>
-          <span className="text-sm font-semibold text-foreground truncate">{directionOverlay.instruction}</span>
+        <div className="absolute bottom-2 left-2 right-12 z-[1000] bg-background/97 backdrop-blur-md rounded-xl px-3 py-2.5 border border-border shadow-xl flex items-center gap-2.5">
+          {/* Direction icon dot */}
+          <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
+              {directionOverlay.instruction.toLowerCase().includes("left") ? (
+                <><path d="M9 18l-6-6 6-6"/><path d="M21 12H3"/></>
+              ) : directionOverlay.instruction.toLowerCase().includes("right") ? (
+                <><path d="M15 18l6-6-6-6"/><path d="M3 12h18"/></>
+              ) : directionOverlay.instruction.toLowerCase().includes("arriv") ? (
+                <><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></>
+              ) : (
+                <><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></>
+              )}
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-bold text-primary uppercase tracking-wide leading-none mb-0.5">{directionOverlay.distance}</p>
+            <p className="text-sm font-semibold text-foreground truncate leading-snug">{directionOverlay.instruction}</p>
+          </div>
         </div>
       )}
 
       {/* Off-route warning */}
       {isWalking && offRoute && !directionOverlay && (
-        <div className="absolute bottom-2 left-2 right-2 z-[1000] bg-destructive/90 backdrop-blur rounded-lg px-3 py-2 text-destructive-foreground text-xs font-semibold text-center">
-          ⚠️ You're off route — recalculating…
-        </div>
-      )}
-      {isWalking && offRoute && directionOverlay && (
-        <div className="absolute bottom-14 left-2 right-2 z-[1000] bg-destructive/90 backdrop-blur rounded-lg px-3 py-2 text-destructive-foreground text-xs font-semibold text-center">
-          ⚠️ You're off route — recalculating…
-        </div>
-      )}
-
-      {/* "Pre-walk" legend when route is shown but walking hasn't started */}
-      {!isWalking && routeCoords && routeCoords.length > 1 && (
-        <div className="absolute bottom-2 left-2 z-[1000] bg-background/90 backdrop-blur rounded-lg px-2.5 py-1.5 border border-border shadow-sm flex items-center gap-2">
-          <span className="inline-block w-5 h-0.5 bg-primary opacity-70 rounded" style={{ borderTop: "2px dashed" }} />
-          <span className="text-[10px] text-muted-foreground">Planned route</span>
+        <div className="absolute bottom-2 left-2 right-2 z-[1000] bg-amber-500/90 backdrop-blur rounded-lg px-3 py-2 text-white text-xs font-semibold text-center shadow-lg">
+          ⚠️ Off route — recalculating…
         </div>
       )}
     </div>
