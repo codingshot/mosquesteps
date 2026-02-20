@@ -413,7 +413,7 @@ const Settings = () => {
         </div>
 
         {/* Notifications */}
-        <div className="glass-card p-5 space-y-3">
+        <div className="glass-card p-5 space-y-4">
           <h2 className="font-semibold text-foreground flex items-center gap-2">
             {notifPermission === "granted" ? (
               <Bell className="w-4 h-4 text-primary" />
@@ -421,49 +421,116 @@ const Settings = () => {
               <BellOff className="w-4 h-4 text-muted-foreground" />
             )}
             Prayer Notifications
+            {notifPermission === "granted" && (
+              <span className="ml-auto text-[10px] bg-primary/10 text-primary border border-primary/20 rounded-full px-2 py-0.5 font-medium">Active</span>
+            )}
           </h2>
-          <p className="text-sm text-muted-foreground">
-            Get reminded when it's time to leave for the mosque based on walking distance.
-          </p>
-          {isNotificationSupported() ? (
-            <>
-              <Button
-                variant={notifPermission === "granted" ? "outline" : "default"}
-                size="sm"
-                onClick={handleNotificationToggle}
-                className="w-full"
-              >
-                {notifPermission === "granted" ? "✓ Notifications Enabled" : notifPermission === "denied" ? "🔒 Notifications Blocked" : "Enable Notifications"}
-              </Button>
-              {notifPermission === "denied" && (
-                <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 space-y-2">
-                  <p className="text-xs text-destructive font-medium">Notifications are blocked by your browser.</p>
-                  <p className="text-xs text-muted-foreground">To re-enable them:</p>
-                  <ol className="text-xs text-muted-foreground space-y-1 list-decimal pl-4">
-                    <li>Click the 🔒 lock icon in your browser's address bar</li>
-                    <li>Find "Notifications" and change it to "Allow"</li>
-                    <li>Refresh this page</li>
-                  </ol>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full mt-2"
-                    onClick={() => {
-                      window.location.reload();
-                    }}
-                  >
-                    I've unblocked — Refresh now
-                  </Button>
+
+          {!isNotificationSupported() ? (
+            <div className="bg-muted/50 border border-border rounded-lg p-3 text-center">
+              <BellOff className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
+              <p className="text-xs text-muted-foreground">Notifications are not supported in this browser. Try Chrome, Firefox, or Edge on desktop, or Chrome on Android.</p>
+            </div>
+          ) : notifPermission === "denied" ? (
+            <div className="space-y-3">
+              <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 space-y-3">
+                <div className="flex items-start gap-2">
+                  <BellOff className="w-4 h-4 text-destructive mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm text-destructive font-semibold">Notifications blocked</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Your browser is blocking notifications. Follow the steps below to re-enable them.</p>
+                  </div>
                 </div>
-              )}
-            </>
+                <div className="space-y-2">
+                  {/iPhone|iPad|iPod/.test(navigator.userAgent) ? (
+                    <>
+                      <p className="text-xs font-semibold text-foreground">On iPhone / iPad (Safari):</p>
+                      <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal pl-4">
+                        <li>Open <strong>Settings</strong> app → <strong>Apps</strong> → <strong>Safari</strong></li>
+                        <li>Tap <strong>Notifications</strong> and toggle <strong>Allow</strong></li>
+                        <li>Return here and tap <strong>Enable Notifications</strong> again</li>
+                      </ol>
+                    </>
+                  ) : /Android/.test(navigator.userAgent) ? (
+                    <>
+                      <p className="text-xs font-semibold text-foreground">On Android (Chrome):</p>
+                      <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal pl-4">
+                        <li>Tap the <strong>🔒 lock icon</strong> in the address bar</li>
+                        <li>Tap <strong>Permissions</strong> → <strong>Notifications</strong> → <strong>Allow</strong></li>
+                        <li>Refresh the page and try again</li>
+                      </ol>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xs font-semibold text-foreground">On Desktop (Chrome / Firefox / Edge):</p>
+                      <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal pl-4">
+                        <li>Click the <strong>🔒 lock / info icon</strong> in the address bar</li>
+                        <li>Find <strong>Notifications</strong> and set it to <strong>Allow</strong></li>
+                        <li>Click the button below to refresh</li>
+                      </ol>
+                    </>
+                  )}
+                </div>
+                <Button variant="outline" size="sm" className="w-full border-destructive/30 text-destructive hover:text-destructive" onClick={() => window.location.reload()}>
+                  I've unblocked — Refresh now
+                </Button>
+              </div>
+            </div>
+          ) : notifPermission === "granted" ? (
+            <div className="space-y-3">
+              <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Bell className="w-4 h-4 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-foreground">Notifications are enabled ✓</p>
+                  <p className="text-xs text-muted-foreground">You'll get prayer departure reminders.</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-primary h-7"
+                  onClick={() => {
+                    try {
+                      new Notification("MosqueSteps Test 🔔", {
+                        body: "Notifications are working! You'll be notified before each prayer.",
+                        icon: "/favicon.png",
+                      });
+                    } catch {}
+                  }}
+                >
+                  Test
+                </Button>
+              </div>
+            </div>
           ) : (
-            <p className="text-xs text-muted-foreground italic">Notifications not supported on this browser.</p>
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">Get reminded when it's time to leave for the mosque based on your walking distance.</p>
+              <div className="grid grid-cols-1 gap-2 text-xs text-muted-foreground">
+                {[
+                  { emoji: "🕌", text: "Prayer departure reminders" },
+                  { emoji: "🔥", text: "Streak & badge alerts" },
+                  { emoji: "📊", text: "Weekly walking summary" },
+                  { emoji: "💡", text: "Health & wellness tips" },
+                ].map(({ emoji, text }) => (
+                  <div key={text} className="flex items-center gap-2">
+                    <span>{emoji}</span><span>{text}</span>
+                  </div>
+                ))}
+              </div>
+              <Button onClick={handleNotificationToggle} className="w-full" size="sm">
+                <Bell className="w-4 h-4 mr-2" /> Enable Notifications
+              </Button>
+            </div>
           )}
+
+          {/* Minutes-before slider */}
           <div>
-            <label className="text-sm text-muted-foreground block mb-2">
-              Notify {settings.notifyMinutesBefore ?? 5} minutes before "Leave by" time
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm text-muted-foreground">
+                Remind me <strong className="text-foreground">{settings.notifyMinutesBefore ?? 5} min</strong> before "Leave by" time
+              </label>
+            </div>
             <input
               type="range"
               min="0"
@@ -473,12 +540,33 @@ const Settings = () => {
               onChange={(e) => setSettings({ ...settings, notifyMinutesBefore: parseInt(e.target.value) })}
               className="w-full accent-primary"
             />
-            <div className="flex justify-between text-xs text-muted-foreground">
+            <div className="flex justify-between text-xs text-muted-foreground mt-1">
               <span>At leave time</span>
               <span>5 min</span>
               <span>15 min</span>
               <span>30 min early</span>
             </div>
+          </div>
+
+          {/* Per-prayer reminder toggles */}
+          <div className="space-y-2 pt-1 border-t border-border">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Remind me for these prayers</p>
+            {["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"].map((prayer) => {
+              const key = `prayer_${prayer.toLowerCase()}` as keyof typeof settings;
+              const enabled = settings[key] !== false; // default true
+              return (
+                <div key={prayer} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-sm text-foreground">{prayer}</span>
+                  </div>
+                  <Switch
+                    checked={enabled}
+                    onCheckedChange={(v) => setSettings({ ...settings, [key]: v })}
+                  />
+                </div>
+              );
+            })}
           </div>
         </div>
 
