@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { getWalkingStats } from "@/lib/walking-history";
 import { getBadges, type BadgeProgress } from "@/lib/badges";
 import HadithTooltip, { VERIFIED_HADITHS } from "@/components/HadithTooltip";
-import logo from "@/assets/logo.png?w=256&format=webp";
+import logo from "@/assets/logo.png";
 
 const hadithKeys = ["muslim_666", "abudawud_561", "bukhari_636", "muslim_662", "ibnmajah_1412", "muslim_654"] as const;
 

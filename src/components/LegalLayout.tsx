@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-import logo from "@/assets/logo.png?w=256&format=webp";
+import logo from "@/assets/logo.png";
 
 const LegalLayout = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <div className="min-h-screen bg-background">

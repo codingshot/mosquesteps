@@ -31,7 +31,7 @@ import {
   shouldShowInstallPrompt,
 } from "@/lib/pwa-install-store";
 import HadithTooltip from "@/components/HadithTooltip";
-import logo from "@/assets/logo.png?w=256&format=webp";
+import logo from "@/assets/logo.png";
 import { useToast } from "@/hooks/use-toast";
 import {
   Tooltip,

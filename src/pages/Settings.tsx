@@ -13,7 +13,7 @@ import { getRegionalDefaults } from "@/lib/regional-defaults";
 import { useTheme } from "@/hooks/use-theme";
 import { useToast } from "@/hooks/use-toast";
 import SEOHead from "@/components/SEOHead";
-import logo from "@/assets/logo.png?w=256&format=webp";
+import logo from "@/assets/logo.png";
 
 const Settings = () => {
   const { theme, setTheme } = useTheme();

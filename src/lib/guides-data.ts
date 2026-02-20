@@ -1,10 +1,10 @@
-import guideGettingStarted from "@/assets/guides/guide-getting-started.jpg?w=600&format=webp";
-import guideFindMosque from "@/assets/guides/guide-find-mosque.jpg?w=600&format=webp";
-import guideActiveWalk from "@/assets/guides/guide-active-walk.jpg?w=600&format=webp";
-import guideStats from "@/assets/guides/guide-stats.jpg?w=600&format=webp";
-import guideNotifications from "@/assets/guides/guide-notifications.jpg?w=600&format=webp";
-import guideRewards from "@/assets/guides/guide-rewards.jpg?w=600&format=webp";
-import guideHistory from "@/assets/guides/guide-history.jpg?w=600&format=webp";
+import guideGettingStarted from "@/assets/guides/guide-getting-started.jpg";
+import guideFindMosque from "@/assets/guides/guide-find-mosque.jpg";
+import guideActiveWalk from "@/assets/guides/guide-active-walk.jpg";
+import guideStats from "@/assets/guides/guide-stats.jpg";
+import guideNotifications from "@/assets/guides/guide-notifications.jpg";
+import guideRewards from "@/assets/guides/guide-rewards.jpg";
+import guideHistory from "@/assets/guides/guide-history.jpg";
 
 export interface GuideStep {
   text: string;

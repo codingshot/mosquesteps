@@ -13,7 +13,7 @@ import {
   type ChangelogEntry,
   type ChangelogType,
 } from "@/lib/changelog-data";
-import logo from "@/assets/logo.png?w=256&format=webp";
+import logo from "@/assets/logo.png";
 
 const typeIcons: Record<ChangelogType, typeof Sparkles> = {
   feat: Sparkles,

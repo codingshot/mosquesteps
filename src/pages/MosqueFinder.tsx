@@ -18,7 +18,7 @@ import {
   type SavedMosque,
 } from "@/lib/walking-history";
 import { useToast } from "@/hooks/use-toast";
-import logo from "@/assets/logo.png?w=256&format=webp";
+import logo from "@/assets/logo.png";
 
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
