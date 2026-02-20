@@ -108,6 +108,7 @@ const ActiveWalk = () => {
   const [locationSource, setLocationSource] = useState<"gps" | "ip" | "city" | "none">("none");
   const [locationPermission, setLocationPermission] = useState<"unknown" | "granted" | "denied" | "prompt">("unknown");
   const [showLocationDialog, setShowLocationDialog] = useState(false);
+  const [showMapsSheet, setShowMapsSheet] = useState(false);
   const prevDirectionIdx = useRef(-1);
   const prepareAnnouncedForStep = useRef(-1);
   const prayerMarginAlerted = useRef(false);
@@ -813,17 +814,31 @@ const ActiveWalk = () => {
     setTimeout(() => setShowCelebration(false), 4000);
   };
 
-  const openInMaps = () => {
+  const openInMaps = () => setShowMapsSheet(true);
+
+  const openMapApp = (app: "google" | "apple" | "osm" | "waze") => {
     if (!effectiveDestination) return;
-    const dest = `${effectiveDestination.lat},${effectiveDestination.lng}`;
-    const origin = currentPosition ? `${currentPosition.lat},${currentPosition.lng}` : "";
-    // Try Apple Maps on iOS, Google Maps otherwise
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    if (isIOS) {
-      window.open(`maps://maps.apple.com/?daddr=${dest}&dirflg=w`, "_blank");
-    } else {
-      window.open(`https://www.google.com/maps/dir/?api=1&destination=${dest}&origin=${origin}&travelmode=walking`, "_blank");
+    const { lat, lng } = effectiveDestination;
+    const originParam = currentPosition ? `${currentPosition.lat},${currentPosition.lng}` : "";
+    const destName = encodeURIComponent(effectiveMosqueName);
+    let url = "";
+    switch (app) {
+      case "google":
+        url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking${originParam ? `&origin=${originParam}` : ""}`;
+        break;
+      case "apple":
+        url = `maps://maps.apple.com/?daddr=${lat},${lng}&dirflg=w${originParam ? `&saddr=${originParam}` : ""}`;
+        break;
+      case "osm":
+        // OsmAnd deep-link falls back to web OSM directions
+        url = `https://www.openstreetmap.org/directions?engine=fossgis_osrm_foot&route=${originParam || `${lat},${lng}`};${lat},${lng}`;
+        break;
+      case "waze":
+        url = `https://waze.com/ul?ll=${lat},${lng}&navigate=yes&zoom=17`;
+        break;
     }
+    window.open(url, "_blank");
+    setShowMapsSheet(false);
   };
 
   const estimateCalories = (steps: number): number => {
@@ -2240,6 +2255,85 @@ const ActiveWalk = () => {
           </motion.div>
         )}
       </div>
+
+      {/* ── Map picker bottom sheet ───────────────────────────────────────── */}
+      {showMapsSheet && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-background/80 backdrop-blur-sm"
+          onClick={() => setShowMapsSheet(false)}
+        >
+          <div
+            className="bg-card border border-border rounded-t-2xl w-full max-w-md p-5 pb-8 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-foreground text-base flex items-center gap-2">
+                <ExternalLink className="w-4 h-4 text-primary" /> Open in Maps
+              </h3>
+              <button onClick={() => setShowMapsSheet(false)} className="p-1 rounded-lg hover:bg-muted text-muted-foreground">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {effectiveMosqueName && (
+              <p className="text-xs text-muted-foreground mb-4 flex items-center gap-1.5">
+                <MapPin className="w-3 h-3 shrink-0 text-primary" />
+                Walking directions to <span className="font-medium text-foreground">{effectiveMosqueName}</span>
+              </p>
+            )}
+
+            <div className="space-y-2">
+              {/* Google Maps */}
+              <button
+                onClick={() => openMapApp("google")}
+                className="w-full flex items-center gap-3 p-3 rounded-xl bg-muted/60 hover:bg-muted border border-border hover:border-primary/30 transition-all text-left"
+              >
+                <span className="text-2xl w-9 h-9 flex items-center justify-center bg-card rounded-lg border border-border shadow-sm">🗺️</span>
+                <div>
+                  <p className="font-semibold text-foreground text-sm">Google Maps</p>
+                  <p className="text-xs text-muted-foreground">Walking directions · works on all devices</p>
+                </div>
+              </button>
+
+              {/* Apple Maps — iOS only */}
+              <button
+                onClick={() => openMapApp("apple")}
+                className="w-full flex items-center gap-3 p-3 rounded-xl bg-muted/60 hover:bg-muted border border-border hover:border-primary/30 transition-all text-left"
+              >
+                <span className="text-2xl w-9 h-9 flex items-center justify-center bg-card rounded-lg border border-border shadow-sm">🍎</span>
+                <div>
+                  <p className="font-semibold text-foreground text-sm">Apple Maps</p>
+                  <p className="text-xs text-muted-foreground">Best on iPhone &amp; iPad</p>
+                </div>
+              </button>
+
+              {/* OpenStreetMap */}
+              <button
+                onClick={() => openMapApp("osm")}
+                className="w-full flex items-center gap-3 p-3 rounded-xl bg-muted/60 hover:bg-muted border border-border hover:border-primary/30 transition-all text-left"
+              >
+                <span className="text-2xl w-9 h-9 flex items-center justify-center bg-card rounded-lg border border-border shadow-sm">🌍</span>
+                <div>
+                  <p className="font-semibold text-foreground text-sm">OpenStreetMap</p>
+                  <p className="text-xs text-muted-foreground">Open-source · no account needed</p>
+                </div>
+              </button>
+
+              {/* Waze */}
+              <button
+                onClick={() => openMapApp("waze")}
+                className="w-full flex items-center gap-3 p-3 rounded-xl bg-muted/60 hover:bg-muted border border-border hover:border-primary/30 transition-all text-left"
+              >
+                <span className="text-2xl w-9 h-9 flex items-center justify-center bg-card rounded-lg border border-border shadow-sm">🚗</span>
+                <div>
+                  <p className="font-semibold text-foreground text-sm">Waze</p>
+                  <p className="text-xs text-muted-foreground">Community maps · live traffic</p>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
