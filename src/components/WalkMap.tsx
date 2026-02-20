@@ -127,8 +127,8 @@ const mosqueIcon = L.divIcon({
   iconAnchor: [20, 20],
 });
 
-const PAN_THROTTLE_MS = 2500;
-const USER_OFFSET_FRACTION = 0.38;
+const PAN_THROTTLE_MS = 1500;
+const USER_OFFSET_FRACTION = 0.35;
 
 export default function WalkMap({
   userPosition,
@@ -215,7 +215,7 @@ export default function WalkMap({
       }).addTo(mapRef.current);
     }
 
-    // Smooth camera tracking while walking
+    // Smooth camera tracking while walking — keep user in lower-third of map
     if (isWalking) {
       const now = Date.now();
       const shouldPan = recenterRequestedRef.current || now - lastPanRef.current >= PAN_THROTTLE_MS;
@@ -225,12 +225,15 @@ export default function WalkMap({
         if (size.x > 0 && size.y > 0) {
           lastPanRef.current = now;
           recenterRequestedRef.current = false;
+          // Offset user marker toward lower-third so upcoming route is visible
           const userPoint = map.latLngToContainerPoint([userPosition.lat, userPosition.lng]);
           const targetY = size.y * USER_OFFSET_FRACTION;
           const deltaY = targetY - userPoint.y;
-          const targetPoint = L.point(userPoint.x, userPoint.y + deltaY);
-          const targetLatLng = map.containerPointToLatLng(targetPoint);
-          map.panTo(targetLatLng, { animate: true, duration: 0.5 });
+          if (Math.abs(deltaY) > 20) { // Only pan if meaningful drift
+            const targetPoint = L.point(userPoint.x, userPoint.y + deltaY);
+            const targetLatLng = map.containerPointToLatLng(targetPoint);
+            map.panTo(targetLatLng, { animate: true, duration: 0.8, easeLinearity: 0.5 });
+          }
         }
       }
     }
@@ -259,18 +262,18 @@ export default function WalkMap({
     if (!routeCoords || routeCoords.length < 2) return;
 
     if (!isWalking || !userPosition) {
-      // Pre-walk: full dashed preview
+      // Pre-walk: full dashed preview line + fit map
       routeLineRef.current = L.polyline(routeCoords, {
         color: "#0D7377",
         weight: 5,
-        opacity: 0.75,
-        dashArray: "10, 8",
+        opacity: 0.8,
+        dashArray: "12, 8",
       }).addTo(mapRef.current);
-      mapRef.current.fitBounds(routeLineRef.current.getBounds(), { padding: [40, 40] });
+      mapRef.current.fitBounds(routeLineRef.current.getBounds(), { padding: [50, 50], maxZoom: 17 });
       return;
     }
 
-    // During walk: split at closest point to user
+    // During walk: binary split — walked (grey faded) + remaining (bright teal)
     let closestIdx = 0;
     let minDist = Infinity;
     for (let i = 0; i < routeCoords.length; i++) {
@@ -280,23 +283,25 @@ export default function WalkMap({
       if (d < minDist) { minDist = d; closestIdx = i; }
     }
 
-    const walked = routeCoords.slice(0, closestIdx + 1);
-    const remaining = routeCoords.slice(closestIdx);
+    // Include a few extra coords in "walked" so the grey line reaches user dot
+    const splitAt = Math.min(closestIdx + 1, routeCoords.length);
+    const walked = routeCoords.slice(0, splitAt);
+    const remaining = routeCoords.slice(Math.max(0, splitAt - 1)); // overlap by 1 for continuity
 
     if (walked.length > 1) {
       walkedLineRef.current = L.polyline(walked, {
-        color: "#9ca3af",
-        weight: 4,
-        opacity: 0.5,
+        color: "#6b7280",
+        weight: 3,
+        opacity: 0.45,
       }).addTo(mapRef.current);
     }
 
     if (remaining.length > 1) {
       remainingLineRef.current = L.polyline(remaining, {
         color: "#0D7377",
-        weight: 7,
-        opacity: 0.92,
-        dashArray: "14, 7",
+        weight: 6,
+        opacity: 0.95,
+        dashArray: "0", // solid while walking for clarity
       }).addTo(mapRef.current);
     }
   }, [routeCoords, isWalking, userPosition?.lat, userPosition?.lng]);

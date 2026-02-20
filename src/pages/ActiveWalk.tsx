@@ -533,7 +533,7 @@ const ActiveWalk = () => {
           closestCoordIdx = i;
         }
       }
-      setOffRoute(minDist > 100);
+      setOffRoute(minDist > 60); // 60m threshold — realistic for walking GPS drift
 
       const distAlongRouteM = distAlongRoute[closestCoordIdx];
 
@@ -750,22 +750,40 @@ const ActiveWalk = () => {
       const id = navigator.geolocation.watchPosition(
         (pos) => {
           const newPos: Position = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          const accuracy = pos.coords.accuracy;
+          const accuracy = pos.coords.accuracy ?? 999;
+          const speed = pos.coords.speed; // m/s, null if unavailable
+          const gpsHeading = pos.coords.heading; // degrees, null if unavailable
+
+          // For walking: filter noisy readings >25m accuracy
+          if (accuracy > 25) return;
+
           setCurrentPosition(newPos);
           setLocationSource("gps");
+
+          // Use GPS track heading as compass fallback when moving
+          if (gpsHeading != null && Number.isFinite(gpsHeading) && speed != null && speed > 0.4) {
+            setDeviceHeading((prev) => {
+              // Smooth heading with 30% new value blend to reduce jitter
+              if (prev == null) return gpsHeading;
+              const diff = ((gpsHeading - prev + 540) % 360) - 180;
+              return (prev + diff * 0.3 + 360) % 360;
+            });
+          }
+
           setPositions((prev) => {
             if (prev.length > 0) {
               const last = prev[prev.length - 1];
               const segmentDist = haversine(last.lat, last.lng, newPos.lat, newPos.lng);
-              if (segmentDist > 0.005 && segmentDist < 0.2 && accuracy < 50) {
+              // Accept if >3m (real movement) and <120m (not a GPS jump)
+              if (segmentDist > 0.003 && segmentDist < 0.12) {
                 distanceRef.current += segmentDist;
                 setDistanceKm(distanceRef.current);
-                return [...prev, newPos];
+                return [...prev.slice(-300), newPos]; // cap breadcrumb trail
               }
-              return prev;
+              // Still update position on map for live dot even if not counting distance
+              return [...prev.slice(-300), newPos];
             }
-            if (accuracy < 50) return [newPos];
-            return prev;
+            return [newPos];
           });
         },
         (err) => {
@@ -773,7 +791,7 @@ const ActiveWalk = () => {
             setLocationSource("city");
           }
         },
-        { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
+        { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
       );
       setWatchId(id);
     } else {
