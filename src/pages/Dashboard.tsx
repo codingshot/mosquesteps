@@ -513,10 +513,11 @@ const Dashboard = () => {
           </button>
         )}
 
-        {/* PWA Install prompt — after 1st walk or 2nd visit */}
+        {/* PWA Install prompt — only show when not yet installed */}
         {!isInstalled &&
           !installPromptDismissed &&
-          shouldShowInstallPrompt(stats.totalWalks, dashboardVisits) && (
+          shouldShowInstallPrompt(stats.totalWalks, dashboardVisits) &&
+          (canInstall || showIOSInstructions) && (
           <div className="glass-card p-4 flex items-center gap-3 relative border-primary/20">
             <button
               onClick={() => {
@@ -530,21 +531,25 @@ const Dashboard = () => {
             </button>
             <Smartphone className="w-8 h-8 text-primary flex-shrink-0" />
             <div className="flex-1 min-w-0 pr-6">
-              <p className="font-medium text-foreground text-sm">Install MosqueSteps</p>
+              <p className="font-medium text-foreground text-sm">Add to Home Screen</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Add to home screen for offline support, faster loading, and app-like experience.
+                Install for offline access, faster loading & a native app feel.
               </p>
               {canInstall ? (
-                <Button onClick={install} className="mt-2" variant="hero" size="sm">
-                  <Download className="w-4 h-4 mr-1.5" /> Install
+                <Button
+                  onClick={async () => {
+                    const ok = await install();
+                    if (ok) { dismissInstallPrompt(); setInstallPromptDismissed(true); }
+                  }}
+                  className="mt-2"
+                  variant="hero"
+                  size="sm"
+                >
+                  <Download className="w-4 h-4 mr-1.5" /> Add to Home Screen
                 </Button>
-              ) : showIOSInstructions ? (
-                <p className="text-xs text-primary font-medium mt-2">
-                  iOS: Tap Share → Add to Home Screen
-                </p>
               ) : (
-                <p className="text-xs text-muted-foreground mt-2">
-                  Use your browser menu → Install or Add to Home Screen
+                <p className="text-xs text-primary font-medium mt-2">
+                  Tap Share ➜ "Add to Home Screen"
                 </p>
               )}
             </div>
