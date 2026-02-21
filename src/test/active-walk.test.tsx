@@ -1,11 +1,11 @@
 /**
- * Active Walk page: pre-walk UI, no-mosque state, with-mosque state, and accessibility.
+ * Active Walk page: pre-walk UI, no-mosque state, with-mosque state, accessibility,
+ * movement tracking, manual navigation, and walking status features.
  * WalkMap is mocked because Leaflet does not run in jsdom.
- * Run with: npm test -- src/test/active-walk.test.tsx
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -70,6 +70,7 @@ describe("Active Walk", () => {
   beforeEach(() => {
     queryClient.clear();
     localStorage.clear();
+    sessionStorage.clear();
     vi.stubGlobal("fetch", vi.fn());
     (global.fetch as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
       if (typeof url === "string" && url.includes("nominatim")) {
@@ -86,7 +87,7 @@ describe("Active Walk", () => {
       }
       return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
     });
-    const mockPosition = { coords: { latitude: 51.5, longitude: -0.1, accuracy: 10 } };
+    const mockPosition = { coords: { latitude: 51.5, longitude: -0.1, accuracy: 10, speed: 1.2, heading: 90 } };
     vi.stubGlobal("navigator", {
       ...navigator,
       geolocation: {
@@ -96,6 +97,9 @@ describe("Active Walk", () => {
           return 1;
         },
         clearWatch: vi.fn(),
+      },
+      permissions: {
+        query: () => Promise.resolve({ state: "granted", onchange: null }),
       },
     });
     vi.stubGlobal("speechSynthesis", { cancel: vi.fn(), speak: vi.fn(), getVoices: () => [] });
@@ -201,5 +205,122 @@ describe("Active Walk", () => {
     fireEvent.click(screen.getByRole("button", { name: /Start Walking/i }));
     await screen.findByText(/End Walk/i);
     expect(screen.getByRole("button", { name: /End Walk/i })).toBeInTheDocument();
+  });
+
+  // ── New tests: movement status, session tracking, manual navigation ──
+
+  it("sets sessionStorage active walk flag on start and clears on stop", async () => {
+    saveSettings({
+      selectedMosqueName: "Test Mosque",
+      selectedMosqueLat: 51.51,
+      selectedMosqueLng: -0.09,
+      homeLat: 51.5,
+      homeLng: -0.1,
+    });
+    renderActiveWalk();
+    await screen.findByText(/Test Mosque/i);
+
+    expect(sessionStorage.getItem("mosquesteps_active_walk")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Start Walking/i }));
+    await screen.findByText(/End Walk/i);
+    expect(sessionStorage.getItem("mosquesteps_active_walk")).toBe("active");
+
+    fireEvent.click(screen.getByRole("button", { name: /End Walk/i }));
+    await waitFor(() => {
+      expect(sessionStorage.getItem("mosquesteps_active_walk")).toBeNull();
+    });
+  });
+
+  it("shows movement status indicator with live status during walk", async () => {
+    saveSettings({
+      selectedMosqueName: "Test Mosque",
+      selectedMosqueLat: 51.51,
+      selectedMosqueLng: -0.09,
+      homeLat: 51.5,
+      homeLng: -0.1,
+    });
+    renderActiveWalk();
+    await screen.findByText(/Test Mosque/i);
+    fireEvent.click(screen.getByRole("button", { name: /Start Walking/i }));
+
+    // Movement status should appear (Moving or Stationary)
+    await waitFor(() => {
+      const statuses = screen.queryAllByRole("status");
+      expect(statuses.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("shows step counter and live stats during walk", async () => {
+    saveSettings({
+      selectedMosqueName: "Test Mosque",
+      selectedMosqueLat: 51.51,
+      selectedMosqueLng: -0.09,
+      homeLat: 51.5,
+      homeLng: -0.1,
+    });
+    renderActiveWalk();
+    await screen.findByText(/Test Mosque/i);
+    fireEvent.click(screen.getByRole("button", { name: /Start Walking/i }));
+
+    // Step counter status area should exist
+    const stepStatus = await screen.findByRole("status", { name: /steps/i });
+    expect(stepStatus).toBeInTheDocument();
+  });
+
+  it("shows WalkMap component during active walk", async () => {
+    saveSettings({
+      selectedMosqueName: "Test Mosque",
+      selectedMosqueLat: 51.51,
+      selectedMosqueLng: -0.09,
+      homeLat: 51.5,
+      homeLng: -0.1,
+    });
+    renderActiveWalk();
+    await screen.findByText(/Test Mosque/i);
+    fireEvent.click(screen.getByRole("button", { name: /Start Walking/i }));
+
+    // Map should be rendered (mocked)
+    await waitFor(() => {
+      expect(screen.getByTestId("walk-map")).toBeInTheDocument();
+    });
+  });
+
+  it("renders Pause button during walk and toggles to Resume", async () => {
+    saveSettings({
+      selectedMosqueName: "Test Mosque",
+      selectedMosqueLat: 51.51,
+      selectedMosqueLng: -0.09,
+      homeLat: 51.5,
+      homeLng: -0.1,
+    });
+    renderActiveWalk();
+    await screen.findByText(/Test Mosque/i);
+    fireEvent.click(screen.getByRole("button", { name: /Start Walking/i }));
+    
+    const pauseBtn = await screen.findByRole("button", { name: /Pause/i });
+    expect(pauseBtn).toBeInTheDocument();
+    
+    fireEvent.click(pauseBtn);
+    await screen.findByRole("button", { name: /Resume/i });
+    expect(screen.getByText(/Paused/i)).toBeInTheDocument();
+  });
+
+  it("pre-walk screen shows location permission banner when not granted", async () => {
+    vi.stubGlobal("navigator", {
+      ...navigator,
+      geolocation: {
+        getCurrentPosition: (_s: Function, fail: Function) => fail({ code: 1 }),
+        watchPosition: (_s: Function, fail: Function) => { fail({ code: 1 }); return 1; },
+        clearWatch: vi.fn(),
+      },
+      permissions: {
+        query: () => Promise.resolve({ state: "prompt", onchange: null }),
+      },
+    });
+    renderActiveWalk();
+    await screen.findByRole("heading", { name: /Ready to Walk/i });
+    await waitFor(() => {
+      expect(screen.getByText(/Location is not enabled/i)).toBeInTheDocument();
+    });
   });
 });

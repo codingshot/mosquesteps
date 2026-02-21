@@ -549,6 +549,30 @@ const Dashboard = () => {
       </header>
 
       <div className="container py-6 space-y-6 pb-40">
+        {/* Active walk status banner */}
+        {(() => {
+          try {
+            const walkState = sessionStorage.getItem("mosquesteps_active_walk");
+            if (walkState === "active") {
+              return (
+                <Link to="/walk" className="block">
+                  <div className="rounded-2xl bg-gradient-teal p-4 flex items-center gap-3 shadow-teal text-primary-foreground">
+                    <div className="relative flex-shrink-0">
+                      <span className="absolute w-10 h-10 rounded-full bg-primary-foreground/20 animate-ping" />
+                      <Footprints className="w-6 h-6 relative z-10" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-sm">Walk in progress</p>
+                      <p className="text-xs text-primary-foreground/80">Tap to return to your active walk</p>
+                    </div>
+                    <Play className="w-5 h-5 text-primary-foreground/70" />
+                  </div>
+                </Link>
+              );
+            }
+          } catch {}
+          return null;
+        })()}
         {/* Location permission prompt */}
         {locationStatus !== "granted" && !settings.cityLat && (
           <button
