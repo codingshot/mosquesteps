@@ -70,6 +70,9 @@ const ActiveWalk = () => {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [positions, setPositions] = useState<Position[]>([]);
   const [distanceKm, setDistanceKm] = useState(0);
+  const [isMoving, setIsMoving] = useState(false);
+  const lastMovementTime = useRef<number>(0);
+  const stationarySince = useRef<number>(0);
   const [currentQuoteIdx, setCurrentQuoteIdx] = useState(0);
   const [watchId, setWatchId] = useState<number | null>(null);
   const [completed, setCompleted] = useState(false);
@@ -760,6 +763,20 @@ const ActiveWalk = () => {
           setCurrentPosition(newPos);
           setLocationSource("gps");
 
+          // Movement detection: require speed > 0.3 m/s (~1 km/h) or position delta > 3m
+          const moving = (speed != null && speed > 0.3);
+          if (moving) {
+            setIsMoving(true);
+            lastMovementTime.current = Date.now();
+            stationarySince.current = 0;
+          } else {
+            // Mark stationary after 5 seconds of no movement
+            if (lastMovementTime.current > 0 && Date.now() - lastMovementTime.current > 5000) {
+              if (!stationarySince.current) stationarySince.current = Date.now();
+              setIsMoving(false);
+            }
+          }
+
           // Use GPS track heading as compass fallback when moving
           if (gpsHeading != null && Number.isFinite(gpsHeading) && speed != null && speed > 0.4) {
             setDeviceHeading((prev) => {
@@ -774,8 +791,8 @@ const ActiveWalk = () => {
             if (prev.length > 0) {
               const last = prev[prev.length - 1];
               const segmentDist = haversine(last.lat, last.lng, newPos.lat, newPos.lng);
-              // Accept if >3m (real movement) and <120m (not a GPS jump)
-              if (segmentDist > 0.003 && segmentDist < 0.12) {
+              // Only count distance when actually moving (speed > 0.3 m/s) AND >3m real movement AND <120m (not GPS jump)
+              if (moving && segmentDist > 0.003 && segmentDist < 0.12) {
                 distanceRef.current += segmentDist;
                 setDistanceKm(distanceRef.current);
                 return [...prev.slice(-300), newPos]; // cap breadcrumb trail
@@ -1328,24 +1345,27 @@ const ActiveWalk = () => {
                 Finding nearest mosque...
               </div>
             )}
-            <Button
-              variant="hero"
-              size="lg"
-              className="w-full text-base"
-              onClick={startWalk}
-            >
-              <Play className="w-5 h-5 mr-2" /> {isReturnWalk ? "Start Walking Home" : "Start Walking"}
-            </Button>
-            {!hasMosqueDestinationEffective && !autoDetecting && (
-              <p className="text-xs text-muted-foreground text-center">
-                {isReturnWalk ? "Set your home address in Settings to walk home from the mosque." : "No mosque selected — walking in free mode. Select a mosque for directions."}
-              </p>
-            )}
-            {(effectiveDestination || mosquePosition) && (
-              <Button variant="outline" size="sm" className="w-full text-xs gap-1.5" onClick={openInMaps} title="Open route in your maps app">
-                <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden /> Open in Maps
+            {/* Sticky Start Walking button */}
+            <div className="sticky bottom-20 z-30 bg-background/95 backdrop-blur-sm pt-3 pb-2 -mx-4 px-4 border-t border-border/50">
+              <Button
+                variant="hero"
+                size="lg"
+                className="w-full text-base shadow-lg"
+                onClick={startWalk}
+              >
+                <Play className="w-5 h-5 mr-2" /> {isReturnWalk ? "Start Walking Home" : "Start Walking"}
               </Button>
-            )}
+              {!hasMosqueDestinationEffective && !autoDetecting && (
+                <p className="text-xs text-muted-foreground text-center mt-1.5">
+                  {isReturnWalk ? "Set your home address in Settings to walk home from the mosque." : "No mosque selected — walking in free mode. Select a mosque for directions."}
+                </p>
+              )}
+              {(effectiveDestination || mosquePosition) && (
+                <Button variant="outline" size="sm" className="w-full text-xs gap-1.5 mt-2" onClick={openInMaps} title="Open route in your maps app">
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden /> Open in Maps
+                </Button>
+              )}
+            </div>
           </motion.div>
         )}
 
@@ -1395,7 +1415,33 @@ const ActiveWalk = () => {
               </div>
             </div>
 
-            {/* Encourage location when off — steps still work */}
+            {/* Movement status indicator */}
+            {isWalking && currentPosition && (
+              <div className={`rounded-xl px-4 py-2.5 flex items-center gap-3 text-left border ${
+                isMoving 
+                  ? "bg-emerald-500/10 border-emerald-500/20" 
+                  : "bg-amber-500/10 border-amber-500/20"
+              }`} role="status" aria-live="polite">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                  isMoving ? "bg-emerald-500/20" : "bg-amber-500/20"
+                }`}>
+                  {isMoving 
+                    ? <Footprints className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> 
+                    : <Pause className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  }
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`font-semibold text-sm ${isMoving ? "text-emerald-700 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400"}`}>
+                    {isMoving ? "Moving — tracking progress" : "Stationary — waiting for movement"}
+                  </p>
+                  <p className="text-muted-foreground text-[10px] mt-0.5">
+                    {isMoving ? "Steps and distance counting." : "Progress paused until you start moving."}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Encourage location when off — steps still work + manual direction nav */}
             {isWalking && !currentPosition && (
               <div className="rounded-xl px-4 py-3 flex items-center gap-3 bg-primary/10 border border-primary/20 text-left" role="status" aria-live="polite">
                 <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
@@ -1403,8 +1449,43 @@ const ActiveWalk = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-foreground text-sm">Steps are counting</p>
-                  <p className="text-muted-foreground text-xs mt-0.5">Enable location for live map, distance and turn-by-turn progress.</p>
+                  <p className="text-muted-foreground text-xs mt-0.5">Enable location for live map, or use ◀ ▶ below to navigate directions manually.</p>
                 </div>
+              </div>
+            )}
+
+            {/* Manual direction navigation when no GPS */}
+            {isWalking && !currentPosition && routeInfo && routeInfo.steps.length > 0 && (
+              <div className="flex items-center gap-2 justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentDirectionIdx <= 0}
+                  onClick={() => {
+                    const newIdx = Math.max(0, currentDirectionIdx - 1);
+                    setCurrentDirectionIdx(newIdx);
+                    prevStepIdxRef.current = newIdx;
+                  }}
+                  className="gap-1"
+                >
+                  <ArrowLeft className="w-4 h-4" /> Previous
+                </Button>
+                <span className="text-xs text-muted-foreground font-medium tabular-nums">
+                  {currentDirectionIdx + 1} / {routeInfo.steps.length}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentDirectionIdx >= routeInfo.steps.length - 1}
+                  onClick={() => {
+                    const newIdx = Math.min(routeInfo.steps.length - 1, currentDirectionIdx + 1);
+                    setCurrentDirectionIdx(newIdx);
+                    prevStepIdxRef.current = newIdx;
+                  }}
+                  className="gap-1"
+                >
+                  Next <ArrowRight className="w-4 h-4" />
+                </Button>
               </div>
             )}
 
