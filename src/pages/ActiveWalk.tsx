@@ -118,9 +118,11 @@ const ActiveWalk = () => {
   const prayerMarginAlerted = useRef(false);
   const prevStepIdxRef = useRef(0);
   const [distanceToTurnM, setDistanceToTurnM] = useState<number | null>(null);
+  const [smoothedSpeed, setSmoothedSpeed] = useState(0); // rolling average km/h
 
   const stepCounterRef = useRef<StepCounter | null>(null);
   const distanceRef = useRef(0);
+  const speedSamples = useRef<number[]>([]);
 
   // Mosque position from settings or prayer-specific mosque
   const prayerMosqueId = settings.prayerMosques?.[selectedPrayer];
@@ -726,6 +728,7 @@ const ActiveWalk = () => {
 
   const startWalk = useCallback(async () => {
     setIsWalking(true);
+    try { sessionStorage.setItem("mosquesteps_active_walk", "active"); } catch {}
     setIsPaused(false);
     setElapsedSeconds(0);
     setDistanceKm(0);
@@ -772,6 +775,15 @@ const ActiveWalk = () => {
             return delta > 3;
           })();
           const moving = speedMoving || deltaMoving;
+
+          // Rolling speed average (last 5 GPS samples) for smooth display
+          if (speed != null && Number.isFinite(speed) && speed >= 0) {
+            speedSamples.current.push(speed * 3.6); // m/s → km/h
+            if (speedSamples.current.length > 5) speedSamples.current.shift();
+            const avg = speedSamples.current.reduce((a, b) => a + b, 0) / speedSamples.current.length;
+            setSmoothedSpeed(Math.round(avg * 10) / 10);
+          }
+
           if (moving) {
             setIsMoving(true);
             lastMovementTime.current = Date.now();
@@ -835,6 +847,7 @@ const ActiveWalk = () => {
   const stopWalk = () => {
     setIsWalking(false);
     setIsPaused(false);
+    try { sessionStorage.removeItem("mosquesteps_active_walk"); } catch {}
     if (watchId !== null && navigator.geolocation) { navigator.geolocation.clearWatch(watchId); setWatchId(null); }
     if (stepCounterRef.current) { stepCounterRef.current.stop(); stepCounterRef.current = null; }
     setCompleted(true);
@@ -1447,7 +1460,7 @@ const ActiveWalk = () => {
                   </p>
                 </div>
                 <span className={`text-xs font-bold tabular-nums ${isMoving ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
-                  {elapsedSeconds > 30 ? `${(distanceKm / (elapsedSeconds / 3600)).toFixed(1)} km/h` : "—"}
+                  {smoothedSpeed > 0 ? `${smoothedSpeed.toFixed(1)} km/h` : "—"}
                 </span>
               </div>
             )}
@@ -1842,7 +1855,7 @@ const ActiveWalk = () => {
               <div className="w-px h-5 bg-border" />
               <div className="text-center">
                 <p className="text-sm font-bold text-foreground tabular-nums">
-                  {elapsedSeconds > 30 ? (distanceKm / (elapsedSeconds / 3600)).toFixed(1) : "—"}<span className="text-[10px] text-muted-foreground font-normal ml-0.5">km/h</span>
+                  {smoothedSpeed > 0 ? smoothedSpeed.toFixed(1) : (elapsedSeconds > 30 ? (distanceKm / (elapsedSeconds / 3600)).toFixed(1) : "—")}<span className="text-[10px] text-muted-foreground font-normal ml-0.5">km/h</span>
                 </p>
               </div>
             </div>
