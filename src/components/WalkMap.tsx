@@ -237,6 +237,15 @@ export default function WalkMap({
         }
       }
     }
+
+    // POV-style: rotate map container to match heading so "up" = direction of travel
+    if (isWalking && containerRef.current && deviceHeading != null && Number.isFinite(deviceHeading)) {
+      containerRef.current.style.transition = "transform 0.6s ease-out";
+      containerRef.current.style.transform = `rotate(${-deviceHeading}deg)`;
+    } else if (containerRef.current) {
+      containerRef.current.style.transition = "transform 0.6s ease-out";
+      containerRef.current.style.transform = "rotate(0deg)";
+    }
   }, [userPosition, isWalking, deviceHeading]);
 
   // ── Mosque marker ────────────────────────────────────────────────────────────
@@ -433,7 +442,7 @@ export default function WalkMap({
       <div
         ref={containerRef}
         className={`rounded-xl overflow-hidden border border-border ${className}`}
-        style={{ height: "300px" }}
+        style={{ height: "300px", transformOrigin: "center center", willChange: "transform" }}
       />
 
       {/* Map control overlay (top-right) */}

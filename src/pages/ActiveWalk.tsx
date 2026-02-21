@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Play, Square, Pause, MapPin, Footprints, Clock, Star, Navigation, AlertTriangle, Smartphone, Share2, Map, Image, CheckCircle, ArrowUp, CornerDownLeft, CornerDownRight, ArrowRight, ChevronDown, Volume2, VolumeX, Route, Download, Copy, ExternalLink, Award, Flame, Trophy, WifiOff, Search, Home, Locate, Wind, CloudRain, Thermometer, Info, X } from "lucide-react";
+import { ArrowLeft, Play, CircleStop, Pause, MapPin, Footprints, Clock, Star, Navigation, AlertTriangle, Smartphone, Share2, Map, Image, CheckCircle, ArrowUp, CornerDownLeft, CornerDownRight, ArrowRight, ChevronDown, Volume2, VolumeX, Route, Download, Copy, ExternalLink, Award, Flame, Trophy, WifiOff, Search, Home, Locate, Wind, CloudRain, Thermometer, Info, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { estimateSteps, estimateWalkingTime, calculateHasanat, fetchPrayerTimes, calculateLeaveByTime, minutesUntilLeave, getNowInTimezone, getIPGeolocation, type PrayerTime } from "@/lib/prayer-times";
@@ -763,15 +763,22 @@ const ActiveWalk = () => {
           setCurrentPosition(newPos);
           setLocationSource("gps");
 
-          // Movement detection: require speed > 0.3 m/s (~1 km/h) or position delta > 3m
-          const moving = (speed != null && speed > 0.3);
+          // Movement detection: speed > 0.3 m/s OR position delta > 3m since last update
+          const speedMoving = (speed != null && speed > 0.3);
+          const deltaMoving = (() => {
+            if (positions.length === 0) return false;
+            const last = positions[positions.length - 1];
+            const delta = haversine(last.lat, last.lng, newPos.lat, newPos.lng) * 1000; // meters
+            return delta > 3;
+          })();
+          const moving = speedMoving || deltaMoving;
           if (moving) {
             setIsMoving(true);
             lastMovementTime.current = Date.now();
             stationarySince.current = 0;
           } else {
-            // Mark stationary after 5 seconds of no movement
-            if (lastMovementTime.current > 0 && Date.now() - lastMovementTime.current > 5000) {
+            // Mark stationary after 4 seconds of no movement
+            if (lastMovementTime.current > 0 && Date.now() - lastMovementTime.current > 4000) {
               if (!stationarySince.current) stationarySince.current = Date.now();
               setIsMoving(false);
             }
@@ -1417,27 +1424,31 @@ const ActiveWalk = () => {
 
             {/* Movement status indicator */}
             {isWalking && currentPosition && (
-              <div className={`rounded-xl px-4 py-2.5 flex items-center gap-3 text-left border ${
+              <div className={`rounded-xl px-4 py-2.5 flex items-center gap-3 text-left border transition-colors duration-500 ${
                 isMoving 
                   ? "bg-emerald-500/10 border-emerald-500/20" 
                   : "bg-amber-500/10 border-amber-500/20"
               }`} role="status" aria-live="polite">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                  isMoving ? "bg-emerald-500/20" : "bg-amber-500/20"
-                }`}>
-                  {isMoving 
-                    ? <Footprints className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> 
-                    : <Pause className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                  }
+                <div className="relative flex items-center justify-center flex-shrink-0">
+                  {/* Pulsing dot */}
+                  <span className={`absolute w-10 h-10 rounded-full animate-ping opacity-30 ${
+                    isMoving ? "bg-emerald-500" : "bg-amber-500"
+                  }`} />
+                  <span className={`relative w-3 h-3 rounded-full shadow-lg ${
+                    isMoving ? "bg-emerald-500" : "bg-amber-500"
+                  }`} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className={`font-semibold text-sm ${isMoving ? "text-emerald-700 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400"}`}>
-                    {isMoving ? "Moving — tracking progress" : "Stationary — waiting for movement"}
+                    {isMoving ? "Moving" : "Stationary"}
                   </p>
                   <p className="text-muted-foreground text-[10px] mt-0.5">
-                    {isMoving ? "Steps and distance counting." : "Progress paused until you start moving."}
+                    {isMoving ? "Steps and distance tracking live." : "Progress paused — start moving to continue."}
                   </p>
                 </div>
+                <span className={`text-xs font-bold tabular-nums ${isMoving ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
+                  {elapsedSeconds > 30 ? `${(distanceKm / (elapsedSeconds / 3600)).toFixed(1)} km/h` : "—"}
+                </span>
               </div>
             )}
 
@@ -1874,7 +1885,7 @@ const ActiveWalk = () => {
                 {isPaused ? "Resume" : "Pause"}
               </Button>
               <Button variant="destructive" size="lg" className="flex-1" onClick={stopWalk}>
-                <Square className="w-5 h-5 mr-1" /> End Walk
+                <CircleStop className="w-5 h-5 mr-1" /> End Walk
               </Button>
             </div>
           </motion.div>
