@@ -548,7 +548,7 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <div className="container py-6 space-y-6 pb-bottom-nav">
+      <div className="container py-6 space-y-6 pb-40">
         {/* Location permission prompt */}
         {locationStatus !== "granted" && !settings.cityLat && (
           <button
