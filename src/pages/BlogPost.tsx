@@ -211,10 +211,15 @@ const BlogPostPage = () => {
   };
 
   const renderBold = (text: string) => {
-    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    // Handle bold, inline code, and italic
+    const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g);
     return parts.map((part, i) => {
       if (part.startsWith("**") && part.endsWith("**"))
         return <strong key={i} className="font-semibold text-foreground">{part.slice(2, -2)}</strong>;
+      if (part.startsWith("`") && part.endsWith("`"))
+        return <code key={i} className="bg-muted px-1 py-0.5 rounded text-xs font-mono text-foreground">{part.slice(1, -1)}</code>;
+      if (part.startsWith("*") && part.endsWith("*") && !part.startsWith("**"))
+        return <em key={i} className="italic">{part.slice(1, -1)}</em>;
       return <span key={i}>{part}</span>;
     });
   };
