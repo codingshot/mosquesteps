@@ -127,6 +127,7 @@ const ActiveWalk = () => {
   const [arrivalState, setArrivalState] = useState<ArrivalState>("walking");
   const [showArrivalPrompt, setShowArrivalPrompt] = useState(false);
   const [stepConfidence, setStepConfidence] = useState<"high" | "medium" | "low">("high");
+  const [gpsConfidence, setGpsConfidence] = useState<"high" | "medium" | "low">("low");
   const gpsFilterRef = useRef(new GPSFilter());
 
   // Mosque position from settings or prayer-specific mosque
@@ -823,6 +824,7 @@ const ActiveWalk = () => {
           const newPos: Position = { lat: filtered.lat, lng: filtered.lng };
           setCurrentPosition(newPos);
           setLocationSource("gps");
+          setGpsConfidence(filtered.confidence);
 
           // Movement detection: speed > 0.25 m/s OR position delta > 2.5m
           const speedMoving = (speed != null && speed > 0.25);
@@ -1522,6 +1524,27 @@ const ActiveWalk = () => {
                 <span className={`text-xs font-bold tabular-nums ${isMoving ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
                   {smoothedSpeed > 0 ? `${smoothedSpeed.toFixed(1)} km/h` : "—"}
                 </span>
+              </div>
+            )}
+
+            {/* GPS signal strength indicator */}
+            {isWalking && currentPosition && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/40 border border-border/50" role="status" aria-label="GPS signal strength">
+                <div className="flex items-end gap-0.5" aria-hidden>
+                  <span className={`w-1 rounded-full transition-colors ${gpsConfidence !== "low" ? "bg-primary" : "bg-muted-foreground/30"}`} style={{ height: 6 }} />
+                  <span className={`w-1 rounded-full transition-colors ${gpsConfidence === "high" || gpsConfidence === "medium" ? "bg-primary" : "bg-muted-foreground/30"}`} style={{ height: 10 }} />
+                  <span className={`w-1 rounded-full transition-colors ${gpsConfidence === "high" ? "bg-primary" : "bg-muted-foreground/30"}`} style={{ height: 14 }} />
+                </div>
+                <span className={`text-[10px] font-medium ${
+                  gpsConfidence === "high" ? "text-emerald-600 dark:text-emerald-400" 
+                  : gpsConfidence === "medium" ? "text-amber-600 dark:text-amber-400" 
+                  : "text-destructive"
+                }`}>
+                  {gpsConfidence === "high" ? "Strong GPS" : gpsConfidence === "medium" ? "Fair GPS" : "Weak GPS"}
+                </span>
+                {gpsConfidence === "low" && (
+                  <span className="text-[10px] text-muted-foreground ml-auto">Move to open sky for better signal</span>
+                )}
               </div>
             )}
 
