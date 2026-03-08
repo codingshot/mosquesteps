@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { generateShareCard, shareOrDownload } from "@/lib/share-card";
 import { downloadFile } from "@/lib/stats-export";
 import { isNearMosque, addCheckIn, hasCheckedInToday } from "@/lib/checkin";
+import { createArrivalDetector, validateStepsAgainstGPS, PaceTracker, type ArrivalState } from "@/lib/step-validator";
 import { getNewlyEarnedBadges } from "@/lib/badges";
 import { getWalkingStats } from "@/lib/walking-history";
 import { addNotification, getNotificationSettings } from "@/lib/notification-store";
@@ -39,12 +40,9 @@ const SUNNAH_QUOTES = [
   { text: "The people who will receive the greatest reward for prayer are those who live farthest away.", source: "Sahih Muslim 662", link: "https://sunnah.com/muslim:662" },
 ];
 
+import { haversineKm } from "@/lib/geo-utils";
 function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return haversineKm(lat1, lon1, lat2, lon2);
 }
 
 function getDirectionIcon(instruction: string, small = false) {
@@ -123,6 +121,11 @@ const ActiveWalk = () => {
   const stepCounterRef = useRef<StepCounter | null>(null);
   const distanceRef = useRef(0);
   const speedSamples = useRef<number[]>([]);
+  const arrivalDetectorRef = useRef(createArrivalDetector());
+  const paceTrackerRef = useRef(new PaceTracker());
+  const [arrivalState, setArrivalState] = useState<ArrivalState>("walking");
+  const [showArrivalPrompt, setShowArrivalPrompt] = useState(false);
+  const [stepConfidence, setStepConfidence] = useState<"high" | "medium" | "low">("high");
 
   // Mosque position from settings or prayer-specific mosque
   const prayerMosqueId = settings.prayerMosques?.[selectedPrayer];
@@ -565,9 +568,8 @@ const ActiveWalk = () => {
       setDistanceToTurnM(Math.max(0, Math.round(distToTurn)));
 
       const remainingDist = totalRouteDist - distAlongRouteM;
-      const rawSpeed = elapsedSeconds > 30 && distanceKm > 0 ? distanceKm / (elapsedSeconds / 3600) : 0;
-      const speedKmh = Number.isFinite(rawSpeed) && rawSpeed > 0 ? rawSpeed : (settings.walkingSpeed || 5);
-      const remainingMin = speedKmh > 0 ? Math.round((remainingDist / 1000) / speedKmh * 60) : 0;
+      const remainingKm = remainingDist / 1000;
+      const remainingMin = paceTrackerRef.current.getETAMinutes(remainingKm, settings.walkingSpeed || 5);
       setEta(new Date(Date.now() + remainingMin * 60000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
       return;
     }
@@ -689,12 +691,61 @@ const ActiveWalk = () => {
     return () => window.removeEventListener("deviceorientation", handleOrientation, true);
   }, [isWalking]);
 
+  // Arrival detection — auto-prompt check-in when arriving at mosque
+  useEffect(() => {
+    if (!isWalking || !currentPosition || !effectiveDestination || isPaused) return;
+    const detector = arrivalDetectorRef.current;
+    const newState = detector.update(
+      currentPosition.lat, currentPosition.lng,
+      effectiveDestination.lat, effectiveDestination.lng
+    );
+    setArrivalState(newState);
+
+    if (newState === "arrived" && !showArrivalPrompt && !checkedIn) {
+      setShowArrivalPrompt(true);
+      // Vibrate and announce arrival
+      if ("vibrate" in navigator) navigator.vibrate([300, 150, 300]);
+      if (voiceEnabled && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(
+          `You have arrived at ${effectiveMosqueName}. Tap to check in.`
+        );
+        utterance.rate = 1.0;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+  }, [isWalking, currentPosition, effectiveDestination, isPaused, checkedIn, voiceEnabled, effectiveMosqueName, showArrivalPrompt]);
+
+  // GPS-step cross-validation — runs every 15 seconds
+  useEffect(() => {
+    if (!isWalking || sensorSource === "gps" || sensorSource === "none") return;
+    const interval = setInterval(() => {
+      const validation = validateStepsAgainstGPS(
+        sensorSteps, distanceRef.current, settings.strideLength || 0.77
+      );
+      setStepConfidence(validation.confidence);
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [isWalking, sensorSource, sensorSteps, settings.strideLength]);
+
+  // Pace tracker — feed GPS distance samples for adaptive ETA
+  useEffect(() => {
+    if (!isWalking || isPaused) return;
+    paceTrackerRef.current.addSample(distanceRef.current);
+  }, [isWalking, isPaused, distanceKm]);
+
   // Stop speech when walk ends
   useEffect(() => {
     if (!isWalking && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
-    if (!isWalking) prayerMarginAlerted.current = false;
+    if (!isWalking) {
+      prayerMarginAlerted.current = false;
+      arrivalDetectorRef.current.reset();
+      paceTrackerRef.current.reset();
+      setShowArrivalPrompt(false);
+      setArrivalState("walking");
+    }
   }, [isWalking]);
 
   // Voice alert when prayer margin drops below 5 minutes
@@ -1653,6 +1704,65 @@ const ActiveWalk = () => {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Arrival prompt */}
+            {showArrivalPrompt && !checkedIn && isWalking && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="glass-card px-3 py-3 flex items-center gap-3 text-left border border-green-500/40 bg-green-500/10"
+                role="alert"
+                aria-live="assertive"
+              >
+                <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-foreground">You've arrived! 🕌</p>
+                  <p className="text-xs text-muted-foreground">Tap to check in at {effectiveMosqueName}</p>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (effectiveDestination && selectedPrayer) {
+                      addCheckIn({
+                        mosqueId: prayerMosque?.id || "auto",
+                        mosqueName: effectiveMosqueName,
+                        date: new Date().toISOString(),
+                        prayer: selectedPrayer,
+                        lat: effectiveDestination.lat,
+                        lng: effectiveDestination.lng,
+                      });
+                      setCheckedIn(true);
+                      setShowArrivalPrompt(false);
+                      arrivalDetectorRef.current.markCheckedIn();
+                      toast({ title: "Checked in! ✅", description: `${effectiveMosqueName} — ${selectedPrayer}` });
+                    }
+                  }}
+                  className="shrink-0"
+                >
+                  Check In
+                </Button>
+              </motion.div>
+            )}
+
+            {/* Step confidence indicator */}
+            {isWalking && useRealSteps && stepConfidence !== "high" && (
+              <div className="glass-card px-3 py-1.5 flex items-center gap-2 text-left border border-muted/30">
+                <Info className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                <span className="text-[10px] text-muted-foreground">
+                  {stepConfidence === "medium" ? "Step count adjusted — sensor/GPS drift detected" : "Low sensor accuracy — using GPS distance estimate"}
+                </span>
+              </div>
+            )}
+
+            {/* Approaching indicator */}
+            {arrivalState === "approaching" && isWalking && !showArrivalPrompt && (
+              <div className="glass-card px-3 py-1.5 flex items-center gap-2 text-left border border-primary/30 bg-primary/5">
+                <MapPin className="w-3.5 h-3.5 text-primary flex-shrink-0 animate-pulse" />
+                <span className="text-xs font-medium text-foreground">
+                  Approaching {effectiveMosqueName} — {arrivalDetectorRef.current.getDistanceM()}m away
+                </span>
               </div>
             )}
 

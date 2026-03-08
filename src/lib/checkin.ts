@@ -2,6 +2,7 @@
  * Mosque check-in system
  * Users can check in when they arrive within ~100m of a mosque
  */
+import { getCheckInStreak } from "@/lib/step-validator";
 
 export interface CheckIn {
   id: string;
@@ -61,6 +62,7 @@ export function getCheckInStats(): {
   uniqueMosques: number;
   checkInsByMosque: Record<string, number>;
   checkInsByPrayer: Record<string, number>;
+  streak: number;
 } {
   const checkIns = getCheckIns();
   const mosqueSet = new Set(checkIns.map((c) => c.mosqueId));
@@ -72,10 +74,13 @@ export function getCheckInStats(): {
     byPrayer[c.prayer] = (byPrayer[c.prayer] || 0) + 1;
   });
 
+  const streak = getCheckInStreak(checkIns.map(c => c.date));
+
   return {
     totalCheckIns: checkIns.length,
     uniqueMosques: mosqueSet.size,
     checkInsByMosque: byMosque,
     checkInsByPrayer: byPrayer,
+    streak,
   };
 }
