@@ -44,3 +44,102 @@ export function formatDistanceForStep(distanceM: number, useImperial = false): s
   if (m >= 1000) return `In ${(m / 1000).toFixed(1)} km`;
   return `In ${Math.round(m)} m`;
 }
+
+/**
+ * Generate a lookahead summary of the next N turns.
+ * Useful for "after this turn: left in 200m, then right in 350m" style previews.
+ */
+export interface DirectionLookahead {
+  instruction: string;
+  distanceM: number;
+  formattedDistance: string;
+  isLast: boolean;
+}
+
+export function getDirectionLookahead(
+  steps: { instruction: string; distance: number }[],
+  currentIdx: number,
+  count = 3,
+  useImperial = false
+): DirectionLookahead[] {
+  const result: DirectionLookahead[] = [];
+  for (let i = currentIdx + 1; i < steps.length && result.length < count; i++) {
+    const step = steps[i];
+    if (!step) continue;
+    const formatted = formatDirection(step.instruction);
+    // Skip "Continue straight" entries in lookahead — they're not interesting turns
+    if (formatted === "Continue straight" && i < steps.length - 1) continue;
+    result.push({
+      instruction: formatted,
+      distanceM: step.distance ?? 0,
+      formattedDistance: formatDistanceForStep(step.distance ?? 0, useImperial),
+      isLast: i === steps.length - 1,
+    });
+  }
+  return result;
+}
+
+/**
+ * Calculate cumulative distance remaining from a step index to route end.
+ */
+export function remainingDistanceM(
+  steps: { distance: number }[],
+  fromIdx: number
+): number {
+  let total = 0;
+  for (let i = fromIdx; i < steps.length; i++) {
+    const d = steps[i]?.distance;
+    if (Number.isFinite(d) && d > 0) total += d;
+  }
+  return total;
+}
+
+/**
+ * Generate a human-readable direction summary for sharing/exporting.
+ * Merges consecutive "Continue straight" steps for cleaner output.
+ */
+export function generateCompactDirections(
+  steps: { instruction: string; distance: number }[],
+  useImperial = false
+): string {
+  if (!steps?.length) return "No directions available.";
+  
+  const lines: string[] = [];
+  let mergedDist = 0;
+
+  for (let i = 0; i < steps.length; i++) {
+    const formatted = formatDirection(steps[i].instruction);
+    const dist = steps[i].distance ?? 0;
+
+    // Merge consecutive "Continue straight" steps
+    if (formatted === "Continue straight" && i < steps.length - 1) {
+      mergedDist += dist;
+      continue;
+    }
+
+    if (mergedDist > 0) {
+      const totalDist = mergedDist + (formatted === "Continue straight" ? dist : 0);
+      const distStr = useImperial
+        ? (totalDist >= 1000 ? `${(totalDist / M_TO_MI).toFixed(1)} mi` : `${Math.round(totalDist * 3.28084)} ft`)
+        : (totalDist >= 1000 ? `${(totalDist / 1000).toFixed(1)} km` : `${Math.round(totalDist)} m`);
+      lines.push(`↑ Continue straight for ${distStr}`);
+      mergedDist = 0;
+      if (formatted === "Continue straight") continue;
+    }
+
+    const distStr = useImperial
+      ? (dist >= 1000 ? `${(dist / M_TO_MI).toFixed(1)} mi` : `${Math.round(dist * 3.28084)} ft`)
+      : (dist >= 1000 ? `${(dist / 1000).toFixed(1)} km` : `${Math.round(dist)} m`);
+    
+    const icon = formatted.toLowerCase().includes("left") ? "↰"
+      : formatted.toLowerCase().includes("right") ? "↱"
+      : formatted.toLowerCase().includes("arrive") ? "📍"
+      : formatted.toLowerCase().includes("start") ? "▶"
+      : formatted.toLowerCase().includes("roundabout") ? "↻"
+      : "↑";
+    
+    lines.push(`${icon} ${formatted} (${distStr})`);
+  }
+
+  return lines.join("\n");
+}

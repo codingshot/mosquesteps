@@ -38,7 +38,7 @@ export function setPreferredProvider(p: RoutingProvider): void {
   localStorage.setItem("mosquesteps_routing_provider", p);
 }
 
-type RouteResult = {
+export type RouteResult = {
   coords: [number, number][];
   distanceKm: number;
   durationMin: number;
@@ -46,17 +46,36 @@ type RouteResult = {
   provider: RoutingProvider;
 };
 
+// ── In-flight request dedup ──────────────────────────────────────────────────
+const inflightRequests = new Map<string, Promise<RouteResult | null>>();
+
+function makeKey(fromLat: number, fromLng: number, toLat: number, toLng: number): string {
+  return `${fromLat.toFixed(5)},${fromLng.toFixed(5)}->${toLat.toFixed(5)},${toLng.toFixed(5)}`;
+}
+
+// ── Active AbortController for cancelling stale route requests ───────────────
+let activeAbortController: AbortController | null = null;
+
+/** Cancel any in-flight route requests (e.g., on reroute or walk stop) */
+export function cancelPendingRoutes(): void {
+  if (activeAbortController) {
+    activeAbortController.abort();
+    activeAbortController = null;
+  }
+}
+
 /**
  * Fetch walking route from Mapbox Directions API.
  */
 async function fetchMapboxRoute(
-  fromLat: number, fromLng: number, toLat: number, toLng: number
+  fromLat: number, fromLng: number, toLat: number, toLng: number,
+  signal?: AbortSignal
 ): Promise<RouteResult | null> {
   const token = getMapboxToken();
   if (!token) return null;
   try {
     const url = `https://api.mapbox.com/directions/v5/mapbox/walking/${fromLng},${fromLat};${toLng},${toLat}?geometries=geojson&overview=full&steps=true&access_token=${token}`;
-    const res = await fetch(url);
+    const res = await fetch(url, { signal });
     if (!res.ok) return null;
     const data = await res.json();
     if (!data.routes?.length) return null;
@@ -78,7 +97,8 @@ async function fetchMapboxRoute(
       steps,
       provider: "mapbox",
     };
-  } catch (e) {
+  } catch (e: any) {
+    if (e?.name === "AbortError") return null;
     console.error("Mapbox route fetch failed:", e);
     return null;
   }
@@ -88,11 +108,12 @@ async function fetchMapboxRoute(
  * Fetch walking route from OSRM.
  */
 async function fetchOSRMRoute(
-  fromLat: number, fromLng: number, toLat: number, toLng: number
+  fromLat: number, fromLng: number, toLat: number, toLng: number,
+  signal?: AbortSignal
 ): Promise<RouteResult | null> {
   try {
     const url = `https://router.project-osrm.org/route/v1/foot/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=geojson&steps=true`;
-    const res = await fetch(url);
+    const res = await fetch(url, { signal });
     let data: { code?: string; routes?: unknown[] };
     try { data = await res.json(); } catch { return null; }
     if (!res.ok || data.code !== "Ok" || !data.routes?.length) return null;
@@ -121,7 +142,8 @@ async function fetchOSRMRoute(
       steps,
       provider: "osrm",
     };
-  } catch (e) {
+  } catch (e: any) {
+    if (e?.name === "AbortError") return null;
     console.error("OSRM route fetch failed:", e);
     return null;
   }
@@ -129,6 +151,7 @@ async function fetchOSRMRoute(
 
 /**
  * Fetch walking route using preferred provider with automatic fallback.
+ * Features: AbortController support, request dedup, stale cancellation.
  * Returns null when offline (no network).
  */
 export async function fetchWalkingRoute(
@@ -142,21 +165,42 @@ export async function fetchWalkingRoute(
   const samePoint = Math.abs(fromLat - toLat) < 1e-6 && Math.abs(fromLng - toLng) < 1e-6;
   if (samePoint) return null;
 
-  const preferred = getPreferredProvider();
+  const key = makeKey(fromLat, fromLng, toLat, toLng);
 
-  // Try preferred first, then fallback
-  if (preferred === "mapbox") {
-    const result = await fetchMapboxRoute(fromLat, fromLng, toLat, toLng);
-    if (result) return result;
-    // Fallback to OSRM
-    return fetchOSRMRoute(fromLat, fromLng, toLat, toLng);
-  }
+  // Dedup: return in-flight promise for same route
+  const inflight = inflightRequests.get(key);
+  if (inflight) return inflight;
 
-  // OSRM first, fallback to Mapbox if available
-  const result = await fetchOSRMRoute(fromLat, fromLng, toLat, toLng);
-  if (result) return result;
-  if (isMapboxAvailable()) {
-    return fetchMapboxRoute(fromLat, fromLng, toLat, toLng);
-  }
-  return null;
+  // Cancel previous stale request
+  cancelPendingRoutes();
+  const controller = new AbortController();
+  activeAbortController = controller;
+
+  const promise = (async () => {
+    try {
+      const preferred = getPreferredProvider();
+      const signal = controller.signal;
+
+      if (preferred === "mapbox") {
+        const result = await fetchMapboxRoute(fromLat, fromLng, toLat, toLng, signal);
+        if (result) return result;
+        return fetchOSRMRoute(fromLat, fromLng, toLat, toLng, signal);
+      }
+
+      const result = await fetchOSRMRoute(fromLat, fromLng, toLat, toLng, signal);
+      if (result) return result;
+      if (isMapboxAvailable()) {
+        return fetchMapboxRoute(fromLat, fromLng, toLat, toLng, signal);
+      }
+      return null;
+    } finally {
+      inflightRequests.delete(key);
+      if (activeAbortController === controller) {
+        activeAbortController = null;
+      }
+    }
+  })();
+
+  inflightRequests.set(key, promise);
+  return promise;
 }

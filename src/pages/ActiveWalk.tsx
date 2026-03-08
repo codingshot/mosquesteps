@@ -7,8 +7,9 @@ import { estimateSteps, estimateWalkingTime, calculateHasanat, fetchPrayerTimes,
 import { addWalkEntry, getSettings, getSavedMosques, toggleFavoriteMosque } from "@/lib/walking-history";
 import { markPrayerWalked, updatePrayerLog, getTodayStr } from "@/lib/prayer-log";
 import { StepCounter, isStepCountingAvailable, getPaceCategory } from "@/lib/step-counter";
-import { fetchWalkingRoute } from "@/lib/routing";
-import { formatDirection, formatDistanceForStep } from "@/lib/directions-utils";
+import { fetchWalkingRoute, cancelPendingRoutes } from "@/lib/routing";
+import { formatDirection, formatDistanceForStep, getDirectionLookahead } from "@/lib/directions-utils";
+import { GPSFilter } from "@/lib/gps-filter";
 import { getCachedRoute, getCachedRouteToMosque, setCachedRoute, isOnline } from "@/lib/offline-cache";
 import { fetchLocationSuggestions } from "@/lib/geocode";
 import { fetchWeather, type WeatherCondition } from "@/lib/weather";
@@ -126,6 +127,7 @@ const ActiveWalk = () => {
   const [arrivalState, setArrivalState] = useState<ArrivalState>("walking");
   const [showArrivalPrompt, setShowArrivalPrompt] = useState(false);
   const [stepConfidence, setStepConfidence] = useState<"high" | "medium" | "low">("high");
+  const gpsFilterRef = useRef(new GPSFilter());
 
   // Mosque position from settings or prayer-specific mosque
   const prayerMosqueId = settings.prayerMosques?.[selectedPrayer];
@@ -806,14 +808,19 @@ const ActiveWalk = () => {
     if (navigator.geolocation) {
       const id = navigator.geolocation.watchPosition(
         (pos) => {
-          const newPos: Position = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          const rawLat = pos.coords.latitude;
+          const rawLng = pos.coords.longitude;
           const accuracy = pos.coords.accuracy ?? 999;
           const speed = pos.coords.speed; // m/s, null if unavailable
           const gpsHeading = pos.coords.heading; // degrees, null if unavailable
 
-          // For walking: filter noisy readings >25m accuracy
-          if (accuracy > 25) return;
+          // Apply GPS Kalman filter for smooth position
+          const filtered = gpsFilterRef.current.update(rawLat, rawLng, accuracy, speed, gpsHeading);
 
+          // Skip very low confidence readings
+          if (filtered.confidence === "low" && accuracy > 40) return;
+
+          const newPos: Position = { lat: filtered.lat, lng: filtered.lng };
           setCurrentPosition(newPos);
           setLocationSource("gps");
 
@@ -898,6 +905,8 @@ const ActiveWalk = () => {
   const stopWalk = () => {
     setIsWalking(false);
     setIsPaused(false);
+    cancelPendingRoutes();
+    gpsFilterRef.current.reset();
     try { sessionStorage.removeItem("mosquesteps_active_walk"); } catch {}
     if (watchId !== null && navigator.geolocation) { navigator.geolocation.clearWatch(watchId); setWatchId(null); }
     if (stepCounterRef.current) { stepCounterRef.current.stop(); stepCounterRef.current = null; }

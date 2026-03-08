@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useMemo } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { calcBearing, smoothHeading, findClosestRouteIndex, routeProgress, simplifyRoute, haversineKm, formatDistanceLabel } from "@/lib/geo-utils";
@@ -172,9 +172,12 @@ export default function WalkMap({
   const lastThemeRef = useRef<boolean>(isDarkMode());
 
   // Simplify long routes for performance (>200 points → reduce)
-  const routeCoords = rawRouteCoords && rawRouteCoords.length > 200
-    ? simplifyRoute(rawRouteCoords, 0.00003)
-    : rawRouteCoords;
+  const routeCoords = useMemo(() => {
+    if (!rawRouteCoords) return undefined;
+    return rawRouteCoords.length > 200
+      ? simplifyRoute(rawRouteCoords, 0.00003)
+      : rawRouteCoords;
+  }, [rawRouteCoords]);
 
   // ── Initialize map ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -210,19 +213,19 @@ export default function WalkMap({
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Auto-switch tiles on theme change ───────────────────────────────────────
+  // ── Auto-switch tiles on theme change (MutationObserver — no polling) ──────
   useEffect(() => {
-    const checkTheme = () => {
+    const el = document.documentElement;
+    const observer = new MutationObserver(() => {
       const dark = isDarkMode();
       if (dark !== lastThemeRef.current && mapRef.current && tileLayerRef.current) {
         lastThemeRef.current = dark;
         const config = getTileConfig();
         tileLayerRef.current.setUrl(config.url);
       }
-    };
-    // Check on a short interval (MutationObserver is overkill for class toggle)
-    const interval = setInterval(checkTheme, 1000);
-    return () => clearInterval(interval);
+    });
+    observer.observe(el, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
   }, []);
 
   // ── User marker + smoothed heading + camera ─────────────────────────────────
@@ -398,21 +401,45 @@ export default function WalkMap({
     }
   }, [returnRouteCoords]);
 
-  // ── GPS breadcrumb trail (gold line) ─────────────────────────────────────────
+  // ── GPS breadcrumb trail (gold line) — throttled to avoid redraw on every position ──
+  const lastTrailUpdateRef = useRef(0);
   useEffect(() => {
     if (!mapRef.current) return;
+    // Only redraw trail every 2 seconds max
+    const now = Date.now();
+    if (walkPath.length > 1 && now - lastTrailUpdateRef.current < 2000) return;
+    lastTrailUpdateRef.current = now;
+
     if (walkLineRef.current) { mapRef.current.removeLayer(walkLineRef.current); }
     if (walkPath.length > 1) {
+      // Downsample trail for performance when long
+      const path = walkPath.length > 200
+        ? walkPath.filter((_, i) => i % 3 === 0 || i === walkPath.length - 1)
+        : walkPath;
       walkLineRef.current = L.polyline(
-        walkPath.map((p) => [p.lat, p.lng] as [number, number]),
+        path.map((p) => [p.lat, p.lng] as [number, number]),
         { color: "#D4A017", weight: 3, opacity: 0.7 }
       ).addTo(mapRef.current);
     }
   }, [walkPath]);
 
-  // ── Turn markers on route (use step lat/lng when available) ──────────────────
+  // ── Turn markers on route (only rebuild when step index changes) ──────────────
+  const lastStepMarkerIdx = useRef(-1);
   useEffect(() => {
     if (!mapRef.current) return;
+    // Skip rebuild if only the current step highlight changed
+    if (lastStepMarkerIdx.current === currentStepIdx && stepMarkersRef.current.length > 0) {
+      // Just update opacity/style of existing markers for perf
+      stepMarkersRef.current.forEach((m, i) => {
+        const el = m.getElement();
+        if (el) {
+          el.style.opacity = i < currentStepIdx ? "0.4" : "1";
+        }
+      });
+      return;
+    }
+    lastStepMarkerIdx.current = currentStepIdx;
+
     stepMarkersRef.current.forEach((m) => m.remove());
     stepMarkersRef.current = [];
 
