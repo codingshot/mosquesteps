@@ -547,8 +547,8 @@ const ActiveWalk = () => {
       if (rawStepIdx === -1) rawStepIdx = steps.length - 1;
       rawStepIdx = Math.min(rawStepIdx, steps.length - 1);
 
-      // Hysteresis: only advance when clearly past the turn (15 m buffer)
-      const HYST_M = 15;
+      // Hysteresis: only advance when clearly past the turn (10 m buffer for walking)
+      const HYST_M = 10;
       const prevIdx = prevStepIdxRef.current;
       let stepIdx = prevIdx;
       if (rawStepIdx > prevIdx) {

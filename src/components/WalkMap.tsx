@@ -470,7 +470,7 @@ export default function WalkMap({
       <div
         ref={containerRef}
         className={`rounded-xl overflow-hidden border border-border ${className}`}
-        style={{ height: "300px", transformOrigin: "center center", willChange: "transform" }}
+        style={{ height: "320px", transformOrigin: "center center", willChange: "transform" }}
       />
 
       {/* Map control overlay (top-right) */}
