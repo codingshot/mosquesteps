@@ -101,16 +101,16 @@ describe("PositionBatcher", () => {
     vi.useRealTimers();
   });
 
-  it("stop clears timer", () => {
+  it("stop clears timer and prevents further emissions", () => {
     vi.useFakeTimers();
     const cb = vi.fn();
     const batcher = new PositionBatcher(cb, 500);
-    batcher.push(51.5, -0.1, 10, null, null);
-    batcher.stop();
-    batcher.push(51.6, -0.2, 15, null, null);
-    vi.advanceTimersByTime(1000);
-    // Only the first immediate emit
+    batcher.push(51.5, -0.1, 10, null, null); // immediate emit
     expect(cb).toHaveBeenCalledTimes(1);
+    batcher.stop();
+    // After stop, pushing should not start a new timer
+    vi.advanceTimersByTime(2000);
+    expect(cb).toHaveBeenCalledTimes(1); // still just 1
     vi.useRealTimers();
   });
 });
