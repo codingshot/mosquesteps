@@ -1710,6 +1710,65 @@ const ActiveWalk = () => {
               </div>
             )}
 
+            {/* Arrival prompt */}
+            {showArrivalPrompt && !checkedIn && isWalking && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="glass-card px-3 py-3 flex items-center gap-3 text-left border border-green-500/40 bg-green-500/10"
+                role="alert"
+                aria-live="assertive"
+              >
+                <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-foreground">You've arrived! 🕌</p>
+                  <p className="text-xs text-muted-foreground">Tap to check in at {effectiveMosqueName}</p>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (effectiveDestination && selectedPrayer) {
+                      addCheckIn({
+                        mosqueId: prayerMosque?.id || "auto",
+                        mosqueName: effectiveMosqueName,
+                        date: new Date().toISOString(),
+                        prayer: selectedPrayer,
+                        lat: effectiveDestination.lat,
+                        lng: effectiveDestination.lng,
+                      });
+                      setCheckedIn(true);
+                      setShowArrivalPrompt(false);
+                      arrivalDetectorRef.current.markCheckedIn();
+                      toast({ title: "Checked in! ✅", description: `${effectiveMosqueName} — ${selectedPrayer}` });
+                    }
+                  }}
+                  className="shrink-0"
+                >
+                  Check In
+                </Button>
+              </motion.div>
+            )}
+
+            {/* Step confidence indicator */}
+            {isWalking && useRealSteps && stepConfidence !== "high" && (
+              <div className="glass-card px-3 py-1.5 flex items-center gap-2 text-left border border-muted/30">
+                <Info className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                <span className="text-[10px] text-muted-foreground">
+                  {stepConfidence === "medium" ? "Step count adjusted — sensor/GPS drift detected" : "Low sensor accuracy — using GPS distance estimate"}
+                </span>
+              </div>
+            )}
+
+            {/* Approaching indicator */}
+            {arrivalState === "approaching" && isWalking && !showArrivalPrompt && (
+              <div className="glass-card px-3 py-1.5 flex items-center gap-2 text-left border border-primary/30 bg-primary/5">
+                <MapPin className="w-3.5 h-3.5 text-primary flex-shrink-0 animate-pulse" />
+                <span className="text-xs font-medium text-foreground">
+                  Approaching {effectiveMosqueName} — {arrivalDetectorRef.current.getDistanceM()}m away
+                </span>
+              </div>
+            )}
+
             {/* Off-route banner */}
             {offRoute && isWalking && (
               <div className="glass-card px-3 py-2 flex items-center gap-2 text-left border border-amber-500/30 bg-amber-500/5" role="status" aria-live="polite">
