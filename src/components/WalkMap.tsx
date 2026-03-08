@@ -1,6 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { calcBearing, smoothHeading, findClosestRouteIndex, routeProgress, simplifyRoute, haversineKm, formatDistanceLabel } from "@/lib/geo-utils";
+import { getTileConfig, isDarkMode } from "@/lib/map-tiles";
 
 interface RouteStep {
   instruction: string;
@@ -24,6 +26,10 @@ interface WalkMapProps {
   deviceHeading?: number | null;
   /** Compact direction overlay at bottom of map (e.g. "In 150 m · Turn left") */
   directionOverlay?: { distance: string; instruction: string };
+  /** GPS accuracy in meters — used for accuracy circle radius */
+  gpsAccuracy?: number;
+  /** Callback with route completion percentage (0-100) */
+  onProgress?: (pct: number) => void;
   className?: string;
   onRecenter?: () => void;
 }
@@ -38,8 +44,6 @@ L.Icon.Default.mergeOptions({
 
 /**
  * User position pin: large pulsing circle + 🚶 emoji + optional heading arrow.
- * The heading arrow (▲) rotates to show the direction of travel so users always
- * know which way they're heading — especially useful on pedestrian streets.
  */
 function makeUserIcon(isWalking: boolean, heading?: number | null) {
   const showHeading = isWalking && heading != null && Number.isFinite(heading);
@@ -128,23 +132,13 @@ const mosqueIcon = L.divIcon({
 });
 
 const PAN_THROTTLE_MS = 1200;
-const USER_OFFSET_FRACTION = 0.3; // Lower = user higher on screen = more route visible ahead
-
-/** Calculate bearing (degrees) from point A to point B. */
-function calcBearing(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const toDeg = (r: number) => (r * 180) / Math.PI;
-  const dLng = toRad(lng2 - lng1);
-  const y = Math.sin(dLng) * Math.cos(toRad(lat2));
-  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLng);
-  return (toDeg(Math.atan2(y, x)) + 360) % 360;
-}
+const USER_OFFSET_FRACTION = 0.3;
 
 export default function WalkMap({
   userPosition,
   mosquePosition,
   walkPath,
-  routeCoords,
+  routeCoords: rawRouteCoords,
   returnRouteCoords,
   routeSteps,
   currentStepIdx = 0,
@@ -153,11 +147,14 @@ export default function WalkMap({
   eta,
   deviceHeading,
   directionOverlay,
+  gpsAccuracy,
+  onProgress,
   className = "",
   onRecenter,
 }: WalkMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
   const accuracyCircleRef = useRef<L.Circle | null>(null);
   const mosqueMarkerRef = useRef<L.Marker | null>(null);
@@ -168,14 +165,24 @@ export default function WalkMap({
   const walkLineRef = useRef<L.Polyline | null>(null);
   const stepMarkersRef = useRef<L.Marker[]>([]);
   const distLabelRef = useRef<L.Marker | null>(null);
+  const progressLabelRef = useRef<L.Marker | null>(null);
   const lastPanRef = useRef(0);
   const recenterRequestedRef = useRef(false);
+  const smoothedHeadingRef = useRef<number | null>(null);
+  const lastThemeRef = useRef<boolean>(isDarkMode());
+
+  // Simplify long routes for performance (>200 points → reduce)
+  const routeCoords = rawRouteCoords && rawRouteCoords.length > 200
+    ? simplifyRoute(rawRouteCoords, 0.00003)
+    : rawRouteCoords;
 
   // ── Initialize map ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
     const center = userPosition || mosquePosition || { lat: 0, lng: 0 };
+    const tileConfig = getTileConfig();
+
     const map = L.map(containerRef.current, {
       center: [center.lat, center.lng],
       zoom: 16,
@@ -185,27 +192,51 @@ export default function WalkMap({
 
     L.control.zoom({ position: "bottomright" }).addTo(map);
     L.control.attribution({ position: "bottomleft", prefix: false })
-      .addAttribution('© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>')
+      .addAttribution(tileConfig.attribution)
       .addTo(map);
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
+    const tileLayer = L.tileLayer(tileConfig.url, {
+      maxZoom: tileConfig.maxZoom,
       attribution: "",
     }).addTo(map);
 
+    tileLayerRef.current = tileLayer;
     mapRef.current = map;
 
     return () => {
       map.remove();
       mapRef.current = null;
+      tileLayerRef.current = null;
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── User marker + heading + smooth camera ───────────────────────────────────
+  // ── Auto-switch tiles on theme change ───────────────────────────────────────
+  useEffect(() => {
+    const checkTheme = () => {
+      const dark = isDarkMode();
+      if (dark !== lastThemeRef.current && mapRef.current && tileLayerRef.current) {
+        lastThemeRef.current = dark;
+        const config = getTileConfig();
+        tileLayerRef.current.setUrl(config.url);
+      }
+    };
+    // Check on a short interval (MutationObserver is overkill for class toggle)
+    const interval = setInterval(checkTheme, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // ── User marker + smoothed heading + camera ─────────────────────────────────
   useEffect(() => {
     if (!mapRef.current || !userPosition) return;
 
-    const icon = makeUserIcon(isWalking, deviceHeading);
+    // Smooth heading to reduce jitter
+    const rawHeading = deviceHeading ?? null;
+    if (rawHeading != null && Number.isFinite(rawHeading)) {
+      smoothedHeadingRef.current = smoothHeading(smoothedHeadingRef.current, rawHeading, 0.25);
+    }
+    const heading = smoothedHeadingRef.current;
+
+    const icon = makeUserIcon(isWalking, heading);
 
     if (userMarkerRef.current) {
       userMarkerRef.current.setLatLng([userPosition.lat, userPosition.lng]);
@@ -213,16 +244,21 @@ export default function WalkMap({
     } else {
       userMarkerRef.current = L.marker([userPosition.lat, userPosition.lng], {
         icon,
-        zIndexOffset: 1500, // always on top
+        zIndexOffset: 1500,
       }).addTo(mapRef.current);
     }
 
-    // Accuracy halo
+    // GPS accuracy circle — use real accuracy when available, fallback to 18m
+    const accuracyRadius = gpsAccuracy && Number.isFinite(gpsAccuracy) && gpsAccuracy > 0
+      ? Math.min(gpsAccuracy, 200) // cap at 200m to prevent huge circles
+      : 18;
+
     if (accuracyCircleRef.current) {
       accuracyCircleRef.current.setLatLng([userPosition.lat, userPosition.lng]);
+      accuracyCircleRef.current.setRadius(accuracyRadius);
     } else {
       accuracyCircleRef.current = L.circle([userPosition.lat, userPosition.lng], {
-        radius: 18,
+        radius: accuracyRadius,
         color: "#0D7377",
         fillColor: "#0D7377",
         fillOpacity: 0.1,
@@ -231,7 +267,13 @@ export default function WalkMap({
       }).addTo(mapRef.current);
     }
 
-    // Smooth camera tracking while walking — keep user in lower portion so route ahead is visible
+    // Route progress callback
+    if (isWalking && routeCoords && routeCoords.length > 1 && onProgress) {
+      const pct = routeProgress(routeCoords, userPosition.lat, userPosition.lng);
+      onProgress(pct);
+    }
+
+    // Smooth camera tracking
     if (isWalking) {
       const now = Date.now();
       const shouldPan = recenterRequestedRef.current || now - lastPanRef.current >= PAN_THROTTLE_MS;
@@ -253,34 +295,28 @@ export default function WalkMap({
       }
     }
 
-    // POV-style rotation: use device compass heading, or fall back to route-based bearing
+    // POV-style rotation with smoothed heading
     if (isWalking && containerRef.current) {
-      let heading: number | null = deviceHeading ?? null;
+      let mapHeading: number | null = heading;
 
-      // Fallback: compute bearing from user position to next route point ahead
-      if (heading == null && routeCoords && routeCoords.length > 2) {
-        let closestIdx = 0;
-        let minD = Infinity;
-        for (let i = 0; i < routeCoords.length; i++) {
-          const d = (routeCoords[i][0] - userPosition.lat) ** 2 + (routeCoords[i][1] - userPosition.lng) ** 2;
-          if (d < minD) { minD = d; closestIdx = i; }
-        }
-        // Look 3-5 points ahead for a stable bearing
+      // Fallback: bearing from user to next route point
+      if (mapHeading == null && routeCoords && routeCoords.length > 2) {
+        const { index: closestIdx } = findClosestRouteIndex(routeCoords, userPosition.lat, userPosition.lng);
         const lookAhead = Math.min(closestIdx + 5, routeCoords.length - 1);
         if (lookAhead > closestIdx) {
-          heading = calcBearing(userPosition.lat, userPosition.lng, routeCoords[lookAhead][0], routeCoords[lookAhead][1]);
+          mapHeading = calcBearing(userPosition.lat, userPosition.lng, routeCoords[lookAhead][0], routeCoords[lookAhead][1]);
         }
       }
 
-      if (heading != null && Number.isFinite(heading)) {
+      if (mapHeading != null && Number.isFinite(mapHeading)) {
         containerRef.current.style.transition = "transform 0.8s cubic-bezier(0.25,0.1,0.25,1)";
-        containerRef.current.style.transform = `rotate(${-heading}deg)`;
+        containerRef.current.style.transform = `rotate(${-mapHeading}deg)`;
       }
     } else if (containerRef.current) {
       containerRef.current.style.transition = "transform 0.6s ease-out";
       containerRef.current.style.transform = "rotate(0deg)";
     }
-  }, [userPosition, isWalking, deviceHeading]);
+  }, [userPosition, isWalking, deviceHeading, gpsAccuracy]);
 
   // ── Mosque marker ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -305,31 +341,30 @@ export default function WalkMap({
     if (!routeCoords || routeCoords.length < 2) return;
 
     if (!isWalking || !userPosition) {
-      // Pre-walk: full dashed preview line + fit map
+      // Pre-walk: full dashed preview line + responsive fitBounds
       routeLineRef.current = L.polyline(routeCoords, {
         color: "#0D7377",
         weight: 5,
         opacity: 0.8,
         dashArray: "12, 8",
       }).addTo(mapRef.current);
-      mapRef.current.fitBounds(routeLineRef.current.getBounds(), { padding: [50, 50], maxZoom: 17 });
+
+      // Responsive padding based on map size
+      const size = mapRef.current.getSize();
+      const padX = Math.max(30, Math.min(80, size.x * 0.1));
+      const padY = Math.max(30, Math.min(80, size.y * 0.1));
+      mapRef.current.fitBounds(routeLineRef.current.getBounds(), {
+        padding: [padY, padX],
+        maxZoom: 17,
+      });
       return;
     }
 
-    // During walk: binary split — walked (grey faded) + remaining (bright teal)
-    let closestIdx = 0;
-    let minDist = Infinity;
-    for (let i = 0; i < routeCoords.length; i++) {
-      const dlat = routeCoords[i][0] - userPosition.lat;
-      const dlng = routeCoords[i][1] - userPosition.lng;
-      const d = dlat * dlat + dlng * dlng;
-      if (d < minDist) { minDist = d; closestIdx = i; }
-    }
-
-    // Include a few extra coords in "walked" so the grey line reaches user dot
+    // During walk: binary split
+    const { index: closestIdx } = findClosestRouteIndex(routeCoords, userPosition.lat, userPosition.lng);
     const splitAt = Math.min(closestIdx + 1, routeCoords.length);
     const walked = routeCoords.slice(0, splitAt);
-    const remaining = routeCoords.slice(Math.max(0, splitAt - 1)); // overlap by 1 for continuity
+    const remaining = routeCoords.slice(Math.max(0, splitAt - 1));
 
     if (walked.length > 1) {
       walkedLineRef.current = L.polyline(walked, {
@@ -344,7 +379,7 @@ export default function WalkMap({
         color: "#0D7377",
         weight: 6,
         opacity: 0.95,
-        dashArray: "0", // solid while walking for clarity
+        dashArray: "0",
       }).addTo(mapRef.current);
     }
   }, [routeCoords, isWalking, userPosition?.lat, userPosition?.lng]);
@@ -375,7 +410,7 @@ export default function WalkMap({
     }
   }, [walkPath]);
 
-  // ── Turn markers on route ────────────────────────────────────────────────────
+  // ── Turn markers on route (use step lat/lng when available) ──────────────────
   useEffect(() => {
     if (!mapRef.current) return;
     stepMarkersRef.current.forEach((m) => m.remove());
@@ -388,9 +423,16 @@ export default function WalkMap({
 
     routeSteps.forEach((step, i) => {
       accDist += Number.isFinite(step.distance) ? step.distance : 0;
-      const ratio = accDist / Math.max(1, totalDist);
-      const coordIdx = Math.min(Math.floor(ratio * (routeCoords.length - 1)), routeCoords.length - 1);
-      const coord = routeCoords[coordIdx];
+
+      // Use explicit lat/lng from step if available, else interpolate by distance ratio
+      let coord: [number, number];
+      if (step.lat != null && step.lng != null && Number.isFinite(step.lat) && Number.isFinite(step.lng)) {
+        coord = [step.lat, step.lng];
+      } else {
+        const ratio = accDist / Math.max(1, totalDist);
+        const coordIdx = Math.min(Math.floor(ratio * (routeCoords.length - 1)), routeCoords.length - 1);
+        coord = routeCoords[coordIdx];
+      }
       if (!coord) return;
 
       const isPast = i < currentStepIdx;
@@ -432,12 +474,8 @@ export default function WalkMap({
     if (distLabelRef.current) { distLabelRef.current.remove(); distLabelRef.current = null; }
     if (!isWalking || !userPosition || !mosquePosition) return;
 
-    const R = 6371;
-    const dLat = ((mosquePosition.lat - userPosition.lat) * Math.PI) / 180;
-    const dLng = ((mosquePosition.lng - userPosition.lng) * Math.PI) / 180;
-    const a = Math.sin(dLat / 2) ** 2 + Math.cos((userPosition.lat * Math.PI) / 180) * Math.cos((mosquePosition.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
-    const distKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const distText = distKm > 1 ? `${distKm.toFixed(1)} km` : `${Math.round(distKm * 1000)} m`;
+    const distKm = haversineKm(userPosition.lat, userPosition.lng, mosquePosition.lat, mosquePosition.lng);
+    const distText = formatDistanceLabel(distKm);
 
     const labelIcon = L.divIcon({
       html: `<div style="
@@ -458,7 +496,7 @@ export default function WalkMap({
   }, [userPosition, mosquePosition, isWalking]);
 
   // ── Recenter handler ─────────────────────────────────────────────────────────
-  const handleRecenter = () => {
+  const handleRecenter = useCallback(() => {
     if (!mapRef.current || !userPosition) { onRecenter?.(); return; }
     const map = mapRef.current;
     const size = map.getSize();
@@ -469,7 +507,7 @@ export default function WalkMap({
     const targetLatLng = map.containerPointToLatLng(targetPoint);
     map.panTo(targetLatLng, { animate: true, duration: 0.5 });
     recenterRequestedRef.current = false;
-  };
+  }, [userPosition, onRecenter]);
 
   return (
     <div className="relative">
@@ -496,15 +534,15 @@ export default function WalkMap({
             </button>
           )}
           {/* Compass heading indicator */}
-          {deviceHeading != null && Number.isFinite(deviceHeading) && (
+          {smoothedHeadingRef.current != null && Number.isFinite(smoothedHeadingRef.current) && (
             <div
               className="w-9 h-9 rounded-lg bg-background/95 backdrop-blur border border-border shadow-lg flex items-center justify-center"
-              title={`Heading: ${Math.round(deviceHeading)}°`}
-              aria-label={`Compass: ${Math.round(deviceHeading)} degrees`}
+              title={`Heading: ${Math.round(smoothedHeadingRef.current)}°`}
+              aria-label={`Compass: ${Math.round(smoothedHeadingRef.current)} degrees`}
             >
               <svg
                 width="18" height="18" viewBox="0 0 24 24"
-                style={{ transform: `rotate(${deviceHeading}deg)`, transition: "transform 0.4s ease" }}
+                style={{ transform: `rotate(${smoothedHeadingRef.current}deg)`, transition: "transform 0.4s ease" }}
               >
                 <polygon points="12,3 15,12 12,10 9,12" fill="#0D7377"/>
                 <polygon points="12,21 9,12 12,14 15,12" fill="#9ca3af"/>
@@ -522,10 +560,9 @@ export default function WalkMap({
         </div>
       )}
 
-      {/* Direction strip (bottom) — prominent with icon */}
+      {/* Direction strip (bottom) */}
       {isWalking && directionOverlay && (
         <div className="absolute bottom-2 left-2 right-12 z-[1000] bg-background/97 backdrop-blur-md rounded-xl px-3 py-2.5 border border-border shadow-xl flex items-center gap-2.5">
-          {/* Direction icon dot */}
           <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
               {directionOverlay.instruction.toLowerCase().includes("left") ? (
