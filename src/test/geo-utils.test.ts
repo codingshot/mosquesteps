@@ -12,6 +12,8 @@ import {
   simplifyRoute,
   formatDistanceLabel,
   OFF_ROUTE_THRESHOLD_SQ,
+  perpendicularDistToRouteKm,
+  isOffRoute,
 } from "@/lib/geo-utils";
 
 describe("haversineKm", () => {
