@@ -766,13 +766,13 @@ const ActiveWalk = () => {
           setCurrentPosition(newPos);
           setLocationSource("gps");
 
-          // Movement detection: speed > 0.3 m/s OR position delta > 3m since last update
-          const speedMoving = (speed != null && speed > 0.3);
+          // Movement detection: speed > 0.25 m/s OR position delta > 2.5m
+          const speedMoving = (speed != null && speed > 0.25);
           const deltaMoving = (() => {
             if (positions.length === 0) return false;
             const last = positions[positions.length - 1];
-            const delta = haversine(last.lat, last.lng, newPos.lat, newPos.lng) * 1000; // meters
-            return delta > 3;
+            const delta = haversine(last.lat, last.lng, newPos.lat, newPos.lng) * 1000;
+            return delta > 2.5;
           })();
           const moving = speedMoving || deltaMoving;
 
@@ -789,20 +789,20 @@ const ActiveWalk = () => {
             lastMovementTime.current = Date.now();
             stationarySince.current = 0;
           } else {
-            // Mark stationary after 4 seconds of no movement
-            if (lastMovementTime.current > 0 && Date.now() - lastMovementTime.current > 4000) {
+            // Mark stationary after 3.5 seconds of no movement
+            if (lastMovementTime.current > 0 && Date.now() - lastMovementTime.current > 3500) {
               if (!stationarySince.current) stationarySince.current = Date.now();
               setIsMoving(false);
             }
           }
 
           // Use GPS track heading as compass fallback when moving
-          if (gpsHeading != null && Number.isFinite(gpsHeading) && speed != null && speed > 0.4) {
+          if (gpsHeading != null && Number.isFinite(gpsHeading) && speed != null && speed > 0.3) {
             setDeviceHeading((prev) => {
-              // Smooth heading with 30% new value blend to reduce jitter
+              // Smooth heading with 25% new value blend to reduce jitter on foot
               if (prev == null) return gpsHeading;
               const diff = ((gpsHeading - prev + 540) % 360) - 180;
-              return (prev + diff * 0.3 + 360) % 360;
+              return (prev + diff * 0.25 + 360) % 360;
             });
           }
 
@@ -810,8 +810,8 @@ const ActiveWalk = () => {
             if (prev.length > 0) {
               const last = prev[prev.length - 1];
               const segmentDist = haversine(last.lat, last.lng, newPos.lat, newPos.lng);
-              // Only count distance when actually moving (speed > 0.3 m/s) AND >3m real movement AND <120m (not GPS jump)
-              if (moving && segmentDist > 0.003 && segmentDist < 0.12) {
+              // Only count distance when moving AND >2m AND <100m (filter GPS jumps)
+              if (moving && segmentDist > 0.002 && segmentDist < 0.1) {
                 distanceRef.current += segmentDist;
                 setDistanceKm(distanceRef.current);
                 return [...prev.slice(-300), newPos]; // cap breadcrumb trail
