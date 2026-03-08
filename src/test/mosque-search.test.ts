@@ -184,8 +184,8 @@ describe("searchNearbyMosques – deduplication", () => {
 });
 
 describe("searchNearbyMosques – Overpass server fallback", () => {
-  beforeEach(() => vi.stubGlobal("fetch", vi.fn()));
-  afterEach(() => vi.restoreAllMocks());
+  beforeEach(() => { vi.stubGlobal("fetch", vi.fn()); sessionStorage.clear(); vi.useFakeTimers({ shouldAdvanceTime: true }); });
+  afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
   it("falls back to second server when first fails", async () => {
     const goodEl = makeElement({ lat: LONDON.lat, lon: LONDON.lng, tags: { name: "Fallback Mosque", amenity: "place_of_worship", religion: "muslim" } });
