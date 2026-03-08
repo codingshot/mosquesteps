@@ -131,6 +131,36 @@ const mosqueIcon = L.divIcon({
   iconAnchor: [20, 20],
 });
 
+/** Arrival proximity ring icon - pulsing circle around mosque */
+function makeArrivalRingIcon(radiusM: number, isArriving: boolean) {
+  const size = Math.min(200, Math.max(60, radiusM * 2));
+  return L.divIcon({
+    html: `<div style="
+      position:relative;
+      width:${size}px;height:${size}px;
+    ">
+      <div style="
+        position:absolute;
+        width:100%;height:100%;
+        border-radius:50%;
+        border:3px ${isArriving ? 'solid' : 'dashed'} ${isArriving ? '#D4A017' : 'rgba(212,160,23,0.5)'};
+        background:${isArriving ? 'rgba(212,160,23,0.15)' : 'rgba(212,160,23,0.05)'};
+        ${isArriving ? 'animation:arrivalPulse 1.2s ease-out infinite;' : ''}
+        box-sizing:border-box;
+      "></div>
+      <style>
+        @keyframes arrivalPulse {
+          0% { transform:scale(1); opacity:1; }
+          100% { transform:scale(1.3); opacity:0; }
+        }
+      </style>
+    </div>`,
+    className: "arrival-ring",
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
 const PAN_THROTTLE_MS = 1200;
 const USER_OFFSET_FRACTION = 0.3;
 
@@ -158,6 +188,7 @@ export default function WalkMap({
   const userMarkerRef = useRef<L.Marker | null>(null);
   const accuracyCircleRef = useRef<L.Circle | null>(null);
   const mosqueMarkerRef = useRef<L.Marker | null>(null);
+  const arrivalRingRef = useRef<L.Marker | null>(null);
   const routeLineRef = useRef<L.Polyline | null>(null);
   const walkedLineRef = useRef<L.Polyline | null>(null);
   const remainingLineRef = useRef<L.Polyline | null>(null);
@@ -323,9 +354,11 @@ export default function WalkMap({
     }
   }, [userPosition, isWalking, deviceHeading, gpsAccuracy]);
 
-  // ── Mosque marker ────────────────────────────────────────────────────────────
+  // ── Mosque marker with proximity ring ──────────────────────────────────────
   useEffect(() => {
     if (!mapRef.current || !mosquePosition) return;
+    
+    // Update mosque marker
     if (mosqueMarkerRef.current) {
       mosqueMarkerRef.current.setLatLng([mosquePosition.lat, mosquePosition.lng]);
     } else {
@@ -333,7 +366,28 @@ export default function WalkMap({
         .bindPopup("🕌 Destination Mosque")
         .addTo(mapRef.current);
     }
-  }, [mosquePosition]);
+
+    // Add arrival proximity ring when walking
+    if (arrivalRingRef.current) { 
+      arrivalRingRef.current.remove(); 
+      arrivalRingRef.current = null; 
+    }
+    
+    if (isWalking && userPosition) {
+      const distToMosque = haversineKm(userPosition.lat, userPosition.lng, mosquePosition.lat, mosquePosition.lng);
+      const isNearMosque = distToMosque <= 0.1; // 100m arrival radius
+      
+      // Show arrival ring when within 200m
+      if (distToMosque <= 0.2) {
+        const ringIcon = makeArrivalRingIcon(100, isNearMosque);
+        arrivalRingRef.current = L.marker([mosquePosition.lat, mosquePosition.lng], { 
+          icon: ringIcon, 
+          interactive: false,
+          zIndexOffset: -100 // Behind mosque marker
+        }).addTo(mapRef.current);
+      }
+    }
+  }, [mosquePosition, isWalking, userPosition]);
 
   // ── Route split: walked (grey) + remaining (teal dashed) ────────────────────
   useEffect(() => {

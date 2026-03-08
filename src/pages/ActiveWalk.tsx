@@ -1453,6 +1453,25 @@ const ActiveWalk = () => {
         {/* Active walk screen */}
         {isWalking && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center space-y-4 w-full max-w-sm">
+            {/* Route progress bar */}
+            {routeCoords && routeCoords.length > 1 && currentPosition && (
+              <div className="w-full max-w-sm mb-4">
+                <div className="bg-muted rounded-full h-2 overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-primary to-primary-foreground transition-all duration-700 ease-out"
+                    style={{
+                      width: `${Math.min(100, Math.max(0, progressPercent * 100))}%`,
+                    }}
+                  />
+                </div>
+                <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+                  <span>Start</span>
+                  <span>{Math.round(progressPercent * 100)}% complete</span>
+                  <span>🕌 {mosqueName}</span>
+                </div>
+              </div>
+            )}
+
             {/* Walking header with toggles */}
             <div className="flex items-center justify-between gap-2">
               <div className="inline-flex items-center gap-2 flex-wrap">
