@@ -15,6 +15,7 @@ interface RouteCacheEntry {
   distanceKm: number;
   durationMin: number;
   steps: { instruction: string; distance: number; duration: number }[];
+  provider?: string; // "osrm" | "mapbox" — tracks which provider generated the route
   timestamp: number;
 }
 
