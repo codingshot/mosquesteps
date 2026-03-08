@@ -808,14 +808,19 @@ const ActiveWalk = () => {
     if (navigator.geolocation) {
       const id = navigator.geolocation.watchPosition(
         (pos) => {
-          const newPos: Position = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          const rawLat = pos.coords.latitude;
+          const rawLng = pos.coords.longitude;
           const accuracy = pos.coords.accuracy ?? 999;
           const speed = pos.coords.speed; // m/s, null if unavailable
           const gpsHeading = pos.coords.heading; // degrees, null if unavailable
 
-          // For walking: filter noisy readings >25m accuracy
-          if (accuracy > 25) return;
+          // Apply GPS Kalman filter for smooth position
+          const filtered = gpsFilterRef.current.update(rawLat, rawLng, accuracy, speed, gpsHeading);
 
+          // Skip very low confidence readings
+          if (filtered.confidence === "low" && accuracy > 40) return;
+
+          const newPos: Position = { lat: filtered.lat, lng: filtered.lng };
           setCurrentPosition(newPos);
           setLocationSource("gps");
 
