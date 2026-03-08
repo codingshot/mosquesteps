@@ -571,9 +571,8 @@ const ActiveWalk = () => {
       setDistanceToTurnM(Math.max(0, Math.round(distToTurn)));
 
       const remainingDist = totalRouteDist - distAlongRouteM;
-      const rawSpeed = elapsedSeconds > 30 && distanceKm > 0 ? distanceKm / (elapsedSeconds / 3600) : 0;
-      const speedKmh = Number.isFinite(rawSpeed) && rawSpeed > 0 ? rawSpeed : (settings.walkingSpeed || 5);
-      const remainingMin = speedKmh > 0 ? Math.round((remainingDist / 1000) / speedKmh * 60) : 0;
+      const remainingKm = remainingDist / 1000;
+      const remainingMin = paceTrackerRef.current.getETAMinutes(remainingKm, settings.walkingSpeed || 5);
       setEta(new Date(Date.now() + remainingMin * 60000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
       return;
     }
