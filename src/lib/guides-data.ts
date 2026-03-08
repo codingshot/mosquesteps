@@ -156,6 +156,25 @@ export const guides: Guide[] = [
     page: "/history",
     pageLabel: "View History",
   },
+  {
+    id: "troubleshooting",
+    title: "Troubleshooting Common Issues",
+    iconEmoji: "🔧",
+    description: "Fix common problems: location not working, steps not counting, notifications not firing, and more.",
+    screenshot: guideGettingStarted,
+    steps: [
+      { text: "Location not detected? Go to your browser/device settings and enable Location Services for this site. On iOS, ensure Safari has location permission." },
+      { text: "Steps not counting? The step counter uses your device's motion sensors. Ensure 'Motion & Fitness' is enabled in device settings. Some desktop browsers don't support motion sensors." },
+      { text: "Notifications not arriving? Check that notification permissions are granted in your browser settings. On iOS, notifications work best when the app is installed as a PWA." },
+      { text: "Map not loading? Ensure you have an internet connection for the initial map load. After the first load, tiles are cached for offline use." },
+      { text: "Prayer times wrong? Go to Settings and verify your city is set correctly. You can also change the calculation method (e.g., ISNA, MWL, Umm al-Qura).", link: "/settings", linkLabel: "Open Settings" },
+      { text: "App looks broken after update? Try a hard refresh: Ctrl+Shift+R (Windows) or Cmd+Shift+R (Mac). If using the PWA, tap the 'Reload' toast when prompted." },
+      { text: "Walk data missing? All data is stored locally on your device. Clearing browser data will erase walks. Export regularly from History.", link: "/history", linkLabel: "View History" },
+    ],
+    tip: "Most issues are resolved by installing MosqueSteps as a PWA (Add to Home Screen). This gives the app full access to location, motion sensors, and notifications.",
+    page: "/settings",
+    pageLabel: "Open Settings",
+  },
 ];
 
 export function getGuideById(id: string): Guide | undefined {

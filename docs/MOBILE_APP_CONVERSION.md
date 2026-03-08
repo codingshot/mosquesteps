@@ -1,6 +1,6 @@
 # Converting MosqueSteps to a Native Mobile App
 
-This guide covers two paths for turning MosqueSteps into a mobile app: **PWA (recommended)** and **Capacitor (native)**.
+This guide covers three paths for turning MosqueSteps into a mobile app: **PWA (recommended)**, **Capacitor (native)**, and **Expo (not recommended)**.
 
 ---
 
@@ -37,7 +37,7 @@ MosqueSteps is already a fully installable PWA. Users can install it from any mo
 
 ---
 
-## Option 2: Native App with Capacitor
+## Option 2: Native App with Capacitor (Recommended for App Stores)
 
 For App Store / Play Store distribution with full native access.
 
@@ -49,13 +49,15 @@ For App Store / Play Store distribution with full native access.
 ### Step 1: Install Dependencies
 
 ```bash
-npm install @capacitor/core @capacitor/cli @capacitor/ios @capacitor/android
+npm install @capacitor/core
+npm install -D @capacitor/cli
+npm install @capacitor/ios @capacitor/android
 ```
 
 ### Step 2: Initialize Capacitor
 
 ```bash
-npx cap init "MosqueSteps" "app.mosquesteps.walk" --web-dir dist
+npx cap init "MosqueSteps" "app.lovable.f8fb1d314163447a833c9a27d2c185ac" --web-dir dist
 ```
 
 ### Step 3: Configure `capacitor.config.ts`
@@ -64,39 +66,20 @@ npx cap init "MosqueSteps" "app.mosquesteps.walk" --web-dir dist
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.mosquesteps.walk',
+  appId: 'app.lovable.f8fb1d314163447a833c9a27d2c185ac',
   appName: 'MosqueSteps',
   webDir: 'dist',
   server: {
-    // For development only — remove for production builds
-    // url: 'http://YOUR_LOCAL_IP:5173',
-    // cleartext: true,
-  },
-  plugins: {
-    SplashScreen: {
-      launchShowDuration: 2000,
-      backgroundColor: '#0c1e1f',
-      androidSplashResourceName: 'splash',
-      showSpinner: false,
-    },
-    StatusBar: {
-      style: 'DARK',
-      backgroundColor: '#0c1e1f',
-    },
-    Geolocation: {
-      // Required for mosque finder and walk tracking
-    },
-    Motion: {
-      // Required for step counting
-    },
-    LocalNotifications: {
-      // Required for prayer reminders
-    },
+    // Hot-reload from the Lovable sandbox preview during development
+    url: 'https://f8fb1d31-4163-447a-833c-9a27d2c185ac.lovableproject.com?forceHideBadge=true',
+    cleartext: true,
   },
 };
 
 export default config;
 ```
+
+> **Note:** Remove the `server` block for production builds so the app uses the bundled `dist/` folder.
 
 ### Step 4: Add Platforms
 
@@ -105,77 +88,36 @@ npx cap add ios
 npx cap add android
 ```
 
-### Step 5: Build & Sync
+### Step 5: Install Native Plugins
 
 ```bash
-npm run build
-npx cap sync
+# Essential plugins for MosqueSteps
+npm install @capacitor/geolocation    # GPS tracking for walks
+npm install @capacitor/motion         # Accelerometer for step counting
+npm install @capacitor/local-notifications  # Prayer departure reminders
+npm install @capacitor/haptics        # Turn-by-turn vibration alerts
+npm install @capacitor/share          # Share walk cards with friends
+npm install @capacitor/preferences    # Native key-value storage
+npm install @capacitor/status-bar     # Status bar control
+npm install @capacitor/splash-screen  # Launch screen
 ```
 
-### Step 6: Run on Device
+### Step 6: iOS Configuration
 
-```bash
-# iOS (requires Mac + Xcode)
-npx cap run ios
-
-# Android (requires Android Studio)
-npx cap run android
-```
-
-### Step 7: Add Native Plugins
-
-For enhanced native features, install these Capacitor plugins:
-
-```bash
-# Geolocation (GPS tracking for walks)
-npm install @capacitor/geolocation
-
-# Motion sensors (step counting)
-npm install @capacitor/motion
-
-# Local notifications (prayer reminders)
-npm install @capacitor/local-notifications
-
-# Haptics (turn-by-turn vibration)
-npm install @capacitor/haptics
-
-# Status bar styling
-npm install @capacitor/status-bar
-
-# Splash screen
-npm install @capacitor/splash-screen
-
-# Share (share walk cards)
-npm install @capacitor/share
-
-# App (handle deep links)
-npm install @capacitor/app
-```
-
-After installing plugins:
-```bash
-npx cap sync
-```
-
-### Step 8: iOS-Specific Setup
-
-In Xcode, add these to `Info.plist`:
+Add to `ios/App/App/Info.plist`:
 
 ```xml
-<!-- Location (required for mosque finder + walk tracking) -->
 <key>NSLocationWhenInUseUsageDescription</key>
-<string>MosqueSteps needs your location to find nearby mosques and track your walking route.</string>
-<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-<string>MosqueSteps uses background location to track your walk to the mosque accurately.</string>
-
-<!-- Motion (required for step counting) -->
+<string>MosqueSteps needs your location to find nearby mosques and track your walk.</string>
+<key>NSLocationAlwaysUsageDescription</key>
+<string>MosqueSteps tracks your walk to the mosque in the background.</string>
 <key>NSMotionUsageDescription</key>
-<string>MosqueSteps uses motion sensors to count your steps as you walk to the mosque.</string>
+<string>MosqueSteps uses motion sensors to count your steps accurately.</string>
 ```
 
-### Step 9: Android-Specific Setup
+### Step 7: Android Configuration
 
-In `android/app/src/main/AndroidManifest.xml`, add:
+Add to `android/app/src/main/AndroidManifest.xml`:
 
 ```xml
 <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -186,51 +128,81 @@ In `android/app/src/main/AndroidManifest.xml`, add:
 <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 ```
 
-### Step 10: Production Build
+### Step 8: Build and Run
 
 ```bash
 # Build the web app
 npm run build
 
-# Sync to native projects
+# Sync web assets to native projects
 npx cap sync
 
-# Open in IDE for final build
-npx cap open ios      # Opens Xcode
-npx cap open android  # Opens Android Studio
+# Run on device/emulator
+npx cap run ios       # Requires Mac + Xcode
+npx cap run android   # Requires Android Studio
+
+# Or open in IDE
+npx cap open ios
+npx cap open android
 ```
 
-Then use Xcode / Android Studio to create signed release builds for the App Store / Play Store.
+### Step 9: Production Release
+
+1. Remove the `server` block from `capacitor.config.ts`
+2. Run `npm run build`
+3. Run `npx cap sync`
+4. Open Xcode / Android Studio
+5. Configure signing certificates (Apple Developer Account / Google Play Console)
+6. Archive and submit to App Store / Play Store
+
+### Development Workflow
+
+After making changes in Lovable:
+1. Export to GitHub and `git pull`
+2. Run `npm install` (if dependencies changed)
+3. Run `npm run build`
+4. Run `npx cap sync`
+5. Run `npx cap run ios` or `npx cap run android`
+
+With the `server.url` set to the Lovable preview, changes appear live on your device without rebuilding.
 
 ---
 
-## Option 3: Expo (React Native)
+## Option 3: Expo / React Native — NOT Recommended ❌
 
-> ⚠️ **Not recommended** — MosqueSteps is built with React (web) + Leaflet maps. Converting to React Native would require rewriting most components. Capacitor wraps the existing web app with zero rewrites.
+Expo requires React Native components. You'd need to rewrite **every component** from React DOM to React Native:
+- All Leaflet maps → react-native-maps
+- All Tailwind CSS → StyleSheet or NativeWind
+- All HTML elements → React Native primitives
+- All browser APIs → React Native equivalents
 
-If you still want Expo:
-1. Create a new Expo project: `npx create-expo-app MosqueSteps`
-2. Port components from React DOM to React Native equivalents
-3. Replace Leaflet with `react-native-maps`
-4. Replace `localStorage` with `@react-native-async-storage/async-storage`
-5. Use `expo-location` for GPS and `expo-sensors` for step counting
+**Estimated effort:** 3-6 months of full rewrite vs. 1-2 days with Capacitor.
 
-**Estimated effort**: 4-8 weeks vs. 1-2 days with Capacitor.
+Only consider Expo if you need features that Capacitor absolutely cannot provide (which is rare for this app).
 
 ---
 
-## Recommended Path
+## Comparison Table
 
-| Criteria | PWA | Capacitor | Expo |
+| Feature | PWA | Capacitor | Expo |
 |---|---|---|---|
-| Setup time | ✅ Already done | 1-2 days | 4-8 weeks |
-| Code changes | None | Minimal | Full rewrite |
+| Setup time | Already done | 1-2 days | 3-6 months |
 | App Store listing | ❌ | ✅ | ✅ |
+| Code rewrite needed | None | None | Complete |
 | Offline support | ✅ | ✅ | ✅ |
-| GPS/Motion sensors | ✅ | ✅ | ✅ |
-| Push notifications | Partial | ✅ | ✅ |
-| Background tracking | Limited | ✅ | ✅ |
+| GPS tracking | ✅ | ✅ (better) | ✅ |
+| Step counting | ✅ (Web API) | ✅ (native) | ✅ (native) |
+| Push notifications | Partial (iOS) | ✅ | ✅ |
+| Background execution | Limited | ✅ | ✅ |
+| Map library | Leaflet | Leaflet (same) | react-native-maps |
 
-**For most users**: PWA is the best choice — it's already live and works everywhere.
+---
 
-**For App Store presence**: Use Capacitor — wraps the existing app with native shell in 1-2 days.
+## Resources
+
+- [Capacitor Documentation](https://capacitorjs.com/docs)
+- [Capacitor iOS Guide](https://capacitorjs.com/docs/ios)
+- [Capacitor Android Guide](https://capacitorjs.com/docs/android)
+- [Lovable Mobile App Blog Post](https://lovable.dev/blog/lovable-mobile-app)
+- [Apple Developer Program](https://developer.apple.com/programs/)
+- [Google Play Console](https://play.google.com/console/)
