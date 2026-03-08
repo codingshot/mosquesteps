@@ -74,8 +74,6 @@ export function getCheckInStats(): {
     byPrayer[c.prayer] = (byPrayer[c.prayer] || 0) + 1;
   });
 
-  // Calculate check-in streak
-  const { getCheckInStreak } = require("@/lib/step-validator");
   const streak = getCheckInStreak(checkIns.map(c => c.date));
 
   return {
