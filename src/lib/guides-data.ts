@@ -40,7 +40,7 @@ export const guides: Guide[] = [
       { text: "Use 'Use Current Location' or search your city manually to set your home location." },
       { text: "Settings auto-save — you're ready to start walking!" },
     ],
-    tip: "Install MosqueSteps as a PWA from your browser's 'Add to Home Screen' option for offline support and push notifications.",
+    tip: "Install MosqueSteps as a PWA from your browser's 'Add to Home Screen' option for offline support and push notifications. On Android, tap the browser menu (⋮) → Install App. On iOS, tap Share → Add to Home Screen.",
     page: "/settings",
     pageLabel: "Open Settings",
   },
