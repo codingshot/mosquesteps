@@ -105,12 +105,10 @@ const Blog = () => {
                     viewport={{ once: true }}
                     transition={{ delay: i * 0.05 }}
                   >
-                    <Link
-                      to={`/blogs/${post.slug}`}
-                      className="glass-card p-5 flex gap-4 items-start hover:border-primary/30 transition-colors block"
-                    >
+                    <div className="glass-card p-5 flex gap-4 items-start hover:border-primary/30 transition-colors relative">
+                      <Link to={`/blogs/${post.slug}`} className="absolute inset-0 z-0" aria-label={post.title} />
                       <span className="text-3xl flex-shrink-0">{post.image}</span>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border border-border/50 ${categoryColors[post.category]}`}>
                             {categoryLabels[post.category]}
@@ -120,7 +118,18 @@ const Blog = () => {
                         <h3 className="font-semibold text-foreground text-sm leading-snug">{post.title}</h3>
                         <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{post.excerpt}</p>
                       </div>
-                    </Link>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigator.clipboard.writeText(`${window.location.origin}/blogs/${post.slug}`);
+                        }}
+                        className="relative z-10 flex-shrink-0 p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                        aria-label={`Copy link to ${post.title}`}
+                        title="Copy link"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                      </button>
+                    </div>
                   </motion.div>
                 ))}
               </div>

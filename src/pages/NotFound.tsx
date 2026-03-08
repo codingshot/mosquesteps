@@ -5,7 +5,7 @@ import SEOHead from "@/components/SEOHead";
 import { Button } from "@/components/ui/button";
 
 /** Suggest a likely correct route based on the attempted path */
-function suggestRoute(pathname: string): { to: string; label: string } | null {
+export function suggestRoute(pathname: string): { to: string; label: string } | null {
   const lower = pathname.toLowerCase().replace(/^\/+|\/+$/g, "");
   const suggestions: Record<string, { to: string; label: string }> = {
     "mosque": { to: "/mosques", label: "Mosque Finder" },

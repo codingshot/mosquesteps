@@ -70,6 +70,42 @@ export const VERIFIED_HADITHS: Record<string, HadithData> = {
     grade: "Sahih (Authentic)",
     arabic: "صَلاَةُ الْجَمَاعَةِ أَفْضَلُ مِنْ صَلاَةِ الْفَذِّ بِسَبْعٍ وَعِشْرِينَ دَرَجَةً",
   },
+  bukhari_647: {
+    shortText: "Fajr and Isha in congregation are the weightiest prayers for hypocrites.",
+    fullText:
+      "Abu Huraira reported: The Prophet (ﷺ) said, \"No prayer is heavier upon the hypocrites than the Fajr and the Isha prayers. If they knew the reward for these prayers at their respective times, they would certainly present themselves (in the mosques) even if they had to crawl.\"",
+    source: "Sahih al-Bukhari 657",
+    link: "https://sunnah.com/bukhari:657",
+    grade: "Sahih (Authentic)",
+    arabic: "وَلَوْ يَعْلَمُونَ مَا فِيهِمَا لأَتَوْهُمَا وَلَوْ حَبْوًا",
+  },
+  tirmidhi_223: {
+    shortText: "Every step to the mosque is a charity (sadaqah).",
+    fullText:
+      "Abu Huraira reported: The Prophet (ﷺ) said, \"Every step that one takes towards the mosque is a charity.\"",
+    source: "Jami at-Tirmidhi 223",
+    link: "https://sunnah.com/tirmidhi:223",
+    grade: "Sahih (Authentic)",
+    arabic: "كُلُّ خَطْوَةٍ يَمْشِيهَا إِلَى الصَّلاَةِ صَدَقَةٌ",
+  },
+  muslim_669: {
+    shortText: "Whoever walks to an obligatory prayer is like a pilgrim in ihram.",
+    fullText:
+      "Abu Huraira reported: The Prophet (ﷺ) said, \"Whoever goes out of his house having performed ablution for an obligatory prayer, his reward is like that of a pilgrim in ihram. Whoever goes out to perform the Duha prayer, his reward is like that of one performing Umrah.\"",
+    source: "Sahih Muslim 669 (via Abu Dawud 558)",
+    link: "https://sunnah.com/abudawud:558",
+    grade: "Hasan (Good)",
+    arabic: "مَنْ خَرَجَ إِلَى صَلاَةٍ مَكْتُوبَةٍ فَأَجْرُهُ كَأَجْرِ الْحَاجِّ الْمُحْرِمِ",
+  },
+  bukhari_662: {
+    shortText: "Allah prepares a welcome in Paradise for those who go to the mosque.",
+    fullText:
+      "Abu Huraira reported: The Prophet (ﷺ) said, \"Whoever goes to the mosque in the morning and evening, Allah prepares for him a welcome in Paradise each time he goes in the morning or in the evening.\"",
+    source: "Sahih al-Bukhari 662",
+    link: "https://sunnah.com/bukhari:662",
+    grade: "Sahih (Authentic)",
+    arabic: "مَنْ غَدَا إِلَى الْمَسْجِدِ أَوْ رَاحَ أَعَدَّ اللَّهُ لَهُ فِي الْجَنَّةِ نُزُلاً كُلَّمَا غَدَا أَوْ رَاحَ",
+  },
 };
 
 interface HadithTooltipProps {
