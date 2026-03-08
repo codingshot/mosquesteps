@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useMemo } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { calcBearing, smoothHeading, findClosestRouteIndex, routeProgress, simplifyRoute, haversineKm, formatDistanceLabel } from "@/lib/geo-utils";
