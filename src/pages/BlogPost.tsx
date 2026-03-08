@@ -236,12 +236,21 @@ const BlogPostPage = () => {
     }
     if (lastIndex < text.length) segments.push({ type: "text", content: text.slice(lastIndex) });
     return segments.map((seg, i) => {
-      if (seg.type === "link" && seg.url)
+      if (seg.type === "link" && seg.url) {
+        const isInternal = seg.url.startsWith("/");
+        if (isInternal) {
+          return (
+            <Link key={i} to={seg.url} className="text-primary hover:underline font-medium">
+              {seg.content}
+            </Link>
+          );
+        }
         return (
           <a key={i} href={seg.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">
             {seg.content}
           </a>
         );
+      }
       return <span key={i}>{renderBold(seg.content)}</span>;
     });
   };
