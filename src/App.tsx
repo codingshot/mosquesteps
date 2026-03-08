@@ -82,6 +82,8 @@ const App = () => (
       <Sonner />
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ErrorBoundary>
+          <KeyboardShortcuts />
+          <BackToTop />
           <Suspense fallback={<PageLoader />}>
             <Routes>
             <Route path="/" element={<Index />} />
