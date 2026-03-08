@@ -905,6 +905,8 @@ const ActiveWalk = () => {
   const stopWalk = () => {
     setIsWalking(false);
     setIsPaused(false);
+    cancelPendingRoutes();
+    gpsFilterRef.current.reset();
     try { sessionStorage.removeItem("mosquesteps_active_walk"); } catch {}
     if (watchId !== null && navigator.geolocation) { navigator.geolocation.clearWatch(watchId); setWatchId(null); }
     if (stepCounterRef.current) { stepCounterRef.current.stop(); stepCounterRef.current = null; }
