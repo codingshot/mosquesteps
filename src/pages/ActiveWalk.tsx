@@ -537,6 +537,14 @@ const ActiveWalk = () => {
       // Segment-based off-route detection (perpendicular distance to nearest segment)
       setOffRoute(checkOffRoute(routeCoords, currentPosition.lat, currentPosition.lng, 50));
 
+      // Find closest route point for distance-along-route calculation
+      let closestCoordIdx = 0;
+      let minD = Infinity;
+      for (let i = 0; i < routeCoords.length; i++) {
+        const d = haversine(currentPosition.lat, currentPosition.lng, routeCoords[i][0], routeCoords[i][1]) * 1000;
+        if (d < minD) { minD = d; closestCoordIdx = i; }
+      }
+
       const distAlongRouteM = distAlongRoute[closestCoordIdx];
 
       // Map distance to step index
