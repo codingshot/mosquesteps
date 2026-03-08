@@ -534,17 +534,8 @@ const ActiveWalk = () => {
         distAlongRoute.push(distAlongRoute[i - 1] + seg);
       }
 
-      // Project position onto route: find closest segment and interpolate
-      let minDist = Infinity;
-      let closestCoordIdx = 0;
-      for (let i = 0; i < routeCoords.length; i++) {
-        const d = haversine(currentPosition.lat, currentPosition.lng, routeCoords[i][0], routeCoords[i][1]) * 1000;
-        if (d < minDist) {
-          minDist = d;
-          closestCoordIdx = i;
-        }
-      }
-      setOffRoute(minDist > 50); // 50m threshold — tighter for pedestrian accuracy
+      // Segment-based off-route detection (perpendicular distance to nearest segment)
+      setOffRoute(checkOffRoute(routeCoords, currentPosition.lat, currentPosition.lng, 50));
 
       const distAlongRouteM = distAlongRoute[closestCoordIdx];
 
