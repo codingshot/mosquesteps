@@ -1,3 +1,5 @@
+import { getCachedRoute, setCachedRoute } from "./offline-cache";
+
 /** Validate coordinate is finite and within valid range. */
 function isValidCoord(lat: number, lng: number): boolean {
   return (
