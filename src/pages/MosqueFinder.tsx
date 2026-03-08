@@ -1,17 +1,20 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import SEOHead from "@/components/SEOHead";
 import { Button } from "@/components/ui/button";
-import { Search, MapPin, Footprints, Clock, Check, Star, Trash2, Home, Navigation, ArrowLeft, Route as RouteIcon, Play, Timer, Share2, Copy, X, ExternalLink, CornerDownLeft, CornerDownRight, ArrowUp, Heart } from "lucide-react";
+import { Search, MapPin, Footprints, Clock, Check, Star, Trash2, Home, Navigation, ArrowLeft, Route as RouteIcon, Play, Timer, Share2, Copy, X, ExternalLink, CornerDownLeft, CornerDownRight, ArrowUp, Heart, Accessibility, Car, Droplets } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { estimateSteps, estimateWalkingTime, fetchPrayerTimes, calculateLeaveByTime, minutesUntilLeave, getNowInTimezone, type PrayerTime } from "@/lib/prayer-times";
 import { fetchWalkingRoute } from "@/lib/routing";
 import { getCachedMosques, setCachedMosques, getCachedRoute, setCachedRoute, isOnline } from "@/lib/offline-cache";
-import { searchNearbyMosques as fetchMosquesFromOverpass } from "@/lib/mosque-search";
+import { searchNearbyMosques as fetchMosquesFromOverpass, type MosqueResult } from "@/lib/mosque-search";
 import { fetchLocationSuggestions } from "@/lib/geocode";
 import { getIPGeolocation } from "@/lib/prayer-times";
 import { formatTime as formatTimeStr, formatSmallDistance, formatMinutes } from "@/lib/regional-defaults";
+import { haversineKm } from "@/lib/geo-utils";
+import { getTileConfig, isDarkMode } from "@/lib/map-tiles";
+import { formatDirection, formatDistanceForStep } from "@/lib/directions-utils";
 import {
   saveSettings, getSettings,
   saveMosque, getSavedMosques, removeSavedMosque, setPrimaryMosque,
@@ -62,16 +65,7 @@ interface Mosque {
   distance?: number;
   walkingDistanceKm?: number;
   walkingDurationMin?: number;
-}
-
-function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  facilities?: MosqueResult["facilities"];
 }
 
 const MosqueFinder = () => {
@@ -80,6 +74,7 @@ const MosqueFinder = () => {
   const settings = getSettings();
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
   const routeLineRef = useRef<L.Polyline | null>(null);
   const homeMarkerRef = useRef<L.Marker | null>(null);
@@ -99,6 +94,7 @@ const MosqueFinder = () => {
   const [routeInfo, setRouteInfo] = useState<{ distanceKm: number; durationMin: number; steps: { instruction: string; distance: number }[] } | null>(null);
   const [searchSuggestions, setSearchSuggestions] = useState<{ name: string; lat: number; lng: number; isMyLocation?: boolean }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [sortBy, setSortBy] = useState<"straight" | "walking">("straight");
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const userPosRef = useRef(userPos);
   const [hasGpsOrIpPosition, setHasGpsOrIpPosition] = useState(false);
@@ -108,18 +104,18 @@ const MosqueFinder = () => {
   const [nextPrayer, setNextPrayer] = useState<PrayerTime | null>(null);
   const [countdown, setCountdown] = useState("");
 
-  // Fetch next prayer time once (use city timezone so upcoming matches city time)
+  // Fetch next prayer time once
   useEffect(() => {
     const lat = settings.cityLat || defaultLat;
     const lng = settings.cityLng || defaultLng;
     fetchPrayerTimes(lat, lng, undefined, settings.cityTimezone).then((data) => {
       const upcoming = data.prayers.find((p) => !p.isPast);
       if (upcoming) setNextPrayer(upcoming);
-      else if (data.prayers.length > 0) setNextPrayer(data.prayers[0]); // wrap to Fajr
+      else if (data.prayers.length > 0) setNextPrayer(data.prayers[0]);
     }).catch(() => {});
   }, [settings.cityTimezone]);
 
-  // Update countdown (use city time so it matches prayer times)
+  // Update countdown
   useEffect(() => {
     if (!nextPrayer) return;
     const tz = settings.cityTimezone;
@@ -147,16 +143,18 @@ const MosqueFinder = () => {
     return () => { window.removeEventListener("online", onOn); window.removeEventListener("offline", onOff); };
   }, []);
 
-  // Initialize map
+  // Initialize map with theme-aware tiles
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
+    const tileConfig = getTileConfig();
     const map = L.map(mapContainerRef.current).setView([defaultLat, defaultLng], 14);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    const tileLayer = L.tileLayer(tileConfig.url, {
+      attribution: tileConfig.attribution,
+      maxZoom: tileConfig.maxZoom,
     }).addTo(map);
 
-    // Home/user marker
+    tileLayerRef.current = tileLayer;
     homeMarkerRef.current = L.marker([defaultLat, defaultLng], { icon: homeIcon })
       .addTo(map)
       .bindPopup(settings.homeAddress ? `🏠 ${settings.homeAddress}` : "Your location");
@@ -167,10 +165,26 @@ const MosqueFinder = () => {
     return () => {
       map.remove();
       mapRef.current = null;
+      tileLayerRef.current = null;
     };
   }, []);
 
-  // Initial center: prefer saved city/home, else IP geolocation (then GPS will override)
+  // Auto-switch tiles on theme change
+  useEffect(() => {
+    const el = document.documentElement;
+    let lastDark = isDarkMode();
+    const observer = new MutationObserver(() => {
+      const dark = isDarkMode();
+      if (dark !== lastDark && mapRef.current && tileLayerRef.current) {
+        lastDark = dark;
+        tileLayerRef.current.setUrl(getTileConfig().url);
+      }
+    });
+    observer.observe(el, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+
+  // IP geolocation fallback
   useEffect(() => {
     const hasSaved = settings.cityLat && settings.cityLng || settings.homeLat && settings.homeLng;
     if (hasSaved) return;
@@ -187,7 +201,7 @@ const MosqueFinder = () => {
     }).catch(() => {});
   }, []);
 
-  // GPS for precise location (overrides IP/saved when available)
+  // GPS for precise location
   useEffect(() => {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
@@ -216,7 +230,7 @@ const MosqueFinder = () => {
       const marker = L.marker([m.lat, m.lon], { icon: isSelected ? createSelectedMosqueIcon(m.name) : createMosqueIcon(m.name) })
         .addTo(mapRef.current!)
         .bindPopup(
-          `<div style="font-size:13px"><strong>${m.name}</strong><br/>${formatDistance(m.distance || 0)} · ~${estimateSteps(m.distance || 0)} steps</div>`
+          `<div style="font-size:13px"><strong>${m.name}</strong><br/>${formatDistance(m.distance || 0)} · ~${estimateSteps(m.distance || 0)} steps${m.facilities ? '<br/><span style="font-size:10px;color:#666">' + getFacilityText(m.facilities) + '</span>' : ''}</div>`
         );
       marker.on("click", () => handleSelectMosque(m));
       markersRef.current.push(marker);
@@ -230,6 +244,39 @@ const MosqueFinder = () => {
     return userPos;
   };
 
+  /** Batch fetch walking routes for top N mosques to enable walking-distance sort */
+  const batchFetchRoutes = useCallback(async (mosquesToFetch: Mosque[], origin: { lat: number; lng: number }) => {
+    const top = mosquesToFetch.slice(0, 5);
+    const updates: Record<number, { km: number; min: number }> = {};
+
+    await Promise.allSettled(
+      top.map(async (m) => {
+        const cached = getCachedRoute(origin.lat, origin.lng, m.lat, m.lon);
+        if (cached) {
+          updates[m.id] = { km: cached.distanceKm, min: cached.durationMin };
+          return;
+        }
+        try {
+          const route = await fetchWalkingRoute(origin.lat, origin.lng, m.lat, m.lon);
+          if (route) {
+            updates[m.id] = { km: route.distanceKm, min: route.durationMin };
+            setCachedRoute(origin.lat, origin.lng, m.lat, m.lon, route);
+          }
+        } catch {}
+      })
+    );
+
+    if (Object.keys(updates).length > 0) {
+      setMosques((prev) =>
+        prev.map((m) =>
+          updates[m.id]
+            ? { ...m, walkingDistanceKm: updates[m.id].km, walkingDurationMin: updates[m.id].min }
+            : m
+        )
+      );
+    }
+  }, []);
+
   const searchNearbyMosques = async (lat: number, lng: number) => {
     setLoading(true);
     setSearchError(null);
@@ -242,7 +289,7 @@ const MosqueFinder = () => {
     const cached = getCachedMosques(lat, lng);
     if (cached && cached.length > 0) {
       const withDist = cached
-        .map((m) => ({ ...m, distance: haversineDistance(origin.lat, origin.lng, m.lat, m.lon) }))
+        .map((m) => ({ ...m, distance: haversineKm(origin.lat, origin.lng, m.lat, m.lon) }))
         .sort((a, b) => (a.distance || 0) - (b.distance || 0));
       setMosques(withDist);
       if (!isOnline()) { setLoading(false); return; }
@@ -255,14 +302,21 @@ const MosqueFinder = () => {
     try {
       const results = await fetchMosquesFromOverpass(lat, lng);
       const withDist: Mosque[] = results
-        .map((m) => ({ ...m, distance: haversineDistance(origin.lat, origin.lng, m.lat, m.lon) }))
+        .map((m) => ({
+          ...m,
+          distance: haversineKm(origin.lat, origin.lng, m.lat, m.lon),
+          facilities: m.facilities,
+        }))
         .sort((a, b) => (a.distance || 0) - (b.distance || 0));
       setMosques(withDist);
 
-      // Auto-select closest mosque if none is currently selected
+      // Auto-select closest mosque
       if (withDist.length > 0 && !selectedMosqueId) {
         handleSelectMosque(withDist[0]);
       }
+
+      // Batch fetch walking routes for top 5 (background)
+      batchFetchRoutes(withDist, origin);
 
       setCachedMosques(lat, lng, results.map((m) => ({ id: m.id, name: m.name, lat: m.lat, lon: m.lon })));
     } catch (e) {
@@ -289,16 +343,11 @@ const MosqueFinder = () => {
 
     const origin = getDistanceOrigin();
 
-    // Pan map to show both user and mosque
     if (mapRef.current) {
-      const bounds = L.latLngBounds(
-        [origin.lat, origin.lng],
-        [mosque.lat, mosque.lon]
-      );
+      const bounds = L.latLngBounds([origin.lat, origin.lng], [mosque.lat, mosque.lon]);
       mapRef.current.fitBounds(bounds, { padding: [40, 40] });
     }
 
-    // Try cached route first, then fetch
     setRouteLoading(true);
     const cachedRoute = getCachedRoute(origin.lat, origin.lng, mosque.lat, mosque.lon);
 
@@ -319,16 +368,12 @@ const MosqueFinder = () => {
       );
     };
 
-    // Show cached immediately
     if (cachedRoute) {
       applyRoute(cachedRoute);
       setRouteLoading(false);
-      // Revalidate in background if online
       if (isOnline()) {
         fetchWalkingRoute(origin.lat, origin.lng, mosque.lat, mosque.lon).then((fresh) => {
-          if (fresh) {
-            setCachedRoute(origin.lat, origin.lng, mosque.lat, mosque.lon, fresh);
-          }
+          if (fresh) setCachedRoute(origin.lat, origin.lng, mosque.lat, mosque.lon, fresh);
         }).catch(() => {});
       }
       return;
@@ -364,9 +409,7 @@ const MosqueFinder = () => {
         setUserPos(loc);
         if (mapRef.current) {
           mapRef.current.setView([loc.lat, loc.lng], 14);
-          if (homeMarkerRef.current) {
-            homeMarkerRef.current.setLatLng([loc.lat, loc.lng]);
-          }
+          if (homeMarkerRef.current) homeMarkerRef.current.setLatLng([loc.lat, loc.lng]);
         }
         searchNearbyMosques(loc.lat, loc.lng);
       } else {
@@ -380,7 +423,6 @@ const MosqueFinder = () => {
     }
   };
 
-  // Autocomplete search with debounce (min 2 chars, 8 suggestions, "My location" first when available)
   const handleSearchInputChange = (value: string) => {
     setSearchQuery(value);
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
@@ -423,7 +465,6 @@ const MosqueFinder = () => {
     searchNearbyMosques(s.lat, s.lng);
   };
 
-  // Generate shareable directions text
   const generateDirectionsText = () => {
     if (!routeInfo?.steps?.length || !selectedMosque) return "";
     const origin = settings.homeAddress || "Your location";
@@ -431,7 +472,7 @@ const MosqueFinder = () => {
     const steps = routeInfo.steps.map((s, i) => {
       const d = Number.isFinite(s.distance) ? s.distance : 0;
       const dist = d > 1000 ? `${(d / 1000).toFixed(1)}km` : `${Math.round(d)}m`;
-      return `${i + 1}. ${s.instruction ?? "Continue"} (${dist})`;
+      return `${i + 1}. ${formatDirection(s.instruction)} (${dist})`;
     }).join("\n");
     return `${header}${steps}\n${"─".repeat(30)}\nGenerated by MosqueSteps 🚶‍♂️`;
   };
@@ -447,9 +488,7 @@ const MosqueFinder = () => {
       isPrimary: asPrimary,
     };
     saveMosque(saved);
-    if (asPrimary) {
-      setPrimaryMosque(String(mosque.id));
-    }
+    if (asPrimary) setPrimaryMosque(String(mosque.id));
     setSavedList(getSavedMosques());
     toast({
       title: asPrimary ? `${mosque.name} set as primary! 🕌` : `${mosque.name} saved!`,
@@ -478,6 +517,18 @@ const MosqueFinder = () => {
   const isSaved = (mosqueId: number) => savedList.some((s) => s.id === String(mosqueId));
   const primaryId = savedList.find((s) => s.isPrimary)?.id;
   const selectedMosque = mosques.find((m) => m.id === selectedMosqueId);
+
+  // Sort mosques based on selected sort method
+  const sortedMosques = [...mosques].sort((a, b) => {
+    if (sortBy === "walking") {
+      const aD = a.walkingDistanceKm ?? a.distance ?? Infinity;
+      const bD = b.walkingDistanceKm ?? b.distance ?? Infinity;
+      return aD - bD;
+    }
+    return (a.distance || 0) - (b.distance || 0);
+  });
+
+  const useImperial = settings.distanceUnit === "mi";
 
   return (
     <div className="min-h-screen bg-background flex flex-col pb-bottom-nav relative">
@@ -512,7 +563,6 @@ const MosqueFinder = () => {
                   <X className="w-4 h-4" />
                 </button>
               )}
-              {/* Autocomplete dropdown */}
               {showSuggestions && searchSuggestions.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-[9999] overflow-hidden">
                   {searchSuggestions.map((s, i) => (
@@ -537,7 +587,6 @@ const MosqueFinder = () => {
           )}
         </div>
 
-        {/* Offline banner */}
         {!online && (
           <div className="bg-destructive/10 border-b border-destructive/20 px-4 py-2 flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
@@ -557,7 +606,7 @@ const MosqueFinder = () => {
         )}
       </div>
 
-      {/* Route info panel with prayer + walk action */}
+      {/* Route info panel */}
       {selectedMosque && routeInfo && (
         <div className="container py-2">
           <div className="glass-card p-3 space-y-2">
@@ -568,13 +617,44 @@ const MosqueFinder = () => {
               </div>
               <button onClick={() => { setSelectedMosqueId(null); clearRoute(); }} className="text-xs text-muted-foreground hover:text-foreground">✕</button>
             </div>
+
+            {/* Facility badges */}
+            {selectedMosque.facilities && (
+              <div className="flex flex-wrap gap-1">
+                {selectedMosque.facilities.wheelchair && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-primary/10 text-primary rounded-full px-2 py-0.5">
+                    <Accessibility className="w-3 h-3" /> Wheelchair
+                  </span>
+                )}
+                {selectedMosque.facilities.parking && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-primary/10 text-primary rounded-full px-2 py-0.5">
+                    <Car className="w-3 h-3" /> Parking
+                  </span>
+                )}
+                {selectedMosque.facilities.wudu && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-primary/10 text-primary rounded-full px-2 py-0.5">
+                    <Droplets className="w-3 h-3" /> Wudu
+                  </span>
+                )}
+                {selectedMosque.facilities.femaleSection && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-primary/10 text-primary rounded-full px-2 py-0.5">
+                    👩 Female Section
+                  </span>
+                )}
+                {selectedMosque.facilities.airConditioning && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-primary/10 text-primary rounded-full px-2 py-0.5">
+                    ❄️ A/C
+                  </span>
+                )}
+              </div>
+            )}
+
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <div className="flex items-center gap-3">
                 <span className="flex items-center gap-1"><Navigation className="w-3 h-3 text-primary" /> {formatDistance(routeInfo.distanceKm)}</span>
                 <span className="flex items-center gap-1"><Clock className="w-3 h-3 text-primary" /> {formatMinutes(routeInfo.durationMin)}</span>
                 <span className="flex items-center gap-1"><Footprints className="w-3 h-3 text-primary" /> {estimateSteps(routeInfo.distanceKm).toLocaleString()} steps</span>
               </div>
-              {/* Action buttons */}
               <div className="flex gap-0.5">
                 <button
                   onClick={() => {
@@ -618,7 +698,6 @@ const MosqueFinder = () => {
               </div>
             </div>
 
-            {/* Route from info */}
             {settings.homeAddress && (
               <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-2.5 py-1.5 text-[10px] text-muted-foreground">
                 <span>🏠 {settings.homeAddress}</span>
@@ -627,7 +706,6 @@ const MosqueFinder = () => {
               </div>
             )}
 
-            {/* Next prayer + leave-by time */}
             {nextPrayer && (
               <div className="bg-primary/5 rounded-lg px-3 py-2 space-y-1">
                 <div className="flex items-center justify-between">
@@ -657,7 +735,6 @@ const MosqueFinder = () => {
               </div>
             )}
 
-            {/* Walk Now button */}
             <Button
               variant="hero"
               className="w-full"
@@ -669,18 +746,19 @@ const MosqueFinder = () => {
               <Play className="w-4 h-4 mr-1.5" /> Walk There Now
             </Button>
 
+            {/* Direction steps with formatted instructions */}
             {routeInfo.steps.length > 0 && (
               <div className="max-h-24 overflow-y-auto space-y-1 pt-1 border-t border-border/50">
                 {routeInfo.steps.map((s, i) => {
                   const isLast = i === routeInfo.steps.length - 1;
-                  const lower = s.instruction.toLowerCase();
+                  const formatted = formatDirection(s.instruction);
+                  const lower = formatted.toLowerCase();
                   const getIcon = () => {
                     if (lower.includes("left")) return <CornerDownLeft className="w-3 h-3 text-primary" />;
                     if (lower.includes("right")) return <CornerDownRight className="w-3 h-3 text-primary" />;
                     if (lower.includes("arrive") || lower.includes("destination")) return <MapPin className="w-3 h-3 text-gold" />;
                     return <ArrowUp className="w-3 h-3 text-primary" />;
                   };
-                  const distUnit = settings.smallDistanceUnit || "m";
                   return (
                     <div key={i} className="flex items-start gap-2 text-[10px] text-muted-foreground">
                       <div className="flex flex-col items-center flex-shrink-0">
@@ -691,10 +769,10 @@ const MosqueFinder = () => {
                         </div>
                         {!isLast && <div className="w-px h-2 bg-border mt-0.5" />}
                       </div>
-                      <span className="capitalize">
-                        {s.instruction}
+                      <span>
+                        {formatted}
                         <span className="text-muted-foreground/50 ml-1">
-                          ({formatSmallDistance(s.distance, distUnit)})
+                          ({formatDistanceForStep(s.distance, useImperial)})
                         </span>
                       </span>
                     </div>
@@ -706,7 +784,7 @@ const MosqueFinder = () => {
         </div>
       )}
 
-      {/* Prayer countdown corner badge (when no mosque selected) */}
+      {/* Prayer countdown corner badge */}
       {!selectedMosque && nextPrayer && (
         <div className="absolute top-[calc(35vh+4rem)] right-3 z-[1000] bg-card/90 backdrop-blur-sm border border-border rounded-lg px-2.5 py-1.5 shadow-md">
           <p className="text-[10px] text-muted-foreground">{nextPrayer.name}</p>
@@ -714,25 +792,36 @@ const MosqueFinder = () => {
         </div>
       )}
 
-      {/* Tabs */}
+      {/* Tabs + sort toggle */}
       <div className="container pt-2">
-        <div className="flex bg-muted rounded-lg p-1 mb-3">
-          <button
-            onClick={() => setActiveTab("nearby")}
-            className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${
-              activeTab === "nearby" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
-            }`}
-          >
-            Nearby ({mosques.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("saved")}
-            className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${
-              activeTab === "saved" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
-            }`}
-          >
-            Saved ({savedList.length})
-          </button>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="flex bg-muted rounded-lg p-1 flex-1">
+            <button
+              onClick={() => setActiveTab("nearby")}
+              className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                activeTab === "nearby" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+              }`}
+            >
+              Nearby ({mosques.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("saved")}
+              className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                activeTab === "saved" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+              }`}
+            >
+              Saved ({savedList.length})
+            </button>
+          </div>
+          {activeTab === "nearby" && mosques.some((m) => m.walkingDistanceKm) && (
+            <button
+              onClick={() => setSortBy(sortBy === "straight" ? "walking" : "straight")}
+              className="text-[10px] font-medium text-primary bg-primary/10 rounded-lg px-2.5 py-1.5 hover:bg-primary/15 transition-colors whitespace-nowrap"
+              title={sortBy === "straight" ? "Sort by walking distance" : "Sort by straight-line distance"}
+            >
+              {sortBy === "straight" ? "🔀 Sort: straight-line" : "🚶 Sort: walking"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -769,27 +858,17 @@ const MosqueFinder = () => {
                   <p className="text-xs font-medium text-foreground">No mosque within walking distance?</p>
                   <p className="text-[10px] text-muted-foreground">Find or create a prayer space in your area:</p>
                   <div className="flex flex-col gap-1.5">
-                    <a
-                      href="https://www.salatomatic.com/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-primary hover:underline flex items-center gap-1 justify-center"
-                    >
+                    <a href="https://www.salatomatic.com/" target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 justify-center">
                       <ExternalLink className="w-3 h-3" /> Salatomatic — Global Mosque Directory
                     </a>
-                    <a
-                      href="https://www.islamicfinder.org/world/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-primary hover:underline flex items-center gap-1 justify-center"
-                    >
+                    <a href="https://www.islamicfinder.org/world/" target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 justify-center">
                       <ExternalLink className="w-3 h-3" /> IslamicFinder — Mosque Locator
                     </a>
                   </div>
                 </div>
               </div>
             )}
-            {mosques.map((m) => {
+            {sortedMosques.map((m) => {
               const saved = isSaved(m.id);
               const isPrimary = primaryId === String(m.id);
               const isSelected = m.id === selectedMosqueId;
@@ -817,10 +896,19 @@ const MosqueFinder = () => {
                         )}
                         <Footprints className="w-2.5 h-2.5 inline" /> {estimateSteps(displayDist).toLocaleString()} · <Clock className="w-2.5 h-2.5 inline" /> {displayDuration} min
                       </p>
+                      {/* Inline facility indicators */}
+                      {m.facilities && (
+                        <div className="flex gap-1 mt-0.5">
+                          {m.facilities.wheelchair && <span className="text-[9px] text-primary" title="Wheelchair accessible">♿</span>}
+                          {m.facilities.parking && <span className="text-[9px] text-primary" title="Parking available">🅿️</span>}
+                          {m.facilities.wudu && <span className="text-[9px] text-primary" title="Wudu facilities">💧</span>}
+                          {m.facilities.femaleSection && <span className="text-[9px] text-primary" title="Female section">👩</span>}
+                          {m.facilities.airConditioning && <span className="text-[9px] text-primary" title="Air conditioning">❄️</span>}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                    {/* Favorite toggle */}
                     <button
                       onClick={() => {
                         if (!saved) handleSaveMosque(m, false);
@@ -880,7 +968,6 @@ const MosqueFinder = () => {
                   </div>
                 </div>
                 <div className="flex gap-1 flex-shrink-0">
-                  {/* Favorite toggle */}
                   <button
                     onClick={() => {
                       toggleFavoriteMosque(m.id);
@@ -913,5 +1000,15 @@ const MosqueFinder = () => {
     </div>
   );
 };
+
+function getFacilityText(f: NonNullable<MosqueResult["facilities"]>): string {
+  const parts: string[] = [];
+  if (f.wheelchair) parts.push("♿ Wheelchair");
+  if (f.parking) parts.push("🅿️ Parking");
+  if (f.wudu) parts.push("💧 Wudu");
+  if (f.femaleSection) parts.push("👩 Female");
+  if (f.airConditioning) parts.push("❄️ A/C");
+  return parts.join(" · ");
+}
 
 export default MosqueFinder;
