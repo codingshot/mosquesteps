@@ -761,10 +761,32 @@ const MosqueFinder = () => {
               </div>
             )}
             {!loading && !searchError && mosques.length === 0 && (
-              <div className="glass-card p-6 text-center">
+              <div className="glass-card p-6 text-center space-y-3">
                 <MapPin className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground">No mosques found nearby.</p>
-                <p className="text-xs text-muted-foreground mt-1">Try searching for a different city or area.</p>
+                <p className="text-xs text-muted-foreground">Try searching for a different city or area, or search for "masjid", "musalla", or "prayer room".</p>
+                <div className="pt-2 border-t border-border/50 space-y-2">
+                  <p className="text-xs font-medium text-foreground">No mosque within walking distance?</p>
+                  <p className="text-[10px] text-muted-foreground">Find or create a prayer space in your area:</p>
+                  <div className="flex flex-col gap-1.5">
+                    <a
+                      href="https://www.salatomatic.com/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary hover:underline flex items-center gap-1 justify-center"
+                    >
+                      <ExternalLink className="w-3 h-3" /> Salatomatic — Global Mosque Directory
+                    </a>
+                    <a
+                      href="https://www.islamicfinder.org/world/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary hover:underline flex items-center gap-1 justify-center"
+                    >
+                      <ExternalLink className="w-3 h-3" /> IslamicFinder — Mosque Locator
+                    </a>
+                  </div>
+                </div>
               </div>
             )}
             {mosques.map((m) => {
