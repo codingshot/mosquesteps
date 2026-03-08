@@ -401,13 +401,23 @@ export default function WalkMap({
     }
   }, [returnRouteCoords]);
 
-  // ── GPS breadcrumb trail (gold line) ─────────────────────────────────────────
+  // ── GPS breadcrumb trail (gold line) — throttled to avoid redraw on every position ──
+  const lastTrailUpdateRef = useRef(0);
   useEffect(() => {
     if (!mapRef.current) return;
+    // Only redraw trail every 2 seconds max
+    const now = Date.now();
+    if (walkPath.length > 1 && now - lastTrailUpdateRef.current < 2000) return;
+    lastTrailUpdateRef.current = now;
+
     if (walkLineRef.current) { mapRef.current.removeLayer(walkLineRef.current); }
     if (walkPath.length > 1) {
+      // Downsample trail for performance when long
+      const path = walkPath.length > 200
+        ? walkPath.filter((_, i) => i % 3 === 0 || i === walkPath.length - 1)
+        : walkPath;
       walkLineRef.current = L.polyline(
-        walkPath.map((p) => [p.lat, p.lng] as [number, number]),
+        path.map((p) => [p.lat, p.lng] as [number, number]),
         { color: "#D4A017", weight: 3, opacity: 0.7 }
       ).addTo(mapRef.current);
     }
