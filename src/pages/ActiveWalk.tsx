@@ -127,6 +127,7 @@ const ActiveWalk = () => {
   const [arrivalState, setArrivalState] = useState<ArrivalState>("walking");
   const [showArrivalPrompt, setShowArrivalPrompt] = useState(false);
   const [stepConfidence, setStepConfidence] = useState<"high" | "medium" | "low">("high");
+  const gpsFilterRef = useRef(new GPSFilter());
 
   // Mosque position from settings or prayer-specific mosque
   const prayerMosqueId = settings.prayerMosques?.[selectedPrayer];
