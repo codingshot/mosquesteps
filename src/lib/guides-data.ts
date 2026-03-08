@@ -156,8 +156,6 @@ export const guides: Guide[] = [
     page: "/history",
     pageLabel: "View History",
   },
-];
-
   {
     id: "troubleshooting",
     title: "Troubleshooting Common Issues",
