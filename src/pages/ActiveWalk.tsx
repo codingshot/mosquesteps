@@ -695,12 +695,61 @@ const ActiveWalk = () => {
     return () => window.removeEventListener("deviceorientation", handleOrientation, true);
   }, [isWalking]);
 
+  // Arrival detection — auto-prompt check-in when arriving at mosque
+  useEffect(() => {
+    if (!isWalking || !currentPosition || !effectiveDestination || isPaused) return;
+    const detector = arrivalDetectorRef.current;
+    const newState = detector.update(
+      currentPosition.lat, currentPosition.lng,
+      effectiveDestination.lat, effectiveDestination.lng
+    );
+    setArrivalState(newState);
+
+    if (newState === "arrived" && !showArrivalPrompt && !checkedIn) {
+      setShowArrivalPrompt(true);
+      // Vibrate and announce arrival
+      if ("vibrate" in navigator) navigator.vibrate([300, 150, 300]);
+      if (voiceEnabled && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(
+          `You have arrived at ${effectiveMosqueName}. Tap to check in.`
+        );
+        utterance.rate = 1.0;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+  }, [isWalking, currentPosition, effectiveDestination, isPaused, checkedIn, voiceEnabled, effectiveMosqueName, showArrivalPrompt]);
+
+  // GPS-step cross-validation — runs every 15 seconds
+  useEffect(() => {
+    if (!isWalking || sensorSource === "gps" || sensorSource === "none") return;
+    const interval = setInterval(() => {
+      const validation = validateStepsAgainstGPS(
+        sensorSteps, distanceRef.current, settings.strideLength || 0.77
+      );
+      setStepConfidence(validation.confidence);
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [isWalking, sensorSource, sensorSteps, settings.strideLength]);
+
+  // Pace tracker — feed GPS distance samples for adaptive ETA
+  useEffect(() => {
+    if (!isWalking || isPaused) return;
+    paceTrackerRef.current.addSample(distanceRef.current);
+  }, [isWalking, isPaused, distanceKm]);
+
   // Stop speech when walk ends
   useEffect(() => {
     if (!isWalking && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
-    if (!isWalking) prayerMarginAlerted.current = false;
+    if (!isWalking) {
+      prayerMarginAlerted.current = false;
+      arrivalDetectorRef.current.reset();
+      paceTrackerRef.current.reset();
+      setShowArrivalPrompt(false);
+      setArrivalState("walking");
+    }
   }, [isWalking]);
 
   // Voice alert when prayer margin drops below 5 minutes
