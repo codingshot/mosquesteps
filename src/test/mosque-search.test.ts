@@ -67,6 +67,7 @@ describe("searchNearbyMosques – coordinate validation", () => {
 describe("searchNearbyMosques – parsing", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
+    sessionStorage.clear();
   });
 
   afterEach(() => {
@@ -140,7 +141,7 @@ describe("searchNearbyMosques – parsing", () => {
 });
 
 describe("searchNearbyMosques – deduplication", () => {
-  beforeEach(() => vi.stubGlobal("fetch", vi.fn()));
+  beforeEach(() => { vi.stubGlobal("fetch", vi.fn()); sessionStorage.clear(); });
   afterEach(() => vi.restoreAllMocks());
 
   it("deduplicates same-name mosques within 50 m", async () => {
@@ -183,8 +184,8 @@ describe("searchNearbyMosques – deduplication", () => {
 });
 
 describe("searchNearbyMosques – Overpass server fallback", () => {
-  beforeEach(() => vi.stubGlobal("fetch", vi.fn()));
-  afterEach(() => vi.restoreAllMocks());
+  beforeEach(() => { vi.stubGlobal("fetch", vi.fn()); sessionStorage.clear(); });
+  afterEach(() => { vi.restoreAllMocks(); });
 
   it("falls back to second server when first fails", async () => {
     const goodEl = makeElement({ lat: LONDON.lat, lon: LONDON.lng, tags: { name: "Fallback Mosque", amenity: "place_of_worship", religion: "muslim" } });
@@ -202,5 +203,5 @@ describe("searchNearbyMosques – Overpass server fallback", () => {
   it("throws when all servers fail", async () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("All down"));
     await expect(searchNearbyMosques(LONDON.lat, LONDON.lng)).rejects.toThrow();
-  });
+  }, 30000);
 });

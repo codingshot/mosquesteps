@@ -41,7 +41,7 @@ const SUNNAH_QUOTES = [
   { text: "The people who will receive the greatest reward for prayer are those who live farthest away.", source: "Sahih Muslim 662", link: "https://sunnah.com/muslim:662" },
 ];
 
-import { haversineKm } from "@/lib/geo-utils";
+import { haversineKm, isOffRoute as checkOffRoute } from "@/lib/geo-utils";
 function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
   return haversineKm(lat1, lon1, lat2, lon2);
 }
@@ -534,17 +534,16 @@ const ActiveWalk = () => {
         distAlongRoute.push(distAlongRoute[i - 1] + seg);
       }
 
-      // Project position onto route: find closest segment and interpolate
-      let minDist = Infinity;
+      // Segment-based off-route detection (perpendicular distance to nearest segment)
+      setOffRoute(checkOffRoute(routeCoords, currentPosition.lat, currentPosition.lng, 50));
+
+      // Find closest route point for distance-along-route calculation
       let closestCoordIdx = 0;
+      let minD = Infinity;
       for (let i = 0; i < routeCoords.length; i++) {
         const d = haversine(currentPosition.lat, currentPosition.lng, routeCoords[i][0], routeCoords[i][1]) * 1000;
-        if (d < minDist) {
-          minDist = d;
-          closestCoordIdx = i;
-        }
+        if (d < minD) { minD = d; closestCoordIdx = i; }
       }
-      setOffRoute(minDist > 50); // 50m threshold — tighter for pedestrian accuracy
 
       const distAlongRouteM = distAlongRoute[closestCoordIdx];
 

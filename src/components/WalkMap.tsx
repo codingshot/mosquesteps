@@ -166,6 +166,8 @@ export default function WalkMap({
   const stepMarkersRef = useRef<L.Marker[]>([]);
   const distLabelRef = useRef<L.Marker | null>(null);
   const progressLabelRef = useRef<L.Marker | null>(null);
+  const progressPulseRef = useRef<L.Marker | null>(null);
+  const midpointLabelRef = useRef<L.Marker | null>(null);
   const lastPanRef = useRef(0);
   const recenterRequestedRef = useRef(false);
   const smoothedHeadingRef = useRef<number | null>(null);
@@ -494,6 +496,73 @@ export default function WalkMap({
       stepMarkersRef.current.push(marker);
     });
   }, [routeSteps, routeCoords, currentStepIdx, isWalking]);
+
+  // ── Progress pulse — animated dot on user's closest route point ──────────────
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (progressPulseRef.current) { progressPulseRef.current.remove(); progressPulseRef.current = null; }
+    if (!isWalking || !userPosition || !routeCoords || routeCoords.length < 2) return;
+
+    const { index } = findClosestRouteIndex(routeCoords, userPosition.lat, userPosition.lng);
+    const coord = routeCoords[index];
+    if (!coord) return;
+
+    const pulseIcon = L.divIcon({
+      html: `<div style="position:relative;width:16px;height:16px;">
+        <div style="
+          position:absolute;top:-4px;left:-4px;width:24px;height:24px;
+          border-radius:50%;background:rgba(13,115,119,0.25);
+          animation:routePulse 1.8s ease-out infinite;
+        "></div>
+        <div style="
+          position:relative;width:16px;height:16px;
+          border-radius:50%;background:#0D7377;border:2px solid white;
+          box-shadow:0 2px 8px rgba(0,0,0,0.4);
+        "></div>
+      </div>
+      <style>@keyframes routePulse { 0%{transform:scale(1);opacity:0.8;} 100%{transform:scale(2.5);opacity:0;} }</style>`,
+      className: "progress-pulse",
+      iconSize: [16, 16],
+      iconAnchor: [8, 8],
+    });
+
+    progressPulseRef.current = L.marker([coord[0], coord[1]], { icon: pulseIcon, interactive: false, zIndexOffset: 900 })
+      .addTo(mapRef.current);
+  }, [userPosition, routeCoords, isWalking]);
+
+  // ── Midpoint distance marker on route ────────────────────────────────────────
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (midpointLabelRef.current) { midpointLabelRef.current.remove(); midpointLabelRef.current = null; }
+    if (!routeCoords || routeCoords.length < 4 || !mosquePosition || !userPosition) return;
+    if (!isWalking) return;
+
+    // Find midpoint of remaining route
+    const { index: startIdx } = findClosestRouteIndex(routeCoords, userPosition.lat, userPosition.lng);
+    const remaining = routeCoords.slice(startIdx);
+    if (remaining.length < 4) return;
+    const midIdx = Math.floor(remaining.length / 2);
+    const midCoord = remaining[midIdx];
+    if (!midCoord) return;
+
+    // Calculate distance from midpoint to mosque
+    const distToEnd = haversineKm(midCoord[0], midCoord[1], mosquePosition.lat, mosquePosition.lng);
+    const label = formatDistanceLabel(distToEnd);
+
+    const icon = L.divIcon({
+      html: `<div style="
+        background:rgba(0,0,0,0.65);color:white;padding:2px 8px;
+        border-radius:10px;font-size:10px;font-weight:600;
+        white-space:nowrap;pointer-events:none;
+        box-shadow:0 1px 4px rgba(0,0,0,0.3);
+      ">${label}</div>`,
+      className: "midpoint-label",
+      iconAnchor: [0, -8],
+    });
+
+    midpointLabelRef.current = L.marker([midCoord[0], midCoord[1]], { icon, interactive: false, zIndexOffset: 800 })
+      .addTo(mapRef.current);
+  }, [userPosition, routeCoords, mosquePosition, isWalking]);
 
   // ── Distance label near user ─────────────────────────────────────────────────
   useEffect(() => {
