@@ -54,10 +54,11 @@ const BlogPostPage = () => {
   const related = getRelatedPosts(post.slug, 3);
 
   useEffect(() => {
-    const script = document.createElement("script");
-    script.type = "application/ld+json";
-    script.id = "breadcrumb-blogpost";
-    script.textContent = JSON.stringify({
+    // Breadcrumb schema
+    const bcScript = document.createElement("script");
+    bcScript.type = "application/ld+json";
+    bcScript.id = "breadcrumb-blogpost";
+    bcScript.textContent = JSON.stringify({
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
@@ -66,14 +67,41 @@ const BlogPostPage = () => {
         { "@type": "ListItem", position: 3, name: post.title, item: SITE_URL + "/blogs/" + post.slug },
       ],
     });
-    const existing = document.getElementById(script.id);
-    if (existing) existing.remove();
-    document.head.appendChild(script);
+    const existingBc = document.getElementById(bcScript.id);
+    if (existingBc) existingBc.remove();
+    document.head.appendChild(bcScript);
+
+    // Article schema (AEO + SEO)
+    const artScript = document.createElement("script");
+    artScript.type = "application/ld+json";
+    artScript.id = "article-blogpost";
+    artScript.textContent = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "Article",
+      headline: post.title,
+      description: post.excerpt,
+      url: SITE_URL + "/blogs/" + post.slug,
+      publisher: {
+        "@type": "Organization",
+        name: "MosqueSteps",
+        url: SITE_URL,
+      },
+      mainEntityOfPage: {
+        "@type": "WebPage",
+        "@id": SITE_URL + "/blogs/" + post.slug,
+      },
+      articleSection: categoryLabels[post.category],
+      keywords: post.tags.join(", "),
+    });
+    const existingArt = document.getElementById(artScript.id);
+    if (existingArt) existingArt.remove();
+    document.head.appendChild(artScript);
+
     return () => {
-      const el = document.getElementById(script.id);
-      if (el) el.remove();
+      document.getElementById("breadcrumb-blogpost")?.remove();
+      document.getElementById("article-blogpost")?.remove();
     };
-  }, [post.slug, post.title]);
+  }, [post.slug, post.title, post.excerpt, post.category, post.tags]);
 
   const copyLink = () => {
     const url = window.location.href;
