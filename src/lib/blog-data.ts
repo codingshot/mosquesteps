@@ -1,3 +1,5 @@
+import { newBlogPosts } from "./blog-data-new";
+
 export interface BlogPost {
   slug: string;
   title: string;
