@@ -2,6 +2,7 @@
  * Mosque check-in system
  * Users can check in when they arrive within ~100m of a mosque
  */
+import { getCheckInStreak } from "@/lib/step-validator";
 
 export interface CheckIn {
   id: string;
