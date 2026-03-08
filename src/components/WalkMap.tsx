@@ -183,8 +183,14 @@ export default function WalkMap({
       attributionControl: false,
     });
 
+    L.control.zoom({ position: "bottomright" }).addTo(map);
+    L.control.attribution({ position: "bottomleft", prefix: false })
+      .addAttribution('© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>')
+      .addTo(map);
+
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
+      attribution: "",
     }).addTo(map);
 
     mapRef.current = map;

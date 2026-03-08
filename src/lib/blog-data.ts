@@ -1,3 +1,5 @@
+import { newBlogPosts } from "./blog-data-new";
+
 export interface BlogPost {
   slug: string;
   title: string;
@@ -963,6 +965,7 @@ Barak Allahu feek for helping make every step to the mosque count.
     image: "🤝",
     readTime: "5 min read",
   },
+  ...newBlogPosts,
 ];
 
 export function getBlogsByCategory(category: BlogPost["category"]): BlogPost[] {
