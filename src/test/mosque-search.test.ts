@@ -141,7 +141,7 @@ describe("searchNearbyMosques – parsing", () => {
 });
 
 describe("searchNearbyMosques – deduplication", () => {
-  beforeEach(() => vi.stubGlobal("fetch", vi.fn()));
+  beforeEach(() => { vi.stubGlobal("fetch", vi.fn()); sessionStorage.clear(); });
   afterEach(() => vi.restoreAllMocks());
 
   it("deduplicates same-name mosques within 50 m", async () => {
