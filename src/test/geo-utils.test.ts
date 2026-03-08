@@ -158,3 +158,40 @@ describe("OFF_ROUTE_THRESHOLD_SQ", () => {
     expect(OFF_ROUTE_THRESHOLD_SQ).toBeLessThan(0.001);
   });
 });
+
+describe("perpendicularDistToRouteKm", () => {
+  const route: [number, number][] = [[0, 0], [0, 1], [0, 2]];
+
+  it("returns 0 for point on route", () => {
+    const d = perpendicularDistToRouteKm(route, 0, 0.5);
+    expect(d).toBeLessThan(0.01);
+  });
+
+  it("returns perpendicular distance for point off route", () => {
+    // Point at (1, 1) is ~111km north of segment at (0, 0)→(0, 2)
+    const d = perpendicularDistToRouteKm(route, 1, 1);
+    expect(d).toBeGreaterThan(100);
+    expect(d).toBeLessThan(120);
+  });
+
+  it("returns Infinity for empty route", () => {
+    expect(perpendicularDistToRouteKm([], 0, 0)).toBe(Infinity);
+  });
+
+  it("returns haversine distance for single-point route", () => {
+    const d = perpendicularDistToRouteKm([[0, 0]], 0, 1);
+    expect(d).toBeGreaterThan(100); // ~111km
+  });
+});
+
+describe("isOffRoute", () => {
+  const route: [number, number][] = [[51.5, -0.1], [51.5, -0.09], [51.5, -0.08]];
+
+  it("returns false when on route", () => {
+    expect(isOffRoute(route, 51.5, -0.095, 50)).toBe(false);
+  });
+
+  it("returns true when far from route", () => {
+    expect(isOffRoute(route, 51.51, -0.09, 50)).toBe(true);
+  });
+});
