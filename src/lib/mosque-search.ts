@@ -96,8 +96,12 @@ const buildQuery = (lat: number, lng: number, radiusM: number) => `
   way["amenity"="place_of_worship"]["denomination"="shia"](around:${radiusM},${lat},${lng});
   node["place_of_worship:type"="mosque"](around:${radiusM},${lat},${lng});
   way["place_of_worship:type"="mosque"](around:${radiusM},${lat},${lng});
+  node["amenity"="place_of_worship"]["name"~"masjid|musalla|musollah|prayer.room|islamic.cent|jamia|jami|jaame|surau",i](around:${radiusM},${lat},${lng});
+  way["amenity"="place_of_worship"]["name"~"masjid|musalla|musollah|prayer.room|islamic.cent|jamia|jami|jaame|surau",i](around:${radiusM},${lat},${lng});
+  node["name"~"^masjid|^musalla|^mosque|^islamic.cent|^jamia|^prayer.hall",i]["amenity"](around:${radiusM},${lat},${lng});
+  way["name"~"^masjid|^musalla|^mosque|^islamic.cent|^jamia|^prayer.hall",i]["amenity"](around:${radiusM},${lat},${lng});
 );
-out center 100;
+out center 150;
 `;
 
 async function fetchOverpass(
