@@ -41,7 +41,7 @@ const SUNNAH_QUOTES = [
   { text: "The people who will receive the greatest reward for prayer are those who live farthest away.", source: "Sahih Muslim 662", link: "https://sunnah.com/muslim:662" },
 ];
 
-import { haversineKm } from "@/lib/geo-utils";
+import { haversineKm, isOffRoute as checkOffRoute } from "@/lib/geo-utils";
 function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
   return haversineKm(lat1, lon1, lat2, lon2);
 }
