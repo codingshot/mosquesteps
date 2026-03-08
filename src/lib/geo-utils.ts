@@ -137,8 +137,63 @@ function perpendicularDistance(
   return Math.hypot(point[0] - projX, point[1] - projY);
 }
 
-/** Off-route threshold in degrees² (~50m at mid-latitudes) */
+/** Off-route threshold in degrees² (~50m at mid-latitudes) — used as fallback */
 export const OFF_ROUTE_THRESHOLD_SQ = 0.0005 ** 2;
+
+/**
+ * Perpendicular distance from a point to the nearest route segment, in km.
+ * Much more accurate than point-based distance for off-route detection,
+ * especially on curves and long straight segments.
+ */
+export function perpendicularDistToRouteKm(
+  route: [number, number][],
+  lat: number,
+  lng: number
+): number {
+  if (!route || route.length === 0) return Infinity;
+  if (route.length === 1) return haversineKm(lat, lng, route[0][0], route[0][1]);
+
+  let minDist = Infinity;
+
+  for (let i = 0; i < route.length - 1; i++) {
+    const [aLat, aLng] = route[i];
+    const [bLat, bLng] = route[i + 1];
+
+    // Project point onto segment in degree-space (fast approximation)
+    const dx = bLat - aLat;
+    const dy = bLng - aLng;
+    const lenSq = dx * dx + dy * dy;
+
+    let projLat: number, projLng: number;
+    if (lenSq === 0) {
+      projLat = aLat;
+      projLng = aLng;
+    } else {
+      const t = Math.max(0, Math.min(1, ((lat - aLat) * dx + (lng - aLng) * dy) / lenSq));
+      projLat = aLat + t * dx;
+      projLng = aLng + t * dy;
+    }
+
+    const dist = haversineKm(lat, lng, projLat, projLng);
+    if (dist < minDist) minDist = dist;
+  }
+
+  return minDist;
+}
+
+/**
+ * Check if user is off-route using segment-based perpendicular distance.
+ * Returns true if more than thresholdM meters from nearest route segment.
+ */
+export function isOffRoute(
+  route: [number, number][],
+  lat: number,
+  lng: number,
+  thresholdM = 50
+): boolean {
+  const distKm = perpendicularDistToRouteKm(route, lat, lng);
+  return distKm * 1000 > thresholdM;
+}
 
 /** Format distance for display: "1.2 km" or "350 m" */
 export function formatDistanceLabel(km: number, useImperial = false): string {
