@@ -69,7 +69,9 @@ describe("smoothHeading", () => {
 
   it("handles reverse wraparound", () => {
     const result = smoothHeading(10, 350, 0.5);
-    expect(result).toBeGreaterThan(340);
+    // 10 + 0.5 * (-20) = 0 → wraps to 360
+    expect(result).toBeGreaterThanOrEqual(0);
+    expect(result).toBeLessThan(15);
   });
 });
 
