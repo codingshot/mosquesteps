@@ -225,7 +225,7 @@ export default function WalkMap({
       }).addTo(mapRef.current);
     }
 
-    // Smooth camera tracking while walking — keep user in lower-third of map
+    // Smooth camera tracking while walking — keep user in lower portion so route ahead is visible
     if (isWalking) {
       const now = Date.now();
       const shouldPan = recenterRequestedRef.current || now - lastPanRef.current >= PAN_THROTTLE_MS;
@@ -235,23 +235,41 @@ export default function WalkMap({
         if (size.x > 0 && size.y > 0) {
           lastPanRef.current = now;
           recenterRequestedRef.current = false;
-          // Offset user marker toward lower-third so upcoming route is visible
           const userPoint = map.latLngToContainerPoint([userPosition.lat, userPosition.lng]);
           const targetY = size.y * USER_OFFSET_FRACTION;
           const deltaY = targetY - userPoint.y;
-          if (Math.abs(deltaY) > 20) { // Only pan if meaningful drift
+          if (Math.abs(deltaY) > 15) {
             const targetPoint = L.point(userPoint.x, userPoint.y + deltaY);
             const targetLatLng = map.containerPointToLatLng(targetPoint);
-            map.panTo(targetLatLng, { animate: true, duration: 0.8, easeLinearity: 0.5 });
+            map.panTo(targetLatLng, { animate: true, duration: 0.6, easeLinearity: 0.4 });
           }
         }
       }
     }
 
-    // POV-style: rotate map container to match heading so "up" = direction of travel
-    if (isWalking && containerRef.current && deviceHeading != null && Number.isFinite(deviceHeading)) {
-      containerRef.current.style.transition = "transform 0.6s ease-out";
-      containerRef.current.style.transform = `rotate(${-deviceHeading}deg)`;
+    // POV-style rotation: use device compass heading, or fall back to route-based bearing
+    if (isWalking && containerRef.current) {
+      let heading: number | null = deviceHeading ?? null;
+
+      // Fallback: compute bearing from user position to next route point ahead
+      if (heading == null && routeCoords && routeCoords.length > 2) {
+        let closestIdx = 0;
+        let minD = Infinity;
+        for (let i = 0; i < routeCoords.length; i++) {
+          const d = (routeCoords[i][0] - userPosition.lat) ** 2 + (routeCoords[i][1] - userPosition.lng) ** 2;
+          if (d < minD) { minD = d; closestIdx = i; }
+        }
+        // Look 3-5 points ahead for a stable bearing
+        const lookAhead = Math.min(closestIdx + 5, routeCoords.length - 1);
+        if (lookAhead > closestIdx) {
+          heading = calcBearing(userPosition.lat, userPosition.lng, routeCoords[lookAhead][0], routeCoords[lookAhead][1]);
+        }
+      }
+
+      if (heading != null && Number.isFinite(heading)) {
+        containerRef.current.style.transition = "transform 0.8s cubic-bezier(0.25,0.1,0.25,1)";
+        containerRef.current.style.transform = `rotate(${-heading}deg)`;
+      }
     } else if (containerRef.current) {
       containerRef.current.style.transition = "transform 0.6s ease-out";
       containerRef.current.style.transform = "rotate(0deg)";
