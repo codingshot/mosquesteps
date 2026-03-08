@@ -5,7 +5,7 @@ import SEOHead from "@/components/SEOHead";
 import { Button } from "@/components/ui/button";
 
 /** Suggest a likely correct route based on the attempted path */
-function suggestRoute(pathname: string): { to: string; label: string } | null {
+export function suggestRoute(pathname: string): { to: string; label: string } | null {
   const lower = pathname.toLowerCase().replace(/^\/+|\/+$/g, "");
   const suggestions: Record<string, { to: string; label: string }> = {
     "mosque": { to: "/mosques", label: "Mosque Finder" },
@@ -115,6 +115,33 @@ const NotFound = () => {
               </Link>
             ))}
           </div>
+        </div>
+
+        {/* Search redirect */}
+        <div className="pt-2">
+          <p className="text-xs text-muted-foreground mb-2">Or search for what you need:</p>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const q = (e.currentTarget.elements.namedItem("q") as HTMLInputElement)?.value?.trim();
+              if (q) {
+                const match = suggestRoute("/" + q);
+                if (match) window.location.href = match.to;
+                else window.location.href = `/faq`;
+              }
+            }}
+            className="flex gap-2 max-w-xs mx-auto"
+          >
+            <input
+              name="q"
+              type="text"
+              placeholder="e.g. mosque, walk, rewards…"
+              className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+            <Button type="submit" size="sm" variant="outline" className="gap-1">
+              <Search className="w-4 h-4" /> Go
+            </Button>
+          </form>
         </div>
 
         <Link to="/" className="inline-block">

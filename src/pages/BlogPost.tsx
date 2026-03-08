@@ -327,6 +327,18 @@ const BlogPostPage = () => {
           </section>
         )}
 
+        {/* Related guides cross-link */}
+        <section className="mt-8 pt-6 border-t border-border">
+          <h2 className="text-sm font-semibold text-foreground mb-3">Explore More</h2>
+          <div className="flex flex-wrap gap-2">
+            <Link to="/guides/getting-started" className="text-xs px-3 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-foreground border border-border transition-colors">📱 Getting Started</Link>
+            <Link to="/guides/find-mosque" className="text-xs px-3 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-foreground border border-border transition-colors">🕌 Find a Mosque</Link>
+            <Link to="/guides/active-walk" className="text-xs px-3 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-foreground border border-border transition-colors">🚶 Active Walk</Link>
+            <Link to="/guides/rewards" className="text-xs px-3 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-foreground border border-border transition-colors">🏆 Rewards</Link>
+            <Link to="/sunnah" className="text-xs px-3 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-foreground border border-border transition-colors">📖 Sunnah</Link>
+          </div>
+        </section>
+
         <div className="text-center pt-6 flex flex-wrap justify-center gap-x-3 gap-y-1">
           <Link to="/blogs" className="text-sm text-primary hover:underline">← All Articles</Link>
           <span className="text-muted-foreground">·</span>
