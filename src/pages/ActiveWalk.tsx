@@ -1527,6 +1527,27 @@ const ActiveWalk = () => {
               </div>
             )}
 
+            {/* GPS signal strength indicator */}
+            {isWalking && currentPosition && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/40 border border-border/50" role="status" aria-label="GPS signal strength">
+                <div className="flex items-end gap-0.5" aria-hidden>
+                  <span className={`w-1 rounded-full transition-colors ${gpsConfidence !== "low" ? "bg-primary" : "bg-muted-foreground/30"}`} style={{ height: 6 }} />
+                  <span className={`w-1 rounded-full transition-colors ${gpsConfidence === "high" || gpsConfidence === "medium" ? "bg-primary" : "bg-muted-foreground/30"}`} style={{ height: 10 }} />
+                  <span className={`w-1 rounded-full transition-colors ${gpsConfidence === "high" ? "bg-primary" : "bg-muted-foreground/30"}`} style={{ height: 14 }} />
+                </div>
+                <span className={`text-[10px] font-medium ${
+                  gpsConfidence === "high" ? "text-emerald-600 dark:text-emerald-400" 
+                  : gpsConfidence === "medium" ? "text-amber-600 dark:text-amber-400" 
+                  : "text-destructive"
+                }`}>
+                  {gpsConfidence === "high" ? "Strong GPS" : gpsConfidence === "medium" ? "Fair GPS" : "Weak GPS"}
+                </span>
+                {gpsConfidence === "low" && (
+                  <span className="text-[10px] text-muted-foreground ml-auto">Move to open sky for better signal</span>
+                )}
+              </div>
+            )}
+
             {/* Encourage location when off — steps still work + manual direction nav */}
             {isWalking && !currentPosition && (
               <div className="rounded-xl px-4 py-3 flex items-center gap-3 bg-primary/10 border border-primary/20 text-left" role="status" aria-live="polite">
