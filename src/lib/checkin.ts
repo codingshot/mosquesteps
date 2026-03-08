@@ -61,6 +61,7 @@ export function getCheckInStats(): {
   uniqueMosques: number;
   checkInsByMosque: Record<string, number>;
   checkInsByPrayer: Record<string, number>;
+  streak: number;
 } {
   const checkIns = getCheckIns();
   const mosqueSet = new Set(checkIns.map((c) => c.mosqueId));
@@ -72,10 +73,15 @@ export function getCheckInStats(): {
     byPrayer[c.prayer] = (byPrayer[c.prayer] || 0) + 1;
   });
 
+  // Calculate check-in streak
+  const { getCheckInStreak } = require("@/lib/step-validator");
+  const streak = getCheckInStreak(checkIns.map(c => c.date));
+
   return {
     totalCheckIns: checkIns.length,
     uniqueMosques: mosqueSet.size,
     checkInsByMosque: byMosque,
     checkInsByPrayer: byPrayer,
+    streak,
   };
 }
