@@ -824,6 +824,7 @@ const ActiveWalk = () => {
           const newPos: Position = { lat: filtered.lat, lng: filtered.lng };
           setCurrentPosition(newPos);
           setLocationSource("gps");
+          setGpsConfidence(filtered.confidence);
 
           // Movement detection: speed > 0.25 m/s OR position delta > 2.5m
           const speedMoving = (speed != null && speed > 0.25);
