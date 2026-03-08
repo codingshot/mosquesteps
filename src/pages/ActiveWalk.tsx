@@ -124,6 +124,11 @@ const ActiveWalk = () => {
   const stepCounterRef = useRef<StepCounter | null>(null);
   const distanceRef = useRef(0);
   const speedSamples = useRef<number[]>([]);
+  const arrivalDetectorRef = useRef(createArrivalDetector());
+  const paceTrackerRef = useRef(new PaceTracker());
+  const [arrivalState, setArrivalState] = useState<ArrivalState>("walking");
+  const [showArrivalPrompt, setShowArrivalPrompt] = useState(false);
+  const [stepConfidence, setStepConfidence] = useState<"high" | "medium" | "low">("high");
 
   // Mosque position from settings or prayer-specific mosque
   const prayerMosqueId = settings.prayerMosques?.[selectedPrayer];
