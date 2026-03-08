@@ -267,6 +267,24 @@ describe("Active Walk", () => {
     expect(stepStatus).toBeInTheDocument();
   });
 
+  it("shows GPS signal strength indicator during walk", async () => {
+    saveSettings({
+      selectedMosqueName: "Test Mosque",
+      selectedMosqueLat: 51.51,
+      selectedMosqueLng: -0.09,
+      homeLat: 51.5,
+      homeLng: -0.1,
+    });
+    renderActiveWalk();
+    await screen.findByText(/Test Mosque/i);
+    fireEvent.click(screen.getByRole("button", { name: /Start Walking/i }));
+
+    const gpsIndicator = await screen.findByRole("status", { name: /GPS signal/i });
+    expect(gpsIndicator).toBeInTheDocument();
+    // Should show a confidence level
+    expect(gpsIndicator.textContent).toMatch(/Strong GPS|Fair GPS|Weak GPS/);
+  });
+
   it("shows WalkMap component during active walk", async () => {
     saveSettings({
       selectedMosqueName: "Test Mosque",
