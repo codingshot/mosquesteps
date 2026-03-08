@@ -9,6 +9,8 @@ import BottomNav from "./components/BottomNav";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { OfflineBanner } from "./components/OfflineBanner";
 import Index from "./pages/Index";
+import { KeyboardShortcuts } from "./components/KeyboardShortcuts";
+import { BackToTop } from "./components/BackToTop";
 
 // Lazy-load non-critical routes for performance
 const Dashboard = lazy(() => import("./pages/Dashboard"));
