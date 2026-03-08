@@ -30,6 +30,8 @@ export interface MosqueResult {
   website?: string;
   /** Distance in km from the searched position (approximate) */
   distanceKm?: number;
+  /** Parsed open/closed status */
+  isOpen?: boolean | null; // true = open, false = closed, null = unknown
   /** Facility tags extracted from OSM */
   facilities?: {
     wheelchair?: boolean;
@@ -38,6 +40,70 @@ export interface MosqueResult {
     airConditioning?: boolean;
     femaleSection?: boolean;
   };
+}
+
+/**
+ * Parse opening_hours OSM tag to determine if currently open.
+ * Returns true (open), false (closed), or null (unknown/complex format).
+ */
+function parseOpeningHours(hoursStr?: string): boolean | null {
+  if (!hoursStr) return null;
+  const str = hoursStr.toLowerCase().trim();
+  
+  // Common always-open patterns
+  if (str === "24/7" || str === "mo-su 00:00-24:00" || str === "always") return true;
+  
+  // Simple daily pattern: "HH:MM-HH:MM" or "HH:MM - HH:MM"
+  const simpleMatch = str.match(/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/);
+  if (simpleMatch) {
+    const [, startH, startM, endH, endM] = simpleMatch.map(Number);
+    const now = new Date();
+    const currentMin = now.getHours() * 60 + now.getMinutes();
+    const startMin = startH * 60 + startM;
+    const endMin = endH * 60 + endM;
+    
+    // Handle overnight (e.g., 22:00-06:00)
+    if (endMin < startMin) {
+      return currentMin >= startMin || currentMin < endMin;
+    }
+    return currentMin >= startMin && currentMin < endMin;
+  }
+  
+  // Day-specific pattern: "Mo-Fr 05:00-22:00" or "Mo,Tu,We 09:00-17:00"
+  const dayMatch = str.match(/^([a-z]{2}(?:[-,][a-z]{2})*)\s+(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/);
+  if (dayMatch) {
+    const days = ["su", "mo", "tu", "we", "th", "fr", "sa"];
+    const now = new Date();
+    const today = days[now.getDay()];
+    const daySpec = dayMatch[1];
+    
+    // Check if today is in the day specification
+    let todayIncluded = false;
+    if (daySpec.includes("-")) {
+      const [startDay, endDay] = daySpec.split("-");
+      const startIdx = days.indexOf(startDay);
+      const endIdx = days.indexOf(endDay);
+      const todayIdx = days.indexOf(today);
+      if (startIdx !== -1 && endIdx !== -1 && todayIdx !== -1) {
+        todayIncluded = endIdx >= startIdx 
+          ? todayIdx >= startIdx && todayIdx <= endIdx
+          : todayIdx >= startIdx || todayIdx <= endIdx;
+      }
+    } else {
+      todayIncluded = daySpec.split(",").includes(today);
+    }
+    
+    if (!todayIncluded) return false;
+    
+    const [, , startH, startM, endH, endM] = dayMatch.map((v, i) => i > 1 ? Number(v) : v);
+    const currentMin = now.getHours() * 60 + now.getMinutes();
+    const startMin = (startH as number) * 60 + (startM as number);
+    const endMin = (endH as number) * 60 + (endM as number);
+    return currentMin >= startMin && currentMin < endMin;
+  }
+  
+  // Complex format - return null (unknown)
+  return null;
 }
 
 function getElementCoords(el: {

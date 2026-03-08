@@ -8,27 +8,88 @@ export function formatDirection(instruction: string): string {
   if (instruction == null || typeof instruction !== "string") return "Continue straight";
   const lower = instruction.toLowerCase().trim();
   if (!lower) return "Continue straight";
+  
+  // Extract "onto <street>" part
   const ontoMatch = lower.match(/^(.+?)\s+onto\s+(.+)$/);
-  const rest = ontoMatch ? ontoMatch[2] : "";
+  const streetRaw = ontoMatch ? ontoMatch[2] : "";
   const actionPart = ontoMatch ? ontoMatch[1] : lower;
+  
+  // Capitalize street name properly
+  const street = streetRaw ? ` onto ${capitalizeStreet(streetRaw)}` : "";
 
-  const street = rest ? ` onto ${rest}` : "";
-
-  if (actionPart === "depart") return "Start walking" + (rest ? ` along ${rest}` : "");
-  if (actionPart === "arrive") return "You have arrived";
-  if (actionPart === "notification") return rest ? `Continue on ${rest}` : "Continue straight";
-  if (actionPart === "continue" || actionPart.startsWith("new ")) return rest ? `Continue on ${rest}` : "Continue straight";
+  // Departure
+  if (actionPart === "depart") return "Start walking" + (streetRaw ? ` on ${capitalizeStreet(streetRaw)}` : "");
+  
+  // Arrival
+  if (actionPart === "arrive") return "🕌 You have arrived";
+  
+  // Continue/notification
+  if (actionPart === "notification" || actionPart === "continue" || actionPart.startsWith("new ")) {
+    return streetRaw ? `Continue on ${capitalizeStreet(streetRaw)}` : "Continue straight";
+  }
+  
+  // Turns with direction detection
   if (actionPart.startsWith("turn ") || actionPart.startsWith("merge ")) {
-    const dir = actionPart.includes("slight left") ? "slight left" : actionPart.includes("slight right") ? "slight right" : actionPart.includes("sharp left") ? "sharp left" : actionPart.includes("sharp right") ? "sharp right" : actionPart.includes("left") ? "left" : actionPart.includes("right") ? "right" : "";
-    return (dir ? `Turn ${dir}` : "Turn") + street;
+    const dir = extractTurnDirection(actionPart);
+    const turnText = dir ? `Turn ${dir}` : "Turn";
+    return turnText + street;
   }
+  
+  // U-turn
+  if (actionPart.includes("uturn") || actionPart.includes("u-turn")) {
+    return "Make a U-turn" + street;
+  }
+  
+  // Roundabout with exit number
   if (actionPart.startsWith("roundabout") || actionPart.startsWith("rotary")) {
-    return (actionPart.includes("left") ? "Enter roundabout, take exit left" : actionPart.includes("right") ? "Enter roundabout, take exit right" : "Enter roundabout") + street;
+    const exitMatch = actionPart.match(/exit\s*(\d+)/);
+    if (exitMatch) {
+      return `Take exit ${exitMatch[1]} at roundabout` + street;
+    }
+    const dir = actionPart.includes("left") ? ", exit left" : actionPart.includes("right") ? ", exit right" : "";
+    return `Enter roundabout${dir}` + street;
   }
-  if (actionPart.startsWith("fork")) return (actionPart.includes("left") ? "Take the left fork" : actionPart.includes("right") ? "Take the right fork" : "Take the fork") + street;
-  if (actionPart === "end" || actionPart.startsWith("end ")) return "Continue to destination" + street;
+  
+  // Fork
+  if (actionPart.startsWith("fork")) {
+    const dir = actionPart.includes("left") ? "left" : actionPart.includes("right") ? "right" : "";
+    return (dir ? `Keep ${dir} at fork` : "Take the fork") + street;
+  }
+  
+  // End of route
+  if (actionPart === "end" || actionPart.startsWith("end ")) {
+    return "Continue to destination" + street;
+  }
+  
+  // Crosswalk / crossing
+  if (actionPart.includes("cross")) {
+    return "Cross the street" + street;
+  }
 
   return instruction.charAt(0).toUpperCase() + instruction.slice(1);
+}
+
+/** Extract turn direction with proper formatting */
+function extractTurnDirection(action: string): string {
+  if (action.includes("slight left")) return "slight left";
+  if (action.includes("slight right")) return "slight right";
+  if (action.includes("sharp left")) return "sharp left";
+  if (action.includes("sharp right")) return "sharp right";
+  if (action.includes("left")) return "left";
+  if (action.includes("right")) return "right";
+  return "";
+}
+
+/** Capitalize street name properly (e.g., "main st" → "Main St") */
+function capitalizeStreet(street: string): string {
+  return street
+    .split(/\s+/)
+    .map(word => {
+      // Keep abbreviations uppercase
+      if (word.length <= 2) return word.toUpperCase();
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(" ");
 }
 
 const M_TO_MI = 1609.344;

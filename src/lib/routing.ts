@@ -168,19 +168,36 @@ async function fetchOSRMRoute(
 
 /**
  * Fetch walking route using preferred provider with automatic fallback.
- * Features: AbortController support, request dedup, stale cancellation.
- * Returns null when offline (no network).
+ * Features: AbortController support, request dedup, stale cancellation, auto-caching.
+ * Returns null when offline (no network) — check cache first in that case.
  */
 export async function fetchWalkingRoute(
   fromLat: number,
   fromLng: number,
   toLat: number,
-  toLng: number
+  toLng: number,
+  options?: { skipCache?: boolean }
 ): Promise<RouteResult | null> {
-  if (typeof navigator !== "undefined" && navigator.onLine === false) return null;
   if (!isValidCoord(fromLat, fromLng) || !isValidCoord(toLat, toLng)) return null;
   const samePoint = Math.abs(fromLat - toLat) < 1e-6 && Math.abs(fromLng - toLng) < 1e-6;
   if (samePoint) return null;
+
+  // Check cache first (unless skipped)
+  if (!options?.skipCache) {
+    const cached = getCachedRoute(fromLat, fromLng, toLat, toLng);
+    if (cached) {
+      return {
+        coords: cached.coords,
+        distanceKm: cached.distanceKm,
+        durationMin: cached.durationMin,
+        steps: cached.steps,
+        provider: (cached.provider as RoutingProvider) || "osrm",
+      };
+    }
+  }
+
+  // Return null if offline (after checking cache)
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return null;
 
   const key = makeKey(fromLat, fromLng, toLat, toLng);
 
@@ -198,18 +215,31 @@ export async function fetchWalkingRoute(
       const preferred = getPreferredProvider();
       const signal = controller.signal;
 
+      let result: RouteResult | null = null;
+
       if (preferred === "mapbox") {
-        const result = await fetchMapboxRoute(fromLat, fromLng, toLat, toLng, signal);
-        if (result) return result;
-        return fetchOSRMRoute(fromLat, fromLng, toLat, toLng, signal);
+        result = await fetchMapboxRoute(fromLat, fromLng, toLat, toLng, signal);
+        if (!result) {
+          result = await fetchOSRMRoute(fromLat, fromLng, toLat, toLng, signal);
+        }
+      } else {
+        result = await fetchOSRMRoute(fromLat, fromLng, toLat, toLng, signal);
+        if (!result && isMapboxAvailable()) {
+          result = await fetchMapboxRoute(fromLat, fromLng, toLat, toLng, signal);
+        }
       }
 
-      const result = await fetchOSRMRoute(fromLat, fromLng, toLat, toLng, signal);
-      if (result) return result;
-      if (isMapboxAvailable()) {
-        return fetchMapboxRoute(fromLat, fromLng, toLat, toLng, signal);
+      // Auto-cache successful route
+      if (result) {
+        setCachedRoute(fromLat, fromLng, toLat, toLng, {
+          coords: result.coords,
+          distanceKm: result.distanceKm,
+          durationMin: result.durationMin,
+          steps: result.steps,
+        });
       }
-      return null;
+
+      return result;
     } finally {
       inflightRequests.delete(key);
       if (activeAbortController === controller) {

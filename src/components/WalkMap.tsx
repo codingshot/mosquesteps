@@ -131,6 +131,36 @@ const mosqueIcon = L.divIcon({
   iconAnchor: [20, 20],
 });
 
+/** Arrival proximity ring icon - pulsing circle around mosque */
+function makeArrivalRingIcon(radiusM: number, isArriving: boolean) {
+  const size = Math.min(200, Math.max(60, radiusM * 2));
+  return L.divIcon({
+    html: `<div style="
+      position:relative;
+      width:${size}px;height:${size}px;
+    ">
+      <div style="
+        position:absolute;
+        width:100%;height:100%;
+        border-radius:50%;
+        border:3px ${isArriving ? 'solid' : 'dashed'} ${isArriving ? '#D4A017' : 'rgba(212,160,23,0.5)'};
+        background:${isArriving ? 'rgba(212,160,23,0.15)' : 'rgba(212,160,23,0.05)'};
+        ${isArriving ? 'animation:arrivalPulse 1.2s ease-out infinite;' : ''}
+        box-sizing:border-box;
+      "></div>
+      <style>
+        @keyframes arrivalPulse {
+          0% { transform:scale(1); opacity:1; }
+          100% { transform:scale(1.3); opacity:0; }
+        }
+      </style>
+    </div>`,
+    className: "arrival-ring",
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
 const PAN_THROTTLE_MS = 1200;
 const USER_OFFSET_FRACTION = 0.3;
 
