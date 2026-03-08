@@ -7,8 +7,9 @@ import { estimateSteps, estimateWalkingTime, calculateHasanat, fetchPrayerTimes,
 import { addWalkEntry, getSettings, getSavedMosques, toggleFavoriteMosque } from "@/lib/walking-history";
 import { markPrayerWalked, updatePrayerLog, getTodayStr } from "@/lib/prayer-log";
 import { StepCounter, isStepCountingAvailable, getPaceCategory } from "@/lib/step-counter";
-import { fetchWalkingRoute } from "@/lib/routing";
-import { formatDirection, formatDistanceForStep } from "@/lib/directions-utils";
+import { fetchWalkingRoute, cancelPendingRoutes } from "@/lib/routing";
+import { formatDirection, formatDistanceForStep, getDirectionLookahead } from "@/lib/directions-utils";
+import { GPSFilter } from "@/lib/gps-filter";
 import { getCachedRoute, getCachedRouteToMosque, setCachedRoute, isOnline } from "@/lib/offline-cache";
 import { fetchLocationSuggestions } from "@/lib/geocode";
 import { fetchWeather, type WeatherCondition } from "@/lib/weather";
