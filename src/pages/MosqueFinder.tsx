@@ -65,6 +65,7 @@ interface Mosque {
   distance?: number;
   walkingDistanceKm?: number;
   walkingDurationMin?: number;
+  isOpen?: boolean | null;
   facilities?: MosqueResult["facilities"];
 }
 
