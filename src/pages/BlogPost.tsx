@@ -110,21 +110,104 @@ const BlogPostPage = () => {
     });
   };
 
-  // Simple markdown-like rendering
+  // Enhanced markdown-like rendering with table + code block support
   const renderContent = (content: string) => {
-    return content.split("\n").map((line, i) => {
-      const trimmed = line.trim();
-      if (!trimmed) return <br key={i} />;
-      if (trimmed.startsWith("## "))
-        return <h2 key={i} className="text-lg font-bold text-foreground mt-6 mb-2">{trimmed.slice(3)}</h2>;
-      if (trimmed.startsWith("### "))
-        return <h3 key={i} className="text-base font-semibold text-foreground mt-4 mb-1">{trimmed.slice(4)}</h3>;
-      if (trimmed.match(/^\d+\.\s/))
-        return <li key={i} className="text-sm text-muted-foreground ml-4 list-decimal">{renderInline(trimmed.replace(/^\d+\.\s/, ""))}</li>;
-      if (trimmed.startsWith("- "))
-        return <li key={i} className="text-sm text-muted-foreground ml-4 list-disc">{renderInline(trimmed.slice(2))}</li>;
-      return <p key={i} className="text-sm text-muted-foreground leading-relaxed">{renderInline(trimmed)}</p>;
-    });
+    const lines = content.split("\n");
+    const result: JSX.Element[] = [];
+    let i = 0;
+    while (i < lines.length) {
+      const trimmed = lines[i].trim();
+
+      // Table detection
+      if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
+        const tableLines: string[] = [];
+        while (i < lines.length && lines[i].trim().startsWith("|") && lines[i].trim().endsWith("|")) {
+          tableLines.push(lines[i].trim());
+          i++;
+        }
+        if (tableLines.length >= 2) {
+          const headerCells = tableLines[0].split("|").filter(c => c.trim()).map(c => c.trim());
+          const bodyRows = tableLines.slice(2).map(row => row.split("|").filter(c => c.trim()).map(c => c.trim()));
+          result.push(
+            <div key={`table-${i}`} className="overflow-x-auto my-4">
+              <table className="w-full text-sm border border-border rounded-lg">
+                <thead>
+                  <tr className="bg-muted/50">
+                    {headerCells.map((cell, ci) => (
+                      <th key={ci} className="px-3 py-2 text-left font-semibold text-foreground border-b border-border">{cell}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {bodyRows.map((row, ri) => (
+                    <tr key={ri} className="border-b border-border/50 last:border-0">
+                      {row.map((cell, ci) => (
+                        <td key={ci} className="px-3 py-2 text-muted-foreground">{renderInline(cell)}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+          continue;
+        }
+      }
+
+      // Code block
+      if (trimmed.startsWith("```")) {
+        const codeLines: string[] = [];
+        i++;
+        while (i < lines.length && !lines[i].trim().startsWith("```")) {
+          codeLines.push(lines[i]);
+          i++;
+        }
+        i++; // skip closing ```
+        result.push(
+          <pre key={`code-${i}`} className="bg-muted/60 border border-border rounded-lg p-3 my-3 overflow-x-auto">
+            <code className="text-xs text-foreground font-mono">{codeLines.join("\n")}</code>
+          </pre>
+        );
+        continue;
+      }
+
+      if (!trimmed) { result.push(<br key={i} />); i++; continue; }
+      if (trimmed.startsWith("# ") && !trimmed.startsWith("## ")) {
+        result.push(<h1 key={i} className="text-xl font-bold text-foreground mt-8 mb-3">{trimmed.slice(2)}</h1>);
+        i++; continue;
+      }
+      if (trimmed.startsWith("## ")) {
+        result.push(<h2 key={i} className="text-lg font-bold text-foreground mt-6 mb-2">{trimmed.slice(3)}</h2>);
+        i++; continue;
+      }
+      if (trimmed.startsWith("### ")) {
+        result.push(<h3 key={i} className="text-base font-semibold text-foreground mt-4 mb-1">{trimmed.slice(4)}</h3>);
+        i++; continue;
+      }
+      if (trimmed.startsWith("---")) {
+        result.push(<hr key={i} className="my-6 border-border" />);
+        i++; continue;
+      }
+      if (trimmed.match(/^\d+\.\s/)) {
+        result.push(<li key={i} className="text-sm text-muted-foreground ml-4 list-decimal">{renderInline(trimmed.replace(/^\d+\.\s/, ""))}</li>);
+        i++; continue;
+      }
+      if (trimmed.startsWith("- ")) {
+        result.push(<li key={i} className="text-sm text-muted-foreground ml-4 list-disc">{renderInline(trimmed.slice(2))}</li>);
+        i++; continue;
+      }
+      if (trimmed.startsWith("> ")) {
+        result.push(
+          <blockquote key={i} className="border-l-4 border-primary/40 pl-4 my-3 italic text-sm text-muted-foreground">
+            {renderInline(trimmed.slice(2))}
+          </blockquote>
+        );
+        i++; continue;
+      }
+      result.push(<p key={i} className="text-sm text-muted-foreground leading-relaxed">{renderInline(trimmed)}</p>);
+      i++;
+    }
+    return result;
   };
 
   const renderBold = (text: string) => {
