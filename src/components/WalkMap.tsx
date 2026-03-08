@@ -172,9 +172,12 @@ export default function WalkMap({
   const lastThemeRef = useRef<boolean>(isDarkMode());
 
   // Simplify long routes for performance (>200 points → reduce)
-  const routeCoords = rawRouteCoords && rawRouteCoords.length > 200
-    ? simplifyRoute(rawRouteCoords, 0.00003)
-    : rawRouteCoords;
+  const routeCoords = useMemo(() => {
+    if (!rawRouteCoords) return undefined;
+    return rawRouteCoords.length > 200
+      ? simplifyRoute(rawRouteCoords, 0.00003)
+      : rawRouteCoords;
+  }, [rawRouteCoords]);
 
   // ── Initialize map ──────────────────────────────────────────────────────────
   useEffect(() => {
