@@ -213,19 +213,19 @@ export default function WalkMap({
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Auto-switch tiles on theme change ───────────────────────────────────────
+  // ── Auto-switch tiles on theme change (MutationObserver — no polling) ──────
   useEffect(() => {
-    const checkTheme = () => {
+    const el = document.documentElement;
+    const observer = new MutationObserver(() => {
       const dark = isDarkMode();
       if (dark !== lastThemeRef.current && mapRef.current && tileLayerRef.current) {
         lastThemeRef.current = dark;
         const config = getTileConfig();
         tileLayerRef.current.setUrl(config.url);
       }
-    };
-    // Check on a short interval (MutationObserver is overkill for class toggle)
-    const interval = setInterval(checkTheme, 1000);
-    return () => clearInterval(interval);
+    });
+    observer.observe(el, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
   }, []);
 
   // ── User marker + smoothed heading + camera ─────────────────────────────────
