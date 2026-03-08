@@ -887,7 +887,19 @@ const MosqueFinder = () => {
                       {isPrimary ? <Star className="w-4 h-4 text-foreground" /> : <MapPin className="w-4 h-4 text-primary-foreground" />}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-medium text-foreground text-sm truncate">{m.name}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-medium text-foreground text-sm truncate">{m.name}</p>
+                        {/* Open/Closed status badge */}
+                        {m.isOpen !== undefined && m.isOpen !== null && (
+                          <span className={`inline-flex items-center text-[8px] font-bold rounded-full px-1.5 py-0.5 ${
+                            m.isOpen 
+                              ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                              : "bg-red-500/15 text-red-700 dark:text-red-400"
+                          }`}>
+                            {m.isOpen ? "OPEN" : "CLOSED"}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[10px] text-muted-foreground">
                         {m.walkingDistanceKm ? (
                           <><RouteIcon className="w-2.5 h-2.5 inline" /> {formatDistance(m.walkingDistanceKm)} walking · </>

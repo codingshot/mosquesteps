@@ -354,9 +354,11 @@ export default function WalkMap({
     }
   }, [userPosition, isWalking, deviceHeading, gpsAccuracy]);
 
-  // ── Mosque marker ────────────────────────────────────────────────────────────
+  // ── Mosque marker with proximity ring ──────────────────────────────────────
   useEffect(() => {
     if (!mapRef.current || !mosquePosition) return;
+    
+    // Update mosque marker
     if (mosqueMarkerRef.current) {
       mosqueMarkerRef.current.setLatLng([mosquePosition.lat, mosquePosition.lng]);
     } else {
@@ -364,7 +366,28 @@ export default function WalkMap({
         .bindPopup("🕌 Destination Mosque")
         .addTo(mapRef.current);
     }
-  }, [mosquePosition]);
+
+    // Add arrival proximity ring when walking
+    if (arrivalRingRef.current) { 
+      arrivalRingRef.current.remove(); 
+      arrivalRingRef.current = null; 
+    }
+    
+    if (isWalking && userPosition) {
+      const distToMosque = haversineKm(userPosition.lat, userPosition.lng, mosquePosition.lat, mosquePosition.lng);
+      const isNearMosque = distToMosque <= 0.1; // 100m arrival radius
+      
+      // Show arrival ring when within 200m
+      if (distToMosque <= 0.2) {
+        const ringIcon = makeArrivalRingIcon(100, isNearMosque);
+        arrivalRingRef.current = L.marker([mosquePosition.lat, mosquePosition.lng], { 
+          icon: ringIcon, 
+          interactive: false,
+          zIndexOffset: -100 // Behind mosque marker
+        }).addTo(mapRef.current);
+      }
+    }
+  }, [mosquePosition, isWalking, userPosition]);
 
   // ── Route split: walked (grey) + remaining (teal dashed) ────────────────────
   useEffect(() => {

@@ -400,6 +400,7 @@ export async function searchNearbyMosques(
     phone,
     website,
     facilities,
+    isOpen: parseOpeningHours(openingHours),
   }));
 
   // Cache results
