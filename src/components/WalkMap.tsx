@@ -423,9 +423,23 @@ export default function WalkMap({
     }
   }, [walkPath]);
 
-  // ── Turn markers on route (use step lat/lng when available) ──────────────────
+  // ── Turn markers on route (only rebuild when step index changes) ──────────────
+  const lastStepMarkerIdx = useRef(-1);
   useEffect(() => {
     if (!mapRef.current) return;
+    // Skip rebuild if only the current step highlight changed
+    if (lastStepMarkerIdx.current === currentStepIdx && stepMarkersRef.current.length > 0) {
+      // Just update opacity/style of existing markers for perf
+      stepMarkersRef.current.forEach((m, i) => {
+        const el = m.getElement();
+        if (el) {
+          el.style.opacity = i < currentStepIdx ? "0.4" : "1";
+        }
+      });
+      return;
+    }
+    lastStepMarkerIdx.current = currentStepIdx;
+
     stepMarkersRef.current.forEach((m) => m.remove());
     stepMarkersRef.current = [];
 
