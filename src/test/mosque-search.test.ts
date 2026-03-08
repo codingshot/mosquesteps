@@ -67,6 +67,7 @@ describe("searchNearbyMosques – coordinate validation", () => {
 describe("searchNearbyMosques – parsing", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
+    sessionStorage.clear();
   });
 
   afterEach(() => {
