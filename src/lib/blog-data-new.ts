@@ -1,6 +1,3 @@
-// New blog posts to append to blog-data.ts
-// These will be merged into the main blogPosts array
-
 import type { BlogPost } from "./blog-data";
 
 export const newBlogPosts: BlogPost[] = [
@@ -397,5 +394,227 @@ Routes are cached locally. If you've searched for a mosque before, the route is 
     tags: ["navigation", "directions", "osrm", "walking", "turn-by-turn", "gps"],
     image: "🧭",
     readTime: "5 min read",
+  },
+  {
+    slug: "ramadan-walking-challenge-2026",
+    title: "Ramadan Walking Challenge 2026: Walk to Every Prayer for 30 Days",
+    excerpt: "Set a goal to walk to the mosque for every prayer this Ramadan. Here's how MosqueSteps helps you track, stay motivated, and earn multiplied rewards.",
+    content: `
+# Ramadan Walking Challenge 2026: Walk to Every Prayer for 30 Days
+
+Ramadan is the month of multiplied rewards. Every good deed is amplified — including the simple act of walking to the mosque. This Ramadan, challenge yourself: **walk to every prayer for 30 days**.
+
+## Why Walk During Ramadan?
+
+### Spiritual Multiplication
+During Ramadan, rewards for good deeds are multiplied. The Prophet ﷺ said that walking to the mosque earns hasanat for every step — imagine that multiplied across 30 days of fasting.
+
+### Physical Benefits While Fasting
+- Walking at a gentle pace is one of the best exercises during fasting
+- Short walks between prayers prevent muscle stiffness from sitting
+- The pre-Fajr walk helps wake up the body naturally
+- The post-Iftar walk (Isha) aids digestion
+
+### Community Connection
+Ramadan congregations are larger — walking to Taraweeh with friends and family creates lasting memories.
+
+## The Challenge: 5 Prayers × 30 Days = 150 Walks
+
+| Week | Goal | Badge Target |
+|---|---|---|
+| Week 1 | Build the habit — aim for 3 prayers/day | First Steps |
+| Week 2 | Increase to 4 prayers/day | Consistency Streak |
+| Week 3 | Full 5 prayers/day | Ramadan Walker |
+| Week 4 | Maintain + add Taraweeh walks | Ramadan Champion |
+
+## How MosqueSteps Helps
+
+1. **Track every walk** — tap Walk before each prayer to log steps and distance
+2. **See your streak grow** — the dashboard shows consecutive walking days
+3. **Earn Ramadan badges** — special badges for walking during Ramadan
+4. **View cumulative hasanat** — watch your spiritual rewards accumulate
+5. **Share progress** — generate a share card after each walk
+
+## Tips for Fasting Walkers
+
+- **Hydrate well at Suhoor** — you'll need water for the day's walks
+- **Walk at a moderate pace** — don't exhaust yourself while fasting
+- **Wear comfortable shoes** — you'll be walking 50-75 minutes daily
+- **Start early** — leave 5 minutes earlier than usual to walk calmly
+- **Use the Leave-by timer** — MosqueSteps calculates when to depart
+
+## Track Your Progress
+
+Open the [Stats page](/stats) daily to see:
+- Total steps this Ramadan
+- Walking streak (aim for 30!)
+- Prayer distribution — which prayers are you walking to most?
+- Estimated hasanat earned
+
+May Allah accept your walks and worship this Ramadan. 🌙
+
+---
+
+*Start tracking your Ramadan walks with [MosqueSteps](/walk). View the [Rewards page](/rewards) to see Ramadan-specific badges.*
+    `,
+    category: "tips",
+    tags: ["ramadan", "walking-challenge", "fasting", "prayer", "motivation", "30-day-challenge"],
+    image: "🌙",
+    readTime: "5 min read",
+  },
+  {
+    slug: "elderly-mosque-walking-safety-tips",
+    title: "Walking to the Mosque Safely: A Guide for Elderly Muslims",
+    excerpt: "Practical tips for older adults who want to continue walking to the mosque — from choosing safe routes to using assistive features in MosqueSteps.",
+    content: `
+# Walking to the Mosque Safely: A Guide for Elderly Muslims
+
+Walking to the mosque is one of the most rewarded acts in Islam, and it becomes even more meritorious with age and difficulty. The Prophet ﷺ said:
+
+> *"The one who lives farthest from the mosque has the greatest reward for prayer"* (Sahih Muslim 662)
+
+This guide helps elderly Muslims continue this blessed practice safely.
+
+## Before You Walk
+
+### Check the Route
+- Use the [Mosque Finder](/mosques) to preview your route before walking
+- Look for sidewalks, crosswalks, and well-lit paths
+- Avoid routes with steep hills or uneven terrain
+- Note rest points along the way (benches, shaded areas)
+
+### Prepare Physically
+- Wear supportive, non-slip shoes
+- Dress for the weather — layers in cold, light colors in heat
+- Carry a water bottle (especially in warm months)
+- Bring a phone for emergencies
+
+### Time Your Departure
+- Use MosqueSteps' "Leave by" timer to avoid rushing
+- Add 5-10 extra minutes to the suggested walking time
+- Walking calmly is Sunnah: *"When you hear the iqamah, walk to prayer calmly"* (Bukhari 636)
+
+## During Your Walk
+
+### Use MosqueSteps Features
+- **Turn-by-turn directions** guide you step by step
+- **Voice guidance** announces turns so you don't need to look at your phone
+- **Manual navigation mode** works without GPS if signal is weak
+- **Step counter** tracks your activity for health monitoring
+
+### Safety Tips
+- Walk on sidewalks facing traffic when no sidewalk is available
+- Make eye contact with drivers before crossing
+- Use pedestrian crossings with signals
+- Walk with a companion when possible
+- Carry identification and emergency contacts
+
+## If Walking Becomes Difficult
+
+Islam is merciful. If walking to the mosque becomes genuinely difficult:
+- Pray at the nearest mosque, even if it's not your primary one
+- Use transportation and still earn reward for the intention
+- Pray at home when health doesn't permit — the reward is preserved for those who used to walk
+
+The Prophet ﷺ said: *"When a servant falls ill or travels, he is credited with the same reward as he used to earn when he was healthy or at home"* (Bukhari 2996)
+
+## MosqueSteps Accessibility Features
+
+- **Large text** — adjustable in your device settings
+- **High contrast** — dark mode for better visibility
+- **Voice directions** — listen instead of reading the screen
+- **Simple navigation** — bottom bar with clear icons
+
+---
+
+*Find the closest mosque to reduce walking distance with the [Mosque Finder](/mosques). Read more about [spiritual rewards](/rewards) for walking to prayer.*
+    `,
+    category: "health",
+    tags: ["elderly", "safety", "accessibility", "walking", "health", "senior-muslims"],
+    image: "🧓",
+    readTime: "6 min read",
+  },
+  {
+    slug: "family-walking-mosque-kids",
+    title: "Walking to the Mosque as a Family: Getting Kids Involved",
+    excerpt: "Turn the walk to the mosque into a family activity. Tips for making it fun, educational, and a habit your children will carry for life.",
+    content: `
+# Walking to the Mosque as a Family: Getting Kids Involved
+
+One of the best ways to instill the love of prayer in children is to make the journey to the mosque an enjoyable family experience. Here's how to turn the daily walk into something your kids look forward to.
+
+## Why Walk Together?
+
+### Spiritual Teaching
+- Children learn by example — seeing parents walk to prayer normalizes it
+- Walking time is perfect for teaching short duas and dhikr
+- Arriving together builds a sense of family worship
+
+### Physical Activity
+- The WHO recommends 60 minutes of daily activity for children
+- Walking to 2-3 prayers adds 30-45 minutes of exercise
+- Regular walking improves children's focus and behavior at school
+
+### Quality Time
+- No screens, no distractions — just conversation and fresh air
+- Children share their day during the walk
+- Parents can discuss Islamic stories and values
+
+## Making It Fun
+
+### 1. Step Counting Challenge
+- Use MosqueSteps to track family steps
+- Set a weekly family step goal
+- Celebrate milestones with a special treat after Jumuah
+
+### 2. Nature Walk
+- Point out birds, trees, and weather during the walk
+- Discuss how nature reflects Allah's creation
+- Collect leaves or count stars (for Isha walks)
+
+### 3. Dua of the Day
+- Teach one new dua each walk
+- Practice together on the way
+- Review yesterday's dua on the way home
+
+### 4. Race the Clock
+- Use MosqueSteps' walking timer
+- Try to beat yesterday's walking time (gently!)
+- Track improvement over weeks
+
+## Age-Appropriate Tips
+
+| Age | Tips |
+|---|---|
+| 3-5 | Carry them partway if tired, focus on the experience |
+| 6-9 | Let them count steps, teach the reward of each step |
+| 10-13 | Give them the phone to navigate with MosqueSteps |
+| 14+ | Challenge them to walk independently and meet you there |
+
+## Safety for Family Walks
+
+- **Hold hands** near roads — use crosswalks
+- **High-visibility clothing** for Fajr and Isha walks
+- **Stick to well-lit routes** — preview in MosqueSteps first
+- **Set a meeting point** at the mosque if children walk ahead
+
+## Building the Habit
+
+Consistency matters more than perfection:
+- Start with **one prayer per day** as a family walk
+- **Friday (Jumuah)** is the easiest starting point
+- Celebrate streaks on the [Rewards page](/rewards)
+- Let children see their own step count grow
+
+The Prophet ﷺ said: *"Command your children to pray when they are seven"* (Abu Dawud 495). Walking together makes this command joyful rather than burdensome.
+
+---
+
+*Track your family walks with [MosqueSteps](/walk). Find the best route to your mosque with the [Mosque Finder](/mosques).*
+    `,
+    category: "community",
+    tags: ["family", "children", "parenting", "community", "education", "walking"],
+    image: "👨‍👩‍👧‍👦",
+    readTime: "6 min read",
   },
 ];
