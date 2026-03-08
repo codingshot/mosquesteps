@@ -166,6 +166,8 @@ export default function WalkMap({
   const stepMarkersRef = useRef<L.Marker[]>([]);
   const distLabelRef = useRef<L.Marker | null>(null);
   const progressLabelRef = useRef<L.Marker | null>(null);
+  const progressPulseRef = useRef<L.Marker | null>(null);
+  const midpointLabelRef = useRef<L.Marker | null>(null);
   const lastPanRef = useRef(0);
   const recenterRequestedRef = useRef(false);
   const smoothedHeadingRef = useRef<number | null>(null);
