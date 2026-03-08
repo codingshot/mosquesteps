@@ -538,7 +538,7 @@ const ActiveWalk = () => {
           closestCoordIdx = i;
         }
       }
-      setOffRoute(minDist > 60); // 60m threshold — realistic for walking GPS drift
+      setOffRoute(minDist > 50); // 50m threshold — tighter for pedestrian accuracy
 
       const distAlongRouteM = distAlongRoute[closestCoordIdx];
 
