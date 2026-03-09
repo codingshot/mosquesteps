@@ -75,6 +75,13 @@ export class GPSFilter {
       // Weighted accuracy update
       this.accuracy = this.accuracy + K * (accuracy - this.accuracy);
       this.lastUpdate = now;
+      
+      // Store in position history for battery-aware optimization
+      this.positionHistory.push({ lat: this.lat, lng: this.lng, timestamp: now });
+      const maxHistory = getPositionHistorySize();
+      if (this.positionHistory.length > maxHistory) {
+        this.positionHistory = this.positionHistory.slice(-maxHistory);
+      }
     }
 
     // Store speed and heading from GPS if available
