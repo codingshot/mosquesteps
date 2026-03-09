@@ -1107,6 +1107,7 @@ const ActiveWalk = () => {
     setIsPaused(false);
     cancelPendingRoutes();
     gpsFilterRef.current.reset();
+    clearWalkSession(); // Clear session persistence
     try { sessionStorage.removeItem("mosquesteps_active_walk"); } catch {}
     if (watchId !== null && navigator.geolocation) { navigator.geolocation.clearWatch(watchId); setWatchId(null); }
     if (stepCounterRef.current) { stepCounterRef.current.stop(); stepCounterRef.current = null; }
@@ -1161,6 +1162,14 @@ const ActiveWalk = () => {
     setTimeout(() => setShowCelebration(false), 4000);
   };
 
+  // Discard recovered session
+  const discardSession = () => {
+    clearWalkSession();
+    recoveredSession.current = null;
+    setShowRecoveryBanner(false);
+    toast({ title: "Session discarded", description: "Starting fresh." });
+  };
+
   const openInMaps = () => setShowMapsSheet(true);
 
   const openMapApp = (app: "google" | "apple" | "osm" | "waze") => {
@@ -1177,7 +1186,6 @@ const ActiveWalk = () => {
         url = `maps://maps.apple.com/?daddr=${lat},${lng}&dirflg=w${originParam ? `&saddr=${originParam}` : ""}`;
         break;
       case "osm":
-        // OsmAnd deep-link falls back to web OSM directions
         url = `https://www.openstreetmap.org/directions?engine=fossgis_osrm_foot&route=${originParam || `${lat},${lng}`};${lat},${lng}`;
         break;
       case "waze":
@@ -1189,7 +1197,6 @@ const ActiveWalk = () => {
   };
 
   const estimateCalories = (steps: number): number => {
-    // Base: ~0.04 kcal per step at reference 70 kg. With advanced metrics + weight, scale by (weight/70)^0.5.
     const baseKcalPerStep = 0.04;
     if (settings.advancedMetricsMode && settings.bodyWeightKg && settings.bodyWeightKg >= 20) {
       const factor = Math.sqrt(settings.bodyWeightKg / 70);
@@ -1204,7 +1211,6 @@ const ActiveWalk = () => {
     return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   };
 
-  // Generate shareable directions text
   const generateDirectionsText = () => {
     if (!routeInfo?.steps?.length) return "";
     const destLabel = effectiveMosqueName;
