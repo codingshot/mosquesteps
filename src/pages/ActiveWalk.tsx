@@ -120,6 +120,8 @@ const ActiveWalk = () => {
   const prevStepIdxRef = useRef(0);
   const [distanceToTurnM, setDistanceToTurnM] = useState<number | null>(null);
   const [smoothedSpeed, setSmoothedSpeed] = useState(0); // rolling average km/h
+  const [autoPaused, setAutoPaused] = useState(false);
+  const milestonesAnnounced = useRef<Set<number>>(new Set());
 
   const stepCounterRef = useRef<StepCounter | null>(null);
   const distanceRef = useRef(0);
