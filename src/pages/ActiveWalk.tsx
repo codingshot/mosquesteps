@@ -219,6 +219,29 @@ const ActiveWalk = () => {
     return unsub;
   }, []);
 
+  // Keep refs in sync for reliable cleanup
+  useEffect(() => {
+    watchIdRef.current = watchId;
+  }, [watchId]);
+
+  // Cleanup sensors/watchers on unmount (e.g., route changes during walk)
+  useEffect(() => {
+    return () => {
+      const activeWatchId = watchIdRef.current;
+      if (activeWatchId !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(activeWatchId);
+      }
+      if (stepCounterRef.current) {
+        stepCounterRef.current.stop();
+        stepCounterRef.current = null;
+      }
+      cancelPendingRoutes();
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
   // Mosque position from settings or prayer-specific mosque
   const prayerMosqueId = settings.prayerMosques?.[selectedPrayer];
   const prayerMosque = prayerMosqueId ? savedMosques.find((m) => m.id === prayerMosqueId) : null;
