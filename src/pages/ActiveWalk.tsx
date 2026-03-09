@@ -916,10 +916,140 @@ const ActiveWalk = () => {
     }
   }, [isWalking, voiceEnabled, selectedPrayer, prayerTimes, elapsedSeconds, routeInfo, mosqueDist, settings.cityTimezone]);
 
+  // Recover session handler
+  const recoverSession = useCallback(() => {
+    const session = recoveredSession.current;
+    if (!session) return;
+    
+    setIsWalking(true);
+    setElapsedSeconds(session.elapsedSeconds || 0);
+    setDistanceKm(session.distanceKm || 0);
+    distanceRef.current = session.distanceKm || 0;
+    setSensorSteps(session.sensorSteps || 0);
+    if (session.selectedPrayer) setSelectedPrayer(session.selectedPrayer);
+    if (session.positions?.length) setPositions(session.positions);
+    
+    // Calculate time elapsed since session was saved
+    const savedAt = (session as any).lastUpdate || Date.now();
+    const additionalSeconds = Math.floor((Date.now() - savedAt) / 1000);
+    setElapsedSeconds((prev) => prev + additionalSeconds);
+    
+    toast({
+      title: "Walk recovered! 🚶‍♂️",
+      description: `Continuing from ${session.sensorSteps?.toLocaleString() || 0} steps, ${(session.distanceKm || 0).toFixed(2)} km.`,
+    });
+    
+    setShowRecoveryBanner(false);
+    announce("Walk session recovered. Continuing your walk.");
+    
+    // Start sensors again
+    const counter = new StepCounter((steps) => setSensorSteps(steps + (session.sensorSteps || 0)), (source) => setSensorSource(source));
+    stepCounterRef.current = counter;
+    counter.start().catch(() => setSensorSource("gps"));
+    
+    // Restart GPS tracking with battery-aware settings
+    if (navigator.geolocation) {
+      const gpsInterval = getGPSInterval();
+      const id = navigator.geolocation.watchPosition(
+        (pos) => handleGPSUpdate(pos),
+        () => setLocationSource("city"),
+        { enableHighAccuracy: batteryMode === "full", maximumAge: gpsInterval, timeout: 15000 }
+      );
+      setWatchId(id);
+    }
+  }, [toast, batteryMode]);
+
+  // GPS update handler extracted for reuse
+  const handleGPSUpdate = useCallback((pos: GeolocationPosition) => {
+    const rawLat = pos.coords.latitude;
+    const rawLng = pos.coords.longitude;
+    const accuracy = pos.coords.accuracy ?? 999;
+    const speed = pos.coords.speed;
+    const gpsHeading = pos.coords.heading;
+
+    const filtered = gpsFilterRef.current.update(rawLat, rawLng, accuracy, speed, gpsHeading);
+    if (filtered.confidence === "low" && accuracy > 40) return;
+
+    const newPos: Position = { lat: filtered.lat, lng: filtered.lng };
+    setCurrentPosition(newPos);
+    setLocationSource("gps");
+    setGpsConfidence(filtered.confidence);
+
+    const speedMoving = (speed != null && speed > 0.25);
+    const deltaMoving = (() => {
+      if (positions.length === 0) return false;
+      const last = positions[positions.length - 1];
+      const delta = haversine(last.lat, last.lng, newPos.lat, newPos.lng) * 1000;
+      return delta > 2.5;
+    })();
+    const moving = speedMoving || deltaMoving;
+
+    if (speed != null && Number.isFinite(speed) && speed >= 0) {
+      speedSamples.current.push(speed * 3.6);
+      if (speedSamples.current.length > 5) speedSamples.current.shift();
+      const avg = speedSamples.current.reduce((a, b) => a + b, 0) / speedSamples.current.length;
+      setSmoothedSpeed(Math.round(avg * 10) / 10);
+    }
+
+    if (moving) {
+      setIsMoving(true);
+      lastMovementTime.current = Date.now();
+      stationarySince.current = 0;
+    } else {
+      if (lastMovementTime.current > 0 && Date.now() - lastMovementTime.current > 3500) {
+        if (!stationarySince.current) stationarySince.current = Date.now();
+        setIsMoving(false);
+      }
+    }
+
+    if (gpsHeading != null && Number.isFinite(gpsHeading) && speed != null && speed > 0.3) {
+      setDeviceHeading((prev) => {
+        if (prev == null) return gpsHeading;
+        const diff = ((gpsHeading - prev + 540) % 360) - 180;
+        return (prev + diff * 0.25 + 360) % 360;
+      });
+    }
+
+    setPositions((prev) => {
+      if (prev.length > 0) {
+        const last = prev[prev.length - 1];
+        const segmentDist = haversine(last.lat, last.lng, newPos.lat, newPos.lng);
+        if (moving && segmentDist > 0.002 && segmentDist < 0.1) {
+          const dest = effectiveDestination;
+          let countDistance = true;
+          if (dest) {
+            const prevDistToDest = haversine(last.lat, last.lng, dest.lat, dest.lng);
+            const newDistToDest = haversine(newPos.lat, newPos.lng, dest.lat, dest.lng);
+            if (newDistToDest - prevDistToDest > 0.02) countDistance = false;
+          }
+          if (countDistance) {
+            distanceRef.current += segmentDist;
+            setDistanceKm(distanceRef.current);
+          }
+          return [...prev.slice(-300), newPos];
+        }
+        return [...prev.slice(-300), newPos];
+      }
+      return [newPos];
+    });
+  }, [positions, effectiveDestination]);
+
   const startWalk = useCallback(async () => {
     setIsWalking(true);
     announce(`Walk started to ${effectiveMosqueName}. ${srDistance(mosqueDist)} away.`);
     try { sessionStorage.setItem("mosquesteps_active_walk", "active"); } catch {}
+    
+    // Initialize session persistence
+    saveWalkSession({
+      isWalking: true,
+      elapsedSeconds: 0,
+      distanceKm: 0,
+      sensorSteps: 0,
+      selectedPrayer,
+      startedAt: Date.now(),
+      positions: [],
+    });
+    
     setIsPaused(false);
     setAutoPaused(false);
     milestonesAnnounced.current.clear();
@@ -944,109 +1074,21 @@ const ActiveWalk = () => {
       toast({ title: "Step sensor unavailable", description: "Enable location for distance-based step estimate.", variant: "default" });
     }
 
-    // Location optional: use for live map, distance, and turn-by-turn progress
+    // Location with battery-adaptive settings
     if (navigator.geolocation) {
+      const gpsInterval = getGPSInterval();
       const id = navigator.geolocation.watchPosition(
-        (pos) => {
-          const rawLat = pos.coords.latitude;
-          const rawLng = pos.coords.longitude;
-          const accuracy = pos.coords.accuracy ?? 999;
-          const speed = pos.coords.speed; // m/s, null if unavailable
-          const gpsHeading = pos.coords.heading; // degrees, null if unavailable
-
-          // Apply GPS Kalman filter for smooth position
-          const filtered = gpsFilterRef.current.update(rawLat, rawLng, accuracy, speed, gpsHeading);
-
-          // Skip very low confidence readings
-          if (filtered.confidence === "low" && accuracy > 40) return;
-
-          const newPos: Position = { lat: filtered.lat, lng: filtered.lng };
-          setCurrentPosition(newPos);
-          setLocationSource("gps");
-          setGpsConfidence(filtered.confidence);
-
-          // Movement detection: speed > 0.25 m/s OR position delta > 2.5m
-          const speedMoving = (speed != null && speed > 0.25);
-          const deltaMoving = (() => {
-            if (positions.length === 0) return false;
-            const last = positions[positions.length - 1];
-            const delta = haversine(last.lat, last.lng, newPos.lat, newPos.lng) * 1000;
-            return delta > 2.5;
-          })();
-          const moving = speedMoving || deltaMoving;
-
-          // Rolling speed average (last 5 GPS samples) for smooth display
-          if (speed != null && Number.isFinite(speed) && speed >= 0) {
-            speedSamples.current.push(speed * 3.6); // m/s → km/h
-            if (speedSamples.current.length > 5) speedSamples.current.shift();
-            const avg = speedSamples.current.reduce((a, b) => a + b, 0) / speedSamples.current.length;
-            setSmoothedSpeed(Math.round(avg * 10) / 10);
-          }
-
-          if (moving) {
-            setIsMoving(true);
-            lastMovementTime.current = Date.now();
-            stationarySince.current = 0;
-          } else {
-            // Mark stationary after 3.5 seconds of no movement
-            if (lastMovementTime.current > 0 && Date.now() - lastMovementTime.current > 3500) {
-              if (!stationarySince.current) stationarySince.current = Date.now();
-              setIsMoving(false);
-            }
-          }
-
-          // Use GPS track heading as compass fallback when moving
-          if (gpsHeading != null && Number.isFinite(gpsHeading) && speed != null && speed > 0.3) {
-            setDeviceHeading((prev) => {
-              // Smooth heading with 25% new value blend to reduce jitter on foot
-              if (prev == null) return gpsHeading;
-              const diff = ((gpsHeading - prev + 540) % 360) - 180;
-              return (prev + diff * 0.25 + 360) % 360;
-            });
-          }
-
-          setPositions((prev) => {
-            if (prev.length > 0) {
-              const last = prev[prev.length - 1];
-              const segmentDist = haversine(last.lat, last.lng, newPos.lat, newPos.lng);
-              // Only count distance when moving AND >2m AND <100m (filter GPS jumps)
-              if (moving && segmentDist > 0.002 && segmentDist < 0.1) {
-                // Reject backward movement: if we have a destination, only count
-                // distance that brings us closer (or at least doesn't go >20m backward)
-                const dest = effectiveDestination;
-                let countDistance = true;
-                if (dest) {
-                  const prevDistToDest = haversine(last.lat, last.lng, dest.lat, dest.lng);
-                  const newDistToDest = haversine(newPos.lat, newPos.lng, dest.lat, dest.lng);
-                  // Allow lateral movement (within 20m tolerance) but reject clear backward drift
-                  if (newDistToDest - prevDistToDest > 0.02) {
-                    countDistance = false;
-                  }
-                }
-                if (countDistance) {
-                  distanceRef.current += segmentDist;
-                  setDistanceKm(distanceRef.current);
-                }
-                return [...prev.slice(-300), newPos]; // cap breadcrumb trail
-              }
-              // Still update position on map for live dot even if not counting distance
-              return [...prev.slice(-300), newPos];
-            }
-            return [newPos];
-          });
-        },
+        (pos) => handleGPSUpdate(pos),
         (err) => {
-          if (err.code === 1) {
-            setLocationSource("city");
-          }
+          if (err.code === 1) setLocationSource("city");
         },
-        { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
+        { enableHighAccuracy: batteryMode === "full", maximumAge: gpsInterval, timeout: 15000 }
       );
       setWatchId(id);
     } else {
       setLocationSource("city");
     }
-  }, [toast]);
+  }, [toast, selectedPrayer, effectiveMosqueName, mosqueDist, batteryMode, handleGPSUpdate]);
 
   const togglePause = () => {
     setIsPaused((p) => {
