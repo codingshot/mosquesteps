@@ -59,8 +59,26 @@ export class GPSFilter {
     } else {
       // Time-based process noise increase
       const dt = Math.min(now - this.lastUpdate, 30000); // cap at 30s
-      const processNoise = this.PROCESS_NOISE * (dt / 1000);
+      const dtSec = dt / 1000;
+      const processNoise = this.PROCESS_NOISE * dtSec;
       this.variance += processNoise;
+
+      // ── Velocity-based position prediction ──
+      // If we have speed and heading, predict where the user should be
+      // before blending with the new measurement. This significantly
+      // reduces lag when walking and improves filter responsiveness.
+      if (
+        this.speed != null && this.speed > 0.3 && // walking threshold
+        this.heading != null && Number.isFinite(this.heading) &&
+        dtSec > 0 && dtSec < 10 // only predict for reasonable gaps
+      ) {
+        const distDeg = (this.speed * dtSec) / 111000; // metres → degrees
+        const headRad = (this.heading * Math.PI) / 180;
+        this.lat += distDeg * Math.cos(headRad);
+        this.lng += distDeg * Math.sin(headRad) / Math.cos(this.lat * Math.PI / 180);
+        // Prediction adds uncertainty
+        this.variance += processNoise * 2;
+      }
 
       // Kalman gain: how much to trust the new measurement vs prediction
       const K = this.variance / (this.variance + measurementVariance);

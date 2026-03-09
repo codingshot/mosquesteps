@@ -2,21 +2,57 @@
  * GPS-Step cross-validation and arrival detection.
  * Validates sensor step counts against GPS distance to filter phantom steps,
  * and detects mosque arrival for auto-checkin prompts.
+ * Includes adaptive stride length learning from walk history.
  */
 
 import { haversineKm } from "@/lib/geo-utils";
+
+// ── Adaptive stride length learning ──
+
+const STRIDE_KEY = "mosquesteps_learned_stride";
+const MIN_STRIDE = 0.4;
+const MAX_STRIDE = 1.2;
+
+/** Load the user's learned stride length (metres). Falls back to default. */
+export function getLearnedStride(fallback = 0.77): number {
+  try {
+    const v = parseFloat(localStorage.getItem(STRIDE_KEY) || "");
+    return Number.isFinite(v) && v >= MIN_STRIDE && v <= MAX_STRIDE ? v : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Record a stride observation after a walk.
+ * Uses an exponential moving average so recent walks count more.
+ */
+export function recordStrideObservation(distanceKm: number, steps: number): void {
+  if (steps < 50 || distanceKm < 0.03) return; // too short to learn from
+  const observed = (distanceKm * 1000) / steps;
+  if (observed < MIN_STRIDE || observed > MAX_STRIDE) return; // outlier
+
+  const current = getLearnedStride();
+  const alpha = 0.3; // learning rate
+  const updated = current * (1 - alpha) + observed * alpha;
+  try {
+    localStorage.setItem(STRIDE_KEY, updated.toFixed(4));
+  } catch {}
+}
 
 /** Validate step count against GPS distance. Returns corrected step count. */
 export function validateStepsAgainstGPS(
   sensorSteps: number,
   gpsDistanceKm: number,
-  strideLength = 0.77 // meters
+  strideLength?: number
 ): { correctedSteps: number; confidence: "high" | "medium" | "low"; driftPercent: number } {
+  const stride = strideLength ?? getLearnedStride();
+
   if (gpsDistanceKm <= 0.005 || sensorSteps <= 0) {
     return { correctedSteps: sensorSteps, confidence: "low", driftPercent: 0 };
   }
 
-  const expectedSteps = Math.round((gpsDistanceKm * 1000) / strideLength);
+  const expectedSteps = Math.round((gpsDistanceKm * 1000) / stride);
   if (expectedSteps <= 0) {
     return { correctedSteps: sensorSteps, confidence: "low", driftPercent: 0 };
   }
