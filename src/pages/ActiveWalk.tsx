@@ -196,6 +196,7 @@ const ActiveWalk = () => {
   // Persist walk session periodically during active walk
   useEffect(() => {
     if (!isWalking) return;
+
     const interval = setInterval(() => {
       saveWalkSession({
         isWalking: true,
@@ -206,6 +207,7 @@ const ActiveWalk = () => {
         positions: positions.slice(-50), // Keep last 50 positions
       });
     }, 5000);
+
     return () => clearInterval(interval);
   }, [isWalking, elapsedSeconds, sensorSteps, selectedPrayer, positions]);
 
