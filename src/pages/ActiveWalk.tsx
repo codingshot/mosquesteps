@@ -994,6 +994,11 @@ const ActiveWalk = () => {
       });
     }
 
+    // Learn stride length from this walk (sensor steps + GPS distance)
+    if (useRealSteps && sensorSteps > 50 && distanceRef.current > 0.03) {
+      recordStrideObservation(distanceRef.current, sensorSteps);
+    }
+
     // In-app notification history + browser notification when enabled
     const walkTitle = `Walk complete! 🎉`;
     const walkBody = `${displaySteps.toLocaleString()} steps · ${hasanat.toLocaleString()} hasanat — ${mosqueName}`;
