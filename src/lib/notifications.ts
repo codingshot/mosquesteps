@@ -139,8 +139,10 @@ export function schedulePrayerTimeReminder(
  */
 export function startReminderPolling(): () => void {
   if (reminderPollIntervalId) return () => {};
+  
+  const pollInterval = getNotificationPollInterval();
   reminderPollIntervalId = setInterval(() => {
-    if (Notification.permission !== "granted") return;
+    if (!shouldPollNotifications() || Notification.permission !== "granted") return;
     const list = getStoredReminders();
     const now = Date.now();
     const toRemove: number[] = [];
