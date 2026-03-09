@@ -9,6 +9,8 @@ import BottomNav from "./components/BottomNav";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { OfflineBanner } from "./components/OfflineBanner";
 import Index from "./pages/Index";
+import Blog from "./pages/Blog";
+import BlogPost from "./pages/BlogPost";
 import { KeyboardShortcuts } from "./components/KeyboardShortcuts";
 import { BackToTop } from "./components/BackToTop";
 
@@ -28,8 +30,6 @@ const GuidePage = lazy(() => import("./pages/GuidePage"));
 const FAQPage = lazy(() => import("./pages/FAQPage"));
 const HowItWorksPage = lazy(() => import("./pages/HowItWorksPage"));
 const SunnahPage = lazy(() => import("./pages/SunnahPage"));
-const Blog = lazy(() => import("./pages/Blog"));
-const BlogPost = lazy(() => import("./pages/BlogPost"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const BrandPage = lazy(() => import("./pages/BrandPage"));
