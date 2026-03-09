@@ -902,6 +902,7 @@ const ActiveWalk = () => {
       const next = !p;
       const counter = stepCounterRef.current;
       if (counter) next ? counter.pause() : counter.resume();
+      announce(next ? "Walk paused" : "Walk resumed");
       return next;
     });
   };
