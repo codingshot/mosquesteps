@@ -2040,24 +2040,23 @@ const ActiveWalk = () => {
                 {(() => {
                   const prayer = prayerTimes.find(pt => pt.name === selectedPrayer);
                   if (!prayer) return null;
-                  const [ph, pm] = prayer.time.split(":").map(Number);
-                  const prayerTotalMin = ph * 60 + pm;
 
                   // Calculate remaining walk time based on current speed
                   const safeD = (x: unknown) => (Number.isFinite(x) ? (x as number) : 0);
                   const remainingDist = routeInfo?.steps
                     ? routeInfo.steps.slice(currentDirectionIdx).reduce((sum, s) => sum + safeD(s.distance), 0) / 1000
-                    : mosqueDist - distanceKm;
+                    : Math.max(0, mosqueDist - distanceKm);
                   const rawSpd = elapsedSeconds > 30 && distanceKm > 0 ? distanceKm / (elapsedSeconds / 3600) : 0;
                   const currentSpeed = Number.isFinite(rawSpd) && rawSpd > 0 ? rawSpd : (settings.walkingSpeed || 5);
                   const remainingWalkMin = currentSpeed > 0 ? Math.round((remainingDist / currentSpeed) * 60) : 0;
 
-                  const { hours: nowH, minutes: nowM } = getNowInTimezone(settings.cityTimezone);
-                  const arrivalTotalMin = nowH * 60 + nowM + remainingWalkMin;
-                  const diffMin = prayerTotalMin - arrivalTotalMin;
+                  // Use minutesUntilLeave for timezone-safe arrival margin calculation
+                  // diffMin > 0: arrive with X minutes to spare; < 0: X minutes late
+                  const diffMin = minutesUntilLeave(prayer.time, remainingWalkMin, settings.cityTimezone);
 
-                  const walkTime = routeInfo?.durationMin || estimateWalkingTime(mosqueDist, settings.walkingSpeed);
-                  const ml = minutesUntilLeave(prayer.time, walkTime, settings.cityTimezone);
+                  // Suppress display if margin is implausibly large (prayer > 3h away)
+                  const baseMargin = minutesUntilLeave(prayer.time, 0, settings.cityTimezone);
+                  if (baseMargin > 180) return null;
 
                   return (
                     <div className="mt-2 space-y-1">
@@ -2069,13 +2068,11 @@ const ActiveWalk = () => {
                         ) : diffMin === 0 ? (
                           <>⏰ You'll arrive just in time</>
                         ) : (
-                          <>✅ You'll arrive {diffMin} min before {selectedPrayer}</>
+                          <>✅ {diffMin} min margin before {selectedPrayer}</>
                         )}
                       </div>
                       <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
                         <span>~{remainingWalkMin}m walk left</span>
-                        <span>·</span>
-                        <span>{ml}m margin</span>
                         <span>·</span>
                         <span>{currentSpeed.toFixed(1)} km/h</span>
                       </div>
