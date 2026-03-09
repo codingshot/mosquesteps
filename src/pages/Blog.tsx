@@ -93,8 +93,8 @@ const Blog = () => {
   return (
     <div className="min-h-screen bg-background">
       <SEOHead
-        title="Blog — Sunnah, Guides & Walking Tips"
-        description="Articles on walking to the mosque: Sunnah, hadiths, app guides, and tips. Build a blessed walking habit with MosqueSteps."
+        title="Blog — Walking to the Mosque: Sunnah, Health & Guides"
+        description="Articles on walking to the mosque: hadiths on every step erasing sins, health benefits of 5 daily walks, mosque finder tips, Fajr motivation, and app setup guides. Free, privacy-first tracker."
         path="/blogs"
       />
 

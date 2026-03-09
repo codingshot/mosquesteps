@@ -81,6 +81,13 @@ const BlogPostPage = () => {
       headline: post.title,
       description: post.excerpt,
       url: SITE_URL + "/blogs/" + post.slug,
+      datePublished: "2026-01-15",
+      dateModified: "2026-03-09",
+      author: {
+        "@type": "Organization",
+        name: "MosqueSteps",
+        url: SITE_URL,
+      },
       publisher: {
         "@type": "Organization",
         name: "MosqueSteps",
@@ -92,6 +99,7 @@ const BlogPostPage = () => {
       },
       articleSection: categoryLabels[post.category],
       keywords: post.tags.join(", "),
+      inLanguage: "en",
     });
     const existingArt = document.getElementById(artScript.id);
     if (existingArt) existingArt.remove();
