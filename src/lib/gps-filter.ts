@@ -26,6 +26,7 @@ export class GPSFilter {
   private speed: number | null = null;
   private heading: number | null = null;
   private initialized = false;
+  private positionHistory: Array<{ lat: number; lng: number; timestamp: number }> = [];
 
   /** Process noise — how much we expect position to change between readings.
    *  Higher = more responsive but noisier. Tuned for walking (~1.4 m/s). */
