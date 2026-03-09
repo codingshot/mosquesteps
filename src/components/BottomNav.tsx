@@ -69,12 +69,15 @@ const BottomNav = () => {
                 to={tab.path}
                 className="flex flex-col items-center py-1.5 px-2 min-w-[56px] relative"
               >
-                {isActive && (
+                {isActive && shouldAnimate() && (
                   <motion.div
                     layoutId="bottomnav-indicator"
                     className="absolute -top-0.5 w-5 h-0.5 bg-primary rounded-full"
                     transition={{ type: "spring", stiffness: 400, damping: 30 }}
                   />
+                )}
+                {isActive && !shouldAnimate() && (
+                  <div className="absolute -top-0.5 w-5 h-0.5 bg-primary rounded-full" />
                 )}
                 <Icon
                   className={`w-5 h-5 transition-colors ${
