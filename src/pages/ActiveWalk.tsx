@@ -928,8 +928,22 @@ const ActiveWalk = () => {
               const segmentDist = haversine(last.lat, last.lng, newPos.lat, newPos.lng);
               // Only count distance when moving AND >2m AND <100m (filter GPS jumps)
               if (moving && segmentDist > 0.002 && segmentDist < 0.1) {
-                distanceRef.current += segmentDist;
-                setDistanceKm(distanceRef.current);
+                // Reject backward movement: if we have a destination, only count
+                // distance that brings us closer (or at least doesn't go >20m backward)
+                const dest = effectiveDestination;
+                let countDistance = true;
+                if (dest) {
+                  const prevDistToDest = haversine(last.lat, last.lng, dest.lat, dest.lng);
+                  const newDistToDest = haversine(newPos.lat, newPos.lng, dest.lat, dest.lng);
+                  // Allow lateral movement (within 20m tolerance) but reject clear backward drift
+                  if (newDistToDest - prevDistToDest > 0.02) {
+                    countDistance = false;
+                  }
+                }
+                if (countDistance) {
+                  distanceRef.current += segmentDist;
+                  setDistanceKm(distanceRef.current);
+                }
                 return [...prev.slice(-300), newPos]; // cap breadcrumb trail
               }
               // Still update position on map for live dot even if not counting distance
