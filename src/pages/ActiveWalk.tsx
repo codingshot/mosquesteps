@@ -1827,8 +1827,8 @@ const ActiveWalk = () => {
 
             {/* Off-route banner */}
             {offRoute && isWalking && (
-              <div className="glass-card px-3 py-2 flex items-center gap-2 text-left border border-amber-500/30 bg-amber-500/5" role="status" aria-live="polite">
-                <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+              <div className="glass-card px-3 py-2 flex items-center gap-2 text-left border border-warning/30 bg-warning/5" role="status" aria-live="polite">
+                <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0" />
                 <span className="text-xs font-medium text-foreground">
                   {offline ? "Off route — reconnect to recalculate" : "Off route — recalculating…"}
                 </span>
