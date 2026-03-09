@@ -53,17 +53,48 @@ const Blog = () => {
   const categories = CATEGORY_ORDER.filter((cat) => blogPosts.some((p) => p.category === cat));
 
   useEffect(() => {
-    return injectBreadcrumbList([
+    const cleanupBreadcrumb = injectBreadcrumbList([
       { name: "Home", url: SITE_URL + "/" },
       { name: "Blog", url: SITE_URL + "/blogs" },
     ]);
+
+    // CollectionPage schema for blog index (SEO + AEO)
+    const collScript = document.createElement("script");
+    collScript.type = "application/ld+json";
+    collScript.id = "collection-blog";
+    collScript.textContent = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      name: "MosqueSteps Blog",
+      description: "Articles on walking to the mosque: Sunnah hadiths, app guides, health benefits, and tips for building a blessed walking habit.",
+      url: SITE_URL + "/blogs",
+      publisher: { "@type": "Organization", name: "MosqueSteps", url: SITE_URL },
+      mainEntity: {
+        "@type": "ItemList",
+        numberOfItems: blogPosts.length,
+        itemListElement: blogPosts.slice(0, 20).map((p, i) => ({
+          "@type": "ListItem",
+          position: i + 1,
+          url: SITE_URL + "/blogs/" + p.slug,
+          name: p.title,
+        })),
+      },
+    });
+    const existingColl = document.getElementById(collScript.id);
+    if (existingColl) existingColl.remove();
+    document.head.appendChild(collScript);
+
+    return () => {
+      cleanupBreadcrumb();
+      document.getElementById("collection-blog")?.remove();
+    };
   }, []);
 
   return (
     <div className="min-h-screen bg-background">
       <SEOHead
-        title="Blog — Sunnah, Guides & Walking Tips"
-        description="Articles on walking to the mosque: Sunnah, hadiths, app guides, and tips. Build a blessed walking habit with MosqueSteps."
+        title="Blog — Walking to the Mosque: Sunnah, Health & Guides"
+        description="Articles on walking to the mosque: hadiths on every step erasing sins, health benefits of 5 daily walks, mosque finder tips, Fajr motivation, and app setup guides. Free, privacy-first tracker."
         path="/blogs"
       />
 

@@ -617,4 +617,476 @@ The Prophet ﷺ said: *"Command your children to pray when they are seven"* (Abu
     image: "👨‍👩‍👧‍👦",
     readTime: "6 min read",
   },
+  {
+    slug: "new-muslim-first-time-mosque-guide",
+    title: "First Time at the Mosque: A Gentle Guide for New Muslims",
+    excerpt: "Walking into a mosque for the first time can feel overwhelming. This step-by-step guide covers what to expect, what to wear, and how to feel at home.",
+    content: `
+# First Time at the Mosque: A Gentle Guide for New Muslims
+
+Accepting Islam is a beautiful moment. But walking into a mosque for the first time? That can feel daunting. You might wonder: What do I wear? Where do I stand? Will people judge me?
+
+This guide is for you. Take a deep breath — you belong here.
+
+## Before You Go
+
+### Finding a Mosque Near You
+Use the [MosqueSteps Mosque Finder](/mosques) to locate the closest mosque. It searches globally using OpenStreetMap — including prayer rooms, Islamic centers, and musallas you might not know about.
+
+### What to Wear
+- **Men:** Modest clothing that covers knees and shoulders. Anything clean and respectful works.
+- **Women:** Loose clothing that covers arms and legs. Bring a headscarf (hijab) for prayer. Many mosques have spare scarves.
+- **Shoes:** You'll remove them at the entrance. Wear easy slip-on shoes.
+
+### Timing
+- Arrive **10-15 minutes before** the prayer time. This gives you time to find the prayer hall and settle in.
+- Use [MosqueSteps](/dashboard) to see prayer times for your location — the "Leave by" feature tells you exactly when to start walking.
+
+## When You Arrive
+
+### At the Door
+- Remove your shoes and place them on the rack
+- Enter with your **right foot** and say quietly: *"Bismillah, Allahumma iftah li abwaba rahmatik"* (O Allah, open for me the doors of Your mercy)
+- Men and women usually have separate entrances or prayer areas
+
+### Inside the Prayer Hall
+- Find a spot in the rows. Fill gaps from the front.
+- If you don't know the prayer movements yet, **stand behind someone and follow along**. No one will mind.
+- It's okay to not be perfect. Allah sees your effort, not your performance.
+
+## After the Prayer
+
+### Don't Rush Out
+Stay a moment. People often greet newcomers warmly. If someone says *"Assalamu Alaikum"* (peace be upon you), respond with *"Wa Alaikum Assalam"* (and upon you peace).
+
+### Introduce Yourself
+You don't have to announce that you're new to Islam, but many people find that saying "I'm new here" opens doors to friendship and support.
+
+## Walking to the Mosque: Your First Sunnah
+
+The Prophet ﷺ said: **"Whoever purifies himself in his house then walks to one of the houses of Allah to perform an obligatory prayer, one step will erase a sin and another will raise him a degree."** *(Muslim 666)*
+
+As a new Muslim, every step you take toward the mosque is magnified. You're not just walking — you're beginning a lifelong journey of worship.
+
+### Track Your First Walk
+Install [MosqueSteps](/dashboard) and track your first walk. Seeing your steps, distance, and spiritual rewards (hasanat) makes the experience tangible and motivating.
+
+## Common Worries (And Why They Don't Matter)
+
+| Worry | Reality |
+|-------|---------|
+| "I don't know Arabic" | Many mosques accommodate multiple languages. Dua can be in any language. |
+| "I'll make mistakes in prayer" | Everyone did at first. People will gently help if you ask. |
+| "I don't know anyone" | Mosques are built for community. You'll know people within weeks. |
+| "I look different" | Islam is for everyone. Mosques welcome all races, ages, and backgrounds. |
+| "I'm not good enough" | You showed up. That's more than enough. |
+
+## Resources for New Muslims
+
+- [Sunnah of Walking to Prayer](/sunnah) — learn the etiquettes
+- [Getting Started with MosqueSteps](/blogs/getting-started-with-mosquesteps) — set up the app
+- [FAQ](/faq) — common questions answered
+
+Welcome to the ummah. Your first step toward the mosque is the beginning of something beautiful. 🕌
+
+---
+
+*Find your nearest mosque with [MosqueSteps Mosque Finder](/mosques). Start tracking your walks on the [Dashboard](/dashboard).*
+    `,
+    category: "guide",
+    tags: ["new-muslim", "convert", "revert", "first-time", "mosque-etiquette", "beginner"],
+    image: "🌱",
+    readTime: "6 min read",
+  },
+  {
+    slug: "how-to-wake-up-for-fajr-consistently",
+    title: "How to Wake Up for Fajr and Walk to the Mosque Every Day",
+    excerpt: "Struggling with Fajr? Practical tips from sleep science and the Sunnah to wake up consistently and walk to the mosque for the most rewarded prayer.",
+    content: `
+# How to Wake Up for Fajr and Walk to the Mosque Every Day
+
+Fajr is the prayer most Muslims struggle with — and the one with the greatest reward for those who walk.
+
+**"Give glad tidings to those who walk to the mosques in darkness, of complete light on the Day of Resurrection."** *(Abu Dawud 561)*
+
+Here's how to make it happen consistently.
+
+## The Sleep Science
+
+### Calculate Your Sleep Window
+You need 7-8 hours of sleep. If Fajr is at 5:30 AM and your walk takes 15 minutes, you need to wake at **5:00 AM**. That means sleeping by **9:30-10:00 PM**.
+
+The #1 reason people miss Fajr isn't spiritual weakness — it's **going to bed too late**.
+
+### Optimize Sleep Quality
+- **No screens 30 minutes before bed** — blue light suppresses melatonin
+- **Cool room temperature** (18-20°C / 65-68°F) — your body needs to cool down to sleep deeply
+- **Consistent schedule** — go to bed and wake at the same time, even weekends
+- **Avoid caffeine after 2 PM** — it has a 6-hour half-life
+
+### Strategic Alarm Placement
+- Place your alarm **across the room** so you must physically get up
+- Use a gradual alarm (starts quiet, gets louder) — jarring alarms increase cortisol
+- Set **two alarms**: one 15 minutes before you need to leave, one at leave time
+
+## The Sunnah Method
+
+The Prophet ﷺ had practical habits that supported waking for Fajr:
+
+### Sleep Early
+**"The Prophet ﷺ disliked sleeping before Isha and talking after it."** *(Bukhari 568)*
+
+This hadith establishes the Sunnah of sleeping early — directly enabling Fajr waking.
+
+### Sleep on Your Right Side
+**"When you go to bed, perform wudu as for prayer, then lie on your right side."** *(Bukhari 247)*
+
+Sleeping on the right side is a Sunnah and some research suggests it may improve sleep quality.
+
+### Recite Before Sleep
+The Prophet ﷺ would recite Ayat al-Kursi and the last two verses of Surah Al-Baqarah before sleeping. This spiritual preparation sets the intention for waking.
+
+## The MosqueSteps Approach
+
+### 1. Set Leave-by Alerts
+In the app, enable notifications for Fajr. MosqueSteps calculates exactly when you need to leave based on your walking distance to the mosque.
+
+### 2. Prepare the Night Before
+- Set out walking shoes and clothes
+- Charge your phone (you'll need it for tracking)
+- Know your route — check it in the [Mosque Finder](/mosques) before bed
+
+### 3. Make Wudu Immediately
+When your alarm rings, go straight to wudu. Cold water on your face and arms wakes you faster than coffee. The Prophet ﷺ said the first step of walking reward begins with purification at home.
+
+### 4. Walk, Don't Drive
+The walk itself wakes you fully. By the time you arrive at the mosque, you're alert, refreshed, and have already earned hasanat for every step.
+
+### 5. Track Your Fajr Streak
+Use MosqueSteps to build a Fajr-specific walking streak. The [Stats page](/stats) shows which prayers you walk to — aim to grow your Fajr percentage.
+
+## The 7-Day Fajr Challenge
+
+| Day | Goal | Tip |
+|-----|------|-----|
+| 1-2 | Just wake up on time | Don't worry about walking yet |
+| 3-4 | Walk to mosque for Fajr | Allow extra time, walk slowly |
+| 5-6 | Optimize your route | Find the most pleasant path |
+| 7 | Celebrate your streak! | Share your MosqueSteps stats |
+
+After 7 days, the habit begins to solidify. After 30 days, it's part of your identity.
+
+## Why Fajr Walking Is Worth It
+
+The Prophet ﷺ said: **"Whoever prays Fajr in congregation, it is as if he stood in prayer the entire night."** *(Muslim 656)*
+
+Combined with the hadith about walking rewards, your Fajr walk earns:
+- Hasanat for every step (sin erased + degree raised)
+- The reward of praying the entire night
+- Complete light on the Day of Judgment
+- Health benefits of early morning movement
+
+No other prayer combines this many blessings. Your alarm clock is a portal to extraordinary reward.
+
+---
+
+*Set up Fajr walking alerts in [MosqueSteps Settings](/settings). Track your morning walks on the [Dashboard](/dashboard).*
+    `,
+    category: "tips",
+    tags: ["fajr", "morning", "sleep", "motivation", "consistency", "sunnah", "wake-up"],
+    image: "⏰",
+    readTime: "7 min read",
+  },
+  {
+    slug: "calories-burned-walking-to-mosque",
+    title: "Calories Burned Walking to the Mosque: A Complete Breakdown",
+    excerpt: "How many calories does walking to the mosque actually burn? We break down the numbers by distance, weight, pace, and prayer frequency — with a calculator.",
+    content: `
+# Calories Burned Walking to the Mosque: A Complete Breakdown
+
+"Does walking to the mosque count as exercise?" Yes — and the numbers might surprise you.
+
+## The Basic Formula
+
+Calories burned walking = **0.035 × body weight (kg) × distance (km) × terrain factor**
+
+For a more practical estimate: walking burns approximately **60-100 calories per kilometer** depending on your weight and pace.
+
+## Calorie Burn by Distance
+
+### For a 75 kg (165 lb) person at moderate pace (5 km/h):
+
+| Distance to Mosque | One-Way Calories | Round Trip | Daily (5 prayers) |
+|---|---|---|---|
+| 500 m | 30 cal | 60 cal | 300 cal |
+| 800 m | 48 cal | 96 cal | 480 cal |
+| 1 km | 60 cal | 120 cal | 600 cal |
+| 1.5 km | 90 cal | 180 cal | 900 cal |
+| 2 km | 120 cal | 240 cal | 1,200 cal |
+
+**At 1 km distance, walking to all 5 prayers burns 600 calories per day** — equivalent to a 45-minute run!
+
+## Calorie Burn by Body Weight
+
+Walking 1 km to the mosque and back (2 km total):
+
+| Body Weight | Calories Per Round Trip | Daily (5 prayers) |
+|---|---|---|
+| 55 kg (121 lb) | 88 cal | 440 cal |
+| 70 kg (154 lb) | 112 cal | 560 cal |
+| 85 kg (187 lb) | 136 cal | 680 cal |
+| 100 kg (220 lb) | 160 cal | 800 cal |
+
+Heavier individuals burn more calories — so if weight management is a goal, walking to the mosque is even more effective.
+
+## Weekly and Monthly Impact
+
+For a 75 kg person walking 1 km to the mosque:
+
+| Frequency | Weekly Calories | Monthly Calories | Equivalent |
+|---|---|---|---|
+| 1 prayer/day | 840 cal | 3,600 cal | ~0.5 kg fat loss/month |
+| 3 prayers/day | 2,520 cal | 10,800 cal | ~1.4 kg fat loss/month |
+| 5 prayers/day | 4,200 cal | 18,000 cal | ~2.3 kg fat loss/month |
+
+Walking to all 5 prayers can result in **over 2 kg of fat loss per month** — without any dietary changes.
+
+## Comparison with Other Activities
+
+| Activity (30 minutes) | Calories Burned |
+|---|---|
+| Sitting at desk | 40 cal |
+| Walking to mosque (moderate) | 150 cal |
+| Cycling (moderate) | 250 cal |
+| Running (8 km/h) | 280 cal |
+| Swimming | 250 cal |
+
+Walking is lower intensity but **more sustainable and more frequent** — 5 times daily adds up to more total calories than a single gym session.
+
+## The Hadith Bonus
+
+The Prophet ﷺ said: **"The people who get the most reward for prayer are those who walk the farthest distance."** *(Bukhari 651, Muslim 662)*
+
+Islam incentivizes the **longer walk** — which also burns more calories. The spiritual and physical benefits are perfectly aligned.
+
+## How MosqueSteps Tracks This
+
+MosqueSteps estimates your walk data including:
+- **Steps counted** via accelerometer or GPS
+- **Distance walked** via GPS tracking
+- **Walking time** for each prayer
+
+You can view your cumulative data on the [Stats page](/stats) and watch your step count grow over time.
+
+## The Bottom Line
+
+Walking to the mosque is legitimate, effective exercise. It burns meaningful calories, it's sustainable because prayer provides built-in motivation, and the Prophet ﷺ specifically encouraged it.
+
+The question isn't "does walking to the mosque count as exercise?" — it's **"why would you drive?"**
+
+---
+
+*Track your walking calories with [MosqueSteps](/dashboard). View your weekly stats on the [Stats page](/stats).*
+    `,
+    category: "health",
+    tags: ["calories", "exercise", "weight-loss", "fitness", "walking", "health-benefits"],
+    image: "🔥",
+    readTime: "6 min read",
+  },
+  {
+    slug: "find-prayer-room-traveling-airports",
+    title: "How to Find a Prayer Room While Traveling: Airports, Hotels & Cities",
+    excerpt: "Traveling as a Muslim? Here's how to find mosques, prayer rooms, and musallas at airports, hotels, universities, and in unfamiliar cities worldwide.",
+    content: `
+# How to Find a Prayer Room While Traveling: Airports, Hotels & Cities
+
+Maintaining your prayer while traveling is a challenge every Muslim faces. Whether you're at an airport, a new city, or a roadside rest stop, finding a clean place to pray matters.
+
+## Airports
+
+### Major Airports with Dedicated Prayer Rooms
+
+Most international airports have multi-faith or Muslim-specific prayer rooms:
+
+| Region | Airports with Prayer Rooms |
+|---|---|
+| Middle East | Nearly all (dedicated musallas in every terminal) |
+| Southeast Asia | KLIA, Changi, Soekarno-Hatta, Suvarnabhumi |
+| Europe | Heathrow, CDG, Frankfurt, Istanbul, Amsterdam, Munich |
+| North America | JFK, LAX, DFW, O'Hare, Dulles, Toronto Pearson |
+| Africa | Cairo, Casablanca, Johannesburg |
+
+### How to Find Them
+1. **MosqueSteps Mosque Finder** — search "prayer room" or "musalla" in the [Mosque Finder](/mosques). OpenStreetMap tags airport prayer rooms.
+2. **Airport websites** — search "[airport name] prayer room" — most list locations and terminal maps
+3. **Ask information desks** — airport staff can direct you
+4. **Look for "Quiet Room" or "Meditation Room"** — these are often multi-faith spaces suitable for prayer
+
+### Tips for Airport Prayer
+- Carry a **travel prayer mat** — lightweight and compact
+- Use the [MosqueSteps Dashboard](/dashboard) for accurate prayer times at your destination
+- If no prayer room exists, find a quiet corner — airports are generally tolerant of discreet prayer
+- Perform wudu at any restroom sink
+
+## Hotels
+
+### Finding Prayer Spaces
+- **Ask the front desk** — "Is there a prayer room?" Many hotels in Muslim-majority countries have one.
+- **Mosque nearby?** Use the [Mosque Finder](/mosques) to locate mosques within walking distance of your hotel
+- **Conference/meeting rooms** — some hotels allow guests to use empty meeting rooms for prayer
+- **Your room** — always an option. Use a compass app for qibla direction.
+
+### Hotel Qibla
+Many hotel rooms in Muslim-majority countries have a qibla direction arrow in the room or on the ceiling. If not, use any qibla app or compass.
+
+## Universities and Hospitals
+
+### Universities
+Many universities worldwide have Muslim Student Associations (MSAs) that maintain:
+- Dedicated prayer rooms
+- Friday Jumuah services
+- Community iftars during Ramadan
+
+Search "[university name] prayer room" or check the university's faith services page.
+
+### Hospitals
+Most modern hospitals have:
+- Multi-faith chaplaincy rooms
+- Quiet rooms that can be used for prayer
+- Chaplains who can direct you
+
+## In a New City
+
+### Step-by-Step
+1. Open [MosqueSteps Mosque Finder](/mosques)
+2. Allow location access or search the city name
+3. Browse results sorted by distance
+4. Tap any mosque for walking directions
+
+### What the Finder Searches For
+MosqueSteps searches OpenStreetMap for: mosques, masjids, musallas, prayer rooms, Islamic centers, suraus, and jamias — covering terminology used worldwide.
+
+### Backup Options
+If no mosque is nearby:
+- **Parks** — find a clean, quiet spot. Carry a travel mat.
+- **Shopping malls** — in Muslim-majority countries, malls have prayer rooms. In the West, look for "family rooms" or ask management.
+- **Rest stops** — some highway rest areas have prayer facilities, especially in Turkey, Saudi Arabia, and Malaysia.
+
+## Travel Prayer Essentials
+
+| Item | Why |
+|---|---|
+| Travel prayer mat | Clean surface anywhere |
+| Compass/qibla app | Direction in unfamiliar places |
+| MosqueSteps app | Find mosques + prayer times |
+| Water bottle | Emergency wudu |
+| Light scarf (women) | Always available for prayer |
+
+## The Traveler's Reward
+
+The Prophet ﷺ said: **"When a servant of Allah falls ill or travels, the reward of what he used to do at home when healthy is recorded for him."** *(Bukhari 2996)*
+
+Even when traveling makes it harder, your intention and effort are rewarded. And when you do find a mosque and walk to it in an unfamiliar city — that effort carries extra reward.
+
+---
+
+*Use [MosqueSteps Mosque Finder](/mosques) to discover prayer spaces worldwide. Check prayer times for any location on the [Dashboard](/dashboard).*
+    `,
+    category: "guide",
+    tags: ["travel", "prayer-room", "airport", "musalla", "mosque-finder", "tips"],
+    image: "✈️",
+    readTime: "6 min read",
+  },
+  {
+    slug: "set-up-mosquesteps-for-elderly-parent",
+    title: "How to Set Up MosqueSteps for Your Elderly Parent or Grandparent",
+    excerpt: "A quick guide for helping an older family member use MosqueSteps — from installing the PWA to configuring walking speed and prayer reminders.",
+    content: `
+# How to Set Up MosqueSteps for Your Elderly Parent or Grandparent
+
+Your parent or grandparent walks to the mosque regularly — but they might not track it. Setting up MosqueSteps for them takes 5 minutes and gives them a tool that shows the rewards they're earning with every step.
+
+## Why Set It Up for Them
+
+- **Motivation** — seeing hasanat (spiritual rewards) counted makes each walk feel meaningful
+- **Safety** — the walking route is tracked, so you know they arrived safely
+- **Health tracking** — step counts help monitor their physical activity
+- **Independence** — prayer time reminders help them manage their own schedule
+- **Joy** — the streak counter and badges bring daily satisfaction
+
+## Step-by-Step Setup
+
+### 1. Install as a Home Screen App (2 min)
+On their phone's browser, go to **mosquesteps.com**:
+- **iPhone (Safari):** Tap the Share button (square with arrow) → "Add to Home Screen" → "Add"
+- **Android (Chrome):** Tap the three-dot menu → "Install app" or "Add to Home Screen"
+
+This creates an app icon they can tap — no app store needed.
+
+### 2. Set Their Location (1 min)
+Open the app → tap the **gear icon** (Settings):
+- Tap **"Use Current Location"** — this sets prayer times automatically
+- Or search for their city manually if they're not near the phone
+
+### 3. Find Their Mosque (1 min)
+Go to **Mosques** tab:
+- Allow location access
+- Find their regular mosque in the list
+- Tap **"Select"** to set it as primary
+
+This mosque is now used for walking distance, step estimates, and leave-by reminders.
+
+### 4. Adjust Walking Speed (30 sec)
+In **Settings**, set walking speed to match their pace:
+- **3-4 km/h** for a leisurely elderly pace (default is 5)
+- This ensures the "Leave by" timer gives them enough time
+
+### 5. Set Stride Length (30 sec)
+For more accurate step counts:
+- Average elderly stride: **0.5-0.6 meters**
+- Set this in Settings → Stride Length
+
+### 6. Enable Prayer Reminders (30 sec)
+In Settings → Notifications:
+- Enable **leave-by alerts** for prayers they walk to
+- The app will notify them when it's time to start walking
+
+## Make It Easy to Use
+
+### Simplify Their Home Screen
+- Move the MosqueSteps icon to their **main home screen**
+- Place it next to other apps they use daily
+
+### Show Them Two Things
+You don't need to explain every feature. Just show:
+1. **"Tap here to start walking"** — the Walk button
+2. **"Look, your steps and rewards are here"** — the Dashboard
+
+### Check In Periodically
+- Look at their [Stats](/stats) together during visits — celebrate their streaks
+- Adjust settings if prayer times have shifted (e.g., seasonal changes)
+- Make sure notifications are still working
+
+## For Parents Who Aren't Tech-Savvy
+
+- The app requires **zero typing** during daily use — just tap Walk, then End Walk
+- Prayer times update **automatically** — no manual input needed
+- Everything saves **locally on their device** — no account, no login, no password
+- The interface is **large and readable** with clear buttons
+
+## The Reward of Helping
+
+The Prophet ﷺ said: **"Whoever guides someone to goodness will have a reward like the one who did it."** *(Muslim 1893)*
+
+By setting up MosqueSteps for your parent, you share in the reward of every walk they track, every step they take, and every prayer they attend. That's a beautiful form of birr al-walidayn (honoring parents).
+
+---
+
+*Set up MosqueSteps at [mosquesteps.com](/dashboard). Learn more in the [Getting Started guide](/blogs/getting-started-with-mosquesteps).*
+    `,
+    category: "guide",
+    tags: ["elderly", "parents", "setup", "family", "accessibility", "tutorial"],
+    image: "👴",
+    readTime: "5 min read",
+  },
 ];
