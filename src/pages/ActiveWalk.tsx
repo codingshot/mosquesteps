@@ -1596,10 +1596,10 @@ const ActiveWalk = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className={`font-semibold text-sm ${isMoving ? "text-success" : "text-warning"}`}>
-                    {isMoving ? "Moving" : "Stationary"}
+                    {isMoving ? "Moving" : autoPaused ? "Auto-paused" : "Stationary"}
                   </p>
                   <p className="text-muted-foreground text-[10px] mt-0.5">
-                    {isMoving ? "Steps and distance tracking live." : "Progress paused — start moving to continue."}
+                    {isMoving ? "Steps and distance tracking live." : autoPaused ? "Auto-paused after 1 min idle. Move to resume." : "Progress paused — start moving to continue."}
                   </p>
                 </div>
                 <span className={`text-xs font-bold tabular-nums ${isMoving ? "text-success" : "text-warning"}`}>
