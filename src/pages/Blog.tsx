@@ -1,35 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-import { motion } from "framer-motion";
-import { blogPosts, BlogPost } from "@/lib/blog-data";
+import type { BlogPost } from "@/lib/blog-data";
 import SEOHead from "@/components/SEOHead";
 import logo from "@/assets/logo.png";
 
 const SITE_URL = "https://mosquesteps.com";
-
-function injectBreadcrumbList(items: { name: string; url: string }[]) {
-  const script = document.createElement("script");
-  script.type = "application/ld+json";
-  script.id = "breadcrumb-blog";
-  script.textContent = JSON.stringify({
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: items.map((item, i) => ({
-      "@type": "ListItem",
-      position: i + 1,
-      name: item.name,
-      item: item.url,
-    })),
-  });
-  const existing = document.getElementById(script.id);
-  if (existing) existing.remove();
-  document.head.appendChild(script);
-  return () => {
-    const el = document.getElementById(script.id);
-    if (el) el.remove();
-  };
-}
 
 const categoryLabels: Record<BlogPost["category"], string> = {
   sunnah: "Sunnah & Hadith",
@@ -50,15 +26,43 @@ const categoryColors: Record<BlogPost["category"], string> = {
 const CATEGORY_ORDER: BlogPost["category"][] = ["sunnah", "guide", "tips", "health", "community"];
 
 const Blog = () => {
-  const categories = CATEGORY_ORDER.filter((cat) => blogPosts.some((p) => p.category === cat));
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const cleanupBreadcrumb = injectBreadcrumbList([
-      { name: "Home", url: SITE_URL + "/" },
-      { name: "Blog", url: SITE_URL + "/blogs" },
-    ]);
+    let cancelled = false;
+    import("@/lib/blog-data").then((mod) => {
+      if (!cancelled) {
+        setBlogPosts(mod.blogPosts);
+        setLoading(false);
+      }
+    }).catch((err) => {
+      console.error("Failed to load blog data:", err);
+      if (!cancelled) setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
-    // CollectionPage schema for blog index (SEO + AEO)
+  // Inject structured data after posts load
+  useEffect(() => {
+    if (blogPosts.length === 0) return;
+
+    // BreadcrumbList
+    const bcScript = document.createElement("script");
+    bcScript.type = "application/ld+json";
+    bcScript.id = "breadcrumb-blog";
+    bcScript.textContent = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL + "/" },
+        { "@type": "ListItem", position: 2, name: "Blog", item: SITE_URL + "/blogs" },
+      ],
+    });
+    document.getElementById(bcScript.id)?.remove();
+    document.head.appendChild(bcScript);
+
+    // CollectionPage
     const collScript = document.createElement("script");
     collScript.type = "application/ld+json";
     collScript.id = "collection-blog";
@@ -66,7 +70,7 @@ const Blog = () => {
       "@context": "https://schema.org",
       "@type": "CollectionPage",
       name: "MosqueSteps Blog",
-      description: "Articles on walking to the mosque: Sunnah hadiths, app guides, health benefits, and tips for building a blessed walking habit.",
+      description: "Articles on walking to the mosque: Sunnah hadiths, app guides, health benefits, and tips.",
       url: SITE_URL + "/blogs",
       publisher: { "@type": "Organization", name: "MosqueSteps", url: SITE_URL },
       mainEntity: {
@@ -80,21 +84,22 @@ const Blog = () => {
         })),
       },
     });
-    const existingColl = document.getElementById(collScript.id);
-    if (existingColl) existingColl.remove();
+    document.getElementById(collScript.id)?.remove();
     document.head.appendChild(collScript);
 
     return () => {
-      cleanupBreadcrumb();
+      document.getElementById("breadcrumb-blog")?.remove();
       document.getElementById("collection-blog")?.remove();
     };
-  }, []);
+  }, [blogPosts]);
+
+  const categories = CATEGORY_ORDER.filter((cat) => blogPosts.some((p) => p.category === cat));
 
   return (
     <div className="min-h-screen bg-background">
       <SEOHead
         title="Blog — Walking to the Mosque: Sunnah, Health & Guides"
-        description="Articles on walking to the mosque: hadiths on every step erasing sins, health benefits of 5 daily walks, mosque finder tips, Fajr motivation, and app setup guides. Free, privacy-first tracker."
+        description="Articles on walking to the mosque: hadiths on every step erasing sins, health benefits of 5 daily walks, mosque finder tips, Fajr motivation, and app setup guides."
         path="/blogs"
       />
 
@@ -116,27 +121,28 @@ const Blog = () => {
           <p className="text-muted-foreground">Sunnah insights, app guides, and tips for your walking journey.</p>
         </div>
 
-        {categories.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-sm text-muted-foreground mt-3">Loading articles…</p>
+          </div>
+        ) : categories.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <p className="text-sm">No articles yet. Check back soon.</p>
           </div>
         ) : (
-        categories.map((cat) => {
-          const posts = blogPosts.filter((p) => p.category === cat);
-          if (posts.length === 0) return null;
-          return (
-            <section key={cat}>
-              <h2 className="text-xl font-bold text-foreground mb-4">{categoryLabels[cat]}</h2>
-              <div className="grid gap-4">
-                {posts.map((post, i) => (
-                  <motion.div
-                    key={post.slug}
-                    initial={{ opacity: 0, y: 12 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: i * 0.05 }}
-                  >
-                    <div className="glass-card p-5 flex gap-4 items-start hover:border-primary/30 transition-colors relative">
+          categories.map((cat) => {
+            const posts = blogPosts.filter((p) => p.category === cat);
+            if (posts.length === 0) return null;
+            return (
+              <section key={cat}>
+                <h2 className="text-xl font-bold text-foreground mb-4">{categoryLabels[cat]}</h2>
+                <div className="grid gap-4">
+                  {posts.map((post, i) => (
+                    <div
+                      key={post.slug}
+                      className="glass-card p-5 flex gap-4 items-start hover:border-primary/30 transition-colors relative"
+                    >
                       <Link to={`/blogs/${post.slug}`} className="absolute inset-0 z-0" aria-label={post.title} />
                       <span className="text-3xl flex-shrink-0">{post.image}</span>
                       <div className="min-w-0 flex-1">
@@ -161,15 +167,13 @@ const Blog = () => {
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                       </button>
                     </div>
-                  </motion.div>
-                ))}
-              </div>
-            </section>
-          );
-        })
+                  ))}
+                </div>
+              </section>
+            );
+          })
         )}
 
-        {/* Internal links for SEO and discovery */}
         <section className="mt-10 pt-8 border-t border-border">
           <h2 className="text-sm font-semibold text-foreground mb-3">Explore the app</h2>
           <div className="flex flex-wrap gap-2">
@@ -177,7 +181,7 @@ const Blog = () => {
             <span className="text-muted-foreground">·</span>
             <Link to="/mosques" className="text-sm text-primary hover:underline">Mosque finder</Link>
             <span className="text-muted-foreground">·</span>
-            <Link to="/sunnah" className="text-sm text-primary hover:underline" title="Hadiths about walking to prayer: each step erases a sin and raises a degree, Fajr/Isha rewards, walk with tranquility.">Sunnah & hadiths</Link>
+            <Link to="/sunnah" className="text-sm text-primary hover:underline" title="Hadiths about walking to prayer">Sunnah & hadiths</Link>
             <span className="text-muted-foreground">·</span>
             <Link to="/faq" className="text-sm text-primary hover:underline">FAQ</Link>
             <span className="text-muted-foreground">·</span>
