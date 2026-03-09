@@ -1563,8 +1563,8 @@ const ActiveWalk = () => {
                   <span className={`w-1 rounded-full transition-colors ${gpsConfidence === "high" ? "bg-primary" : "bg-muted-foreground/30"}`} style={{ height: 14 }} />
                 </div>
                 <span className={`text-[10px] font-medium ${
-                  gpsConfidence === "high" ? "text-emerald-600 dark:text-emerald-400" 
-                  : gpsConfidence === "medium" ? "text-amber-600 dark:text-amber-400" 
+                  gpsConfidence === "high" ? "text-success" 
+                  : gpsConfidence === "medium" ? "text-warning" 
                   : "text-destructive"
                 }`}>
                   {gpsConfidence === "high" ? "Strong GPS" : gpsConfidence === "medium" ? "Fair GPS" : "Weak GPS"}
