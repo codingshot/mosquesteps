@@ -2230,6 +2230,45 @@ const ActiveWalk = () => {
               </div>
             </motion.div>
 
+            {/* Personal bests & streak */}
+            {(() => {
+              const history = getWalkHistory();
+              const stats = getWalkingStats();
+              if (history.length < 2) return null;
+              const maxSteps = Math.max(...history.map(w => w.steps));
+              const maxDist = Math.max(...history.map(w => w.distanceKm));
+              const maxHasanat = Math.max(...history.map(w => w.hasanat));
+              const isStepsPB = displaySteps >= maxSteps && displaySteps > 0;
+              const isDistPB = distanceKm >= maxDist && distanceKm > 0;
+              const isHasanatPB = hasanat >= maxHasanat && hasanat > 0;
+              const hasPB = isStepsPB || isDistPB || isHasanatPB;
+              return (
+                <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65 }} className="space-y-2">
+                  {hasPB && (
+                    <div className="rounded-xl border border-gold/30 bg-gold/10 p-3 flex items-center gap-2">
+                      <Trophy className="w-5 h-5 text-gold flex-shrink-0" />
+                      <div className="text-left">
+                        <p className="text-sm font-bold text-foreground">New Personal Best! 🏅</p>
+                        <p className="text-xs text-muted-foreground">
+                          {[isStepsPB && "steps", isDistPB && "distance", isHasanatPB && "hasanat"].filter(Boolean).join(", ")} record broken
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {stats.currentStreak > 0 && (
+                    <div className="rounded-xl bg-muted/50 border border-border p-3 flex items-center gap-3">
+                      <Flame className="w-5 h-5 text-gold flex-shrink-0" />
+                      <div className="text-left flex-1">
+                        <p className="text-sm font-semibold text-foreground">{stats.currentStreak}-day streak</p>
+                        <p className="text-[10px] text-muted-foreground">Best: {stats.longestStreak} days</p>
+                      </div>
+                      <span className="text-lg">🔥</span>
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })()}
+
             {/* Zero steps explanation & override */}
             {displaySteps === 0 && elapsedSeconds > 60 && (
               <motion.div
