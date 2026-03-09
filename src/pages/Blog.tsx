@@ -50,6 +50,16 @@ const categoryColors: Record<BlogPost["category"], string> = {
 const CATEGORY_ORDER: BlogPost["category"][] = ["sunnah", "guide", "tips", "health", "community"];
 
 const Blog = () => {
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    import("@/lib/blog-data").then((mod) => {
+      setBlogPosts(mod.blogPosts);
+      setLoading(false);
+    });
+  }, []);
+
   const categories = CATEGORY_ORDER.filter((cat) => blogPosts.some((p) => p.category === cat));
 
   useEffect(() => {
