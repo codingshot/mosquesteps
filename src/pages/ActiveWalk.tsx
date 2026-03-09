@@ -1125,6 +1125,20 @@ const ActiveWalk = () => {
               {isStepCountingAvailable() ? "Motion sensors available — real step counting!" : "Steps estimated from GPS."}
             </p>
 
+            {/* Walk streak motivator */}
+            {(() => {
+              const stats = getWalkingStats();
+              if (stats.currentStreak <= 0) return null;
+              return (
+                <div className="flex items-center justify-center gap-2 bg-gold/10 border border-gold/20 rounded-xl px-4 py-2">
+                  <Flame className="w-4 h-4 text-gold" />
+                  <span className="text-xs font-semibold text-foreground">
+                    {stats.currentStreak}-day streak! Keep it going 🔥
+                  </span>
+                </div>
+              );
+            })()}
+
             {/* Prayer selection with time info */}
             <div className="glass-card p-4 text-left">
               <label className="text-sm font-medium text-foreground mb-2 block">Walking for which prayer?</label>
