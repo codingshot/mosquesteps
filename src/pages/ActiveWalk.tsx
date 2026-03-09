@@ -764,7 +764,7 @@ const ActiveWalk = () => {
     }
   }, [autoPaused, isMoving]);
 
-  // Milestone voice announcements at 25%, 50%, 75% of route
+  // Milestone voice announcements at 25%, 50%, 75% of route — with haptic feedback
   useEffect(() => {
     if (!isWalking || isPaused || mosqueDist <= 0) return;
     const pct = Math.floor(progressPercent * 100);
@@ -778,6 +778,8 @@ const ActiveWalk = () => {
           ? `Almost there! ${m}% complete. About ${etaMin} minutes remaining.`
           : `${m}% of the way there. ${srDistance(remainingKm)} remaining.`;
         announce(msg);
+        // Haptic: gentle double-tap for milestones
+        if ("vibrate" in navigator) navigator.vibrate([100, 80, 100]);
         if (voiceEnabled && "speechSynthesis" in window) {
           const utterance = new SpeechSynthesisUtterance(msg);
           utterance.rate = 1.0;
