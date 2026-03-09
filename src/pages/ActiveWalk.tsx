@@ -1786,6 +1786,11 @@ const ActiveWalk = () => {
                     Paused
                   </span>
                 )}
+                {batteryMode === "saver" && (
+                  <span className="px-2 py-0.5 rounded-full bg-gold/15 text-gold text-[10px] font-semibold uppercase tracking-wide">
+                    Saver GPS
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
