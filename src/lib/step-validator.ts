@@ -134,19 +134,26 @@ export function createArrivalDetector(options?: {
   };
 }
 
-/** Adaptive ETA using exponential moving average of pace */
+/** Adaptive ETA using exponential moving average of pace with dual windows */
 export class PaceTracker {
   private samples: { time: number; distanceKm: number }[] = [];
   private emaSpeedKmH = 0;
   private readonly alpha = 0.3;
+  /** Longer-term average for better ETA on long walks */
+  private longTermSamples: { time: number; distanceKm: number }[] = [];
 
   addSample(distanceKm: number) {
     const now = Date.now();
     this.samples.push({ time: now, distanceKm });
+    this.longTermSamples.push({ time: now, distanceKm });
 
-    // Keep last 60 seconds of samples
+    // Short window: last 60 seconds (responsive to speed changes)
     const cutoff = now - 60000;
     this.samples = this.samples.filter(s => s.time >= cutoff);
+
+    // Long window: last 5 minutes (stable for ETA)
+    const longCutoff = now - 300000;
+    this.longTermSamples = this.longTermSamples.filter(s => s.time >= longCutoff);
 
     if (this.samples.length >= 2) {
       const first = this.samples[0];
@@ -167,14 +174,31 @@ export class PaceTracker {
     return this.emaSpeedKmH > 0.5 ? this.emaSpeedKmH : fallback;
   }
 
-  /** Estimate minutes to destination */
+  /** Estimate minutes to destination using blended short+long term speed */
   getETAMinutes(remainingKm: number, fallbackSpeed = 5): number {
-    const speed = this.getSpeedKmH(fallbackSpeed);
+    // Blend short-term (responsive) and long-term (stable) for better ETA
+    let speed = this.getSpeedKmH(fallbackSpeed);
+
+    if (this.longTermSamples.length >= 3) {
+      const first = this.longTermSamples[0];
+      const last = this.longTermSamples[this.longTermSamples.length - 1];
+      const dtH = (last.time - first.time) / 3600000;
+      const dD = last.distanceKm - first.distanceKm;
+      if (dtH > 0 && dD >= 0) {
+        const longSpeed = dD / dtH;
+        if (longSpeed > 0.5) {
+          // 60% long-term, 40% short-term for stable ETA
+          speed = longSpeed * 0.6 + speed * 0.4;
+        }
+      }
+    }
+
     return speed > 0 ? Math.round((remainingKm / speed) * 60) : 0;
   }
 
   reset() {
     this.samples = [];
+    this.longTermSamples = [];
     this.emaSpeedKmH = 0;
   }
 }
