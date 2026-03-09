@@ -158,6 +158,7 @@ export function startReminderPolling(): () => void {
           body = "Leave now to arrive on time. Walk with tranquility and dignity.";
         }
         sendNotification(title, body);
+        announce(title); // Also announce to screen readers
         try { addNotification("prayer_reminder", title, body); } catch { /* non-fatal */ }
         toRemove.push(i);
       }
