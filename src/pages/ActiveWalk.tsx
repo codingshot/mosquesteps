@@ -170,6 +170,7 @@ const ActiveWalk = () => {
 
   const stepCounterRef = useRef<StepCounter | null>(null);
   const watchIdRef = useRef<number | null>(null);
+  const walkSessionSnapshotRef = useRef<Partial<WalkSessionData>>({});
   const distanceRef = useRef(0);
   const speedSamples = useRef<number[]>([]);
   const arrivalDetectorRef = useRef(createArrivalDetector());
@@ -193,23 +194,28 @@ const ActiveWalk = () => {
     }
   }, []);
 
+  // Keep latest walk snapshot in a ref so persistence interval doesn't reset every second
+  useEffect(() => {
+    walkSessionSnapshotRef.current = {
+      isWalking: true,
+      elapsedSeconds,
+      distanceKm: distanceRef.current,
+      sensorSteps,
+      selectedPrayer,
+      positions: positions.slice(-50),
+    };
+  }, [elapsedSeconds, sensorSteps, selectedPrayer, positions]);
+
   // Persist walk session periodically during active walk
   useEffect(() => {
     if (!isWalking) return;
 
     const interval = setInterval(() => {
-      saveWalkSession({
-        isWalking: true,
-        elapsedSeconds,
-        distanceKm: distanceRef.current,
-        sensorSteps,
-        selectedPrayer,
-        positions: positions.slice(-50), // Keep last 50 positions
-      });
+      saveWalkSession(walkSessionSnapshotRef.current);
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [isWalking, elapsedSeconds, sensorSteps, selectedPrayer, positions]);
+  }, [isWalking]);
 
   // Track battery mode for adaptive features
   useEffect(() => {
