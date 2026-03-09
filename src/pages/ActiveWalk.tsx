@@ -783,6 +783,7 @@ const ActiveWalk = () => {
 
   const startWalk = useCallback(async () => {
     setIsWalking(true);
+    announce(`Walk started to ${effectiveMosqueName}. ${srDistance(mosqueDist)} away.`);
     try { sessionStorage.setItem("mosquesteps_active_walk", "active"); } catch {}
     setIsPaused(false);
     setElapsedSeconds(0);
