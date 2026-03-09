@@ -9,7 +9,6 @@ import { getNotificationPollInterval, shouldPollNotifications } from "@/lib/batt
 import { announce } from "@/lib/accessibility";
 
 const REMINDERS_STORAGE_KEY = "mosquesteps_scheduled_reminders";
-const REMINDER_POLL_INTERVAL_MS = 60 * 1000; // 1 minute
 let reminderPollIntervalId: ReturnType<typeof setInterval> | null = null;
 
 export interface ScheduledReminder {
