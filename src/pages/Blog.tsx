@@ -126,7 +126,12 @@ const Blog = () => {
           <p className="text-muted-foreground">Sunnah insights, app guides, and tips for your walking journey.</p>
         </div>
 
-        {categories.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-sm text-muted-foreground mt-3">Loading articles…</p>
+          </div>
+        ) : categories.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <p className="text-sm">No articles yet. Check back soon.</p>
           </div>
