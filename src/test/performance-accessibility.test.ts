@@ -56,13 +56,13 @@ describe("Smart Notifications", () => {
 
   it("applies weather adjustments", () => {
     const weather = {
+      temperatureC: 5,
+      windspeedKmh: 15,
+      weatherCode: 95,
       description: "Heavy rain",
       emoji: "🌧️",
       speedFactor: 0.7, // 30% slower
       advice: "Walk carefully",
-      tempC: 5,
-      windspeedKmh: 15,
-      code: 95,
     };
     
     const alert = calculateSmartAlert({
