@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { MapPin, Footprints, BarChart3, Trophy, LayoutDashboard, Play } from "lucide-react";
 import { motion } from "framer-motion";
+import { shouldAnimate } from "@/lib/battery-manager";
 
 const tabs = [
   { path: "/dashboard", label: "Home", icon: LayoutDashboard },
