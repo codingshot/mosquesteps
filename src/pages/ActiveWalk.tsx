@@ -2096,6 +2096,12 @@ const ActiveWalk = () => {
               <div className="w-px h-5 bg-border" />
               <div className="text-center">
                 <p className="text-sm font-bold text-foreground tabular-nums">
+                  {estimateCalories(displaySteps)}<span className="text-[10px] text-muted-foreground font-normal ml-0.5">kcal</span>
+                </p>
+              </div>
+              <div className="w-px h-5 bg-border" />
+              <div className="text-center">
+                <p className="text-sm font-bold text-foreground tabular-nums">
                   {smoothedSpeed > 0 ? smoothedSpeed.toFixed(1) : (elapsedSeconds > 30 ? (distanceKm / (elapsedSeconds / 3600)).toFixed(1) : "—")}<span className="text-[10px] text-muted-foreground font-normal ml-0.5">km/h</span>
                 </p>
               </div>
