@@ -4,7 +4,7 @@ import { ArrowLeft, Play, CircleStop, Pause, MapPin, Footprints, Clock, Star, Na
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { estimateSteps, estimateWalkingTime, calculateHasanat, fetchPrayerTimes, calculateLeaveByTime, minutesUntilLeave, getNowInTimezone, getIPGeolocation, type PrayerTime } from "@/lib/prayer-times";
-import { addWalkEntry, getSettings, getSavedMosques, toggleFavoriteMosque } from "@/lib/walking-history";
+import { addWalkEntry, getSettings, getSavedMosques, toggleFavoriteMosque, getWalkHistory } from "@/lib/walking-history";
 import { markPrayerWalked, updatePrayerLog, getTodayStr } from "@/lib/prayer-log";
 import { StepCounter, isStepCountingAvailable, getPaceCategory } from "@/lib/step-counter";
 import { fetchWalkingRoute, cancelPendingRoutes } from "@/lib/routing";
@@ -120,6 +120,8 @@ const ActiveWalk = () => {
   const prevStepIdxRef = useRef(0);
   const [distanceToTurnM, setDistanceToTurnM] = useState<number | null>(null);
   const [smoothedSpeed, setSmoothedSpeed] = useState(0); // rolling average km/h
+  const [autoPaused, setAutoPaused] = useState(false);
+  const milestonesAnnounced = useRef<Set<number>>(new Set());
 
   const stepCounterRef = useRef<StepCounter | null>(null);
   const distanceRef = useRef(0);
@@ -738,6 +740,53 @@ const ActiveWalk = () => {
     paceTrackerRef.current.addSample(distanceRef.current);
   }, [isWalking, isPaused, distanceKm]);
 
+  // Smart auto-pause: pause step counter after 60s stationary, resume when moving
+  useEffect(() => {
+    if (!isWalking || isPaused || !stationarySince.current) return;
+    const timer = setInterval(() => {
+      if (stationarySince.current && Date.now() - stationarySince.current > 60_000 && !isPaused) {
+        setAutoPaused(true);
+        const counter = stepCounterRef.current;
+        if (counter) counter.pause();
+        announce("Walk auto-paused — you've been stationary for 1 minute. Start moving to resume.");
+      }
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [isWalking, isPaused]);
+
+  // Auto-resume when movement detected after auto-pause
+  useEffect(() => {
+    if (autoPaused && isMoving) {
+      setAutoPaused(false);
+      const counter = stepCounterRef.current;
+      if (counter) counter.resume();
+      announce("Walk resumed — movement detected.");
+    }
+  }, [autoPaused, isMoving]);
+
+  // Milestone voice announcements at 25%, 50%, 75% of route
+  useEffect(() => {
+    if (!isWalking || isPaused || mosqueDist <= 0) return;
+    const pct = Math.floor(progressPercent * 100);
+    const milestones = [25, 50, 75];
+    for (const m of milestones) {
+      if (pct >= m && !milestonesAnnounced.current.has(m)) {
+        milestonesAnnounced.current.add(m);
+        const remainingKm = Math.max(0, mosqueDist - distanceKm);
+        const etaMin = paceTrackerRef.current.getETAMinutes(remainingKm);
+        const msg = m === 75
+          ? `Almost there! ${m}% complete. About ${etaMin} minutes remaining.`
+          : `${m}% of the way there. ${srDistance(remainingKm)} remaining.`;
+        announce(msg);
+        if (voiceEnabled && "speechSynthesis" in window) {
+          const utterance = new SpeechSynthesisUtterance(msg);
+          utterance.rate = 1.0;
+          window.speechSynthesis.speak(utterance);
+        }
+      }
+    }
+  }, [isWalking, isPaused, progressPercent, mosqueDist, distanceKm, voiceEnabled]);
+
   // Stop speech when walk ends
   useEffect(() => {
     if (!isWalking && "speechSynthesis" in window) {
@@ -786,6 +835,8 @@ const ActiveWalk = () => {
     announce(`Walk started to ${effectiveMosqueName}. ${srDistance(mosqueDist)} away.`);
     try { sessionStorage.setItem("mosquesteps_active_walk", "active"); } catch {}
     setIsPaused(false);
+    setAutoPaused(false);
+    milestonesAnnounced.current.clear();
     setElapsedSeconds(0);
     setDistanceKm(0);
     distanceRef.current = 0;
@@ -1545,10 +1596,10 @@ const ActiveWalk = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className={`font-semibold text-sm ${isMoving ? "text-success" : "text-warning"}`}>
-                    {isMoving ? "Moving" : "Stationary"}
+                    {isMoving ? "Moving" : autoPaused ? "Auto-paused" : "Stationary"}
                   </p>
                   <p className="text-muted-foreground text-[10px] mt-0.5">
-                    {isMoving ? "Steps and distance tracking live." : "Progress paused — start moving to continue."}
+                    {isMoving ? "Steps and distance tracking live." : autoPaused ? "Auto-paused after 1 min idle. Move to resume." : "Progress paused — start moving to continue."}
                   </p>
                 </div>
                 <span className={`text-xs font-bold tabular-nums ${isMoving ? "text-success" : "text-warning"}`}>
@@ -2040,6 +2091,29 @@ const ActiveWalk = () => {
                 <span className="block mt-0.5">{pace.message}</span>
               </div>
             </div>
+
+            {/* Pace comparison with history */}
+            {selectedPrayer && elapsedSeconds > 60 && distanceKm > 0.05 && (() => {
+              const history = getWalkHistory();
+              const pastWalks = history.filter(w => w.prayer === selectedPrayer && w.walkingTimeMin > 0 && w.distanceKm > 0);
+              if (pastWalks.length < 2) return null;
+              const avgPaceMinPerKm = pastWalks.reduce((s, w) => s + w.walkingTimeMin / w.distanceKm, 0) / pastWalks.length;
+              const currentPaceMinPerKm = (elapsedSeconds / 60) / distanceKm;
+              const diff = Math.round(((currentPaceMinPerKm - avgPaceMinPerKm) / avgPaceMinPerKm) * 100);
+              const isFaster = diff < -5;
+              const isSlower = diff > 5;
+              if (!isFaster && !isSlower) return null;
+              return (
+                <div className={`rounded-lg px-3 py-2 text-xs flex items-center gap-2 ${isFaster ? "bg-success/10 text-success" : "bg-warning/10 text-warning"}`}>
+                  <Flame className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span>
+                    {isFaster
+                      ? `${Math.abs(diff)}% faster than your usual ${selectedPrayer} walk pace`
+                      : `${diff}% slower than your usual ${selectedPrayer} walk pace`}
+                  </span>
+                </div>
+              );
+            })()}
 
             {/* Pace warning */}
             <AnimatePresence>
