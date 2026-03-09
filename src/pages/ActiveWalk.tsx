@@ -1968,7 +1968,7 @@ const ActiveWalk = () => {
                   return (
                     <div className="mt-2 space-y-1">
                       <div className={`flex items-center gap-1.5 text-xs font-medium ${
-                        diffMin < 0 ? "text-destructive" : diffMin <= 5 ? "text-amber-500" : "text-emerald-600 dark:text-emerald-400"
+                        diffMin < 0 ? "text-destructive" : diffMin <= 5 ? "text-warning" : "text-success"
                       }`}>
                         {diffMin < 0 ? (
                           <>⚠️ You may be {Math.abs(diffMin)} min late</>
