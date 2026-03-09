@@ -251,7 +251,7 @@ const Dashboard = () => {
           searchNearbyMosques(lat, lng).then((results) => {
             if (results.length > 0) {
               const closest = results[0];
-              const dist = Math.round(haversineDistance(lat, lng, closest.lat, closest.lon) * 100) / 100;
+              const dist = Math.round(haversineKm(lat, lng, closest.lat, closest.lon) * 100) / 100;
               saveSettings({
                 selectedMosqueName: closest.name,
                 selectedMosqueLat: closest.lat,
