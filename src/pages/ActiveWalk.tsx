@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { generateShareCard, shareOrDownload } from "@/lib/share-card";
 import { downloadFile } from "@/lib/stats-export";
 import { isNearMosque, addCheckIn, hasCheckedInToday } from "@/lib/checkin";
-import { createArrivalDetector, validateStepsAgainstGPS, PaceTracker, type ArrivalState } from "@/lib/step-validator";
+import { createArrivalDetector, validateStepsAgainstGPS, PaceTracker, type ArrivalState, recordStrideObservation, getLearnedStride } from "@/lib/step-validator";
 import { getNewlyEarnedBadges } from "@/lib/badges";
 import { getWalkingStats } from "@/lib/walking-history";
 import { addNotification, getNotificationSettings } from "@/lib/notification-store";
@@ -538,8 +538,9 @@ const ActiveWalk = () => {
         distAlongRoute.push(distAlongRoute[i - 1] + seg);
       }
 
-      // Segment-based off-route detection (perpendicular distance to nearest segment)
-      setOffRoute(checkOffRoute(routeCoords, currentPosition.lat, currentPosition.lng, 50));
+      // Accuracy-aware off-route detection: widen threshold when GPS is poor
+      const offRouteThreshold = gpsConfidence === "high" ? 40 : gpsConfidence === "medium" ? 65 : 100;
+      setOffRoute(checkOffRoute(routeCoords, currentPosition.lat, currentPosition.lng, offRouteThreshold));
 
       // Find closest route point for distance-along-route calculation
       let closestCoordIdx = 0;
@@ -927,8 +928,22 @@ const ActiveWalk = () => {
               const segmentDist = haversine(last.lat, last.lng, newPos.lat, newPos.lng);
               // Only count distance when moving AND >2m AND <100m (filter GPS jumps)
               if (moving && segmentDist > 0.002 && segmentDist < 0.1) {
-                distanceRef.current += segmentDist;
-                setDistanceKm(distanceRef.current);
+                // Reject backward movement: if we have a destination, only count
+                // distance that brings us closer (or at least doesn't go >20m backward)
+                const dest = effectiveDestination;
+                let countDistance = true;
+                if (dest) {
+                  const prevDistToDest = haversine(last.lat, last.lng, dest.lat, dest.lng);
+                  const newDistToDest = haversine(newPos.lat, newPos.lng, dest.lat, dest.lng);
+                  // Allow lateral movement (within 20m tolerance) but reject clear backward drift
+                  if (newDistToDest - prevDistToDest > 0.02) {
+                    countDistance = false;
+                  }
+                }
+                if (countDistance) {
+                  distanceRef.current += segmentDist;
+                  setDistanceKm(distanceRef.current);
+                }
                 return [...prev.slice(-300), newPos]; // cap breadcrumb trail
               }
               // Still update position on map for live dot even if not counting distance
@@ -992,6 +1007,11 @@ const ActiveWalk = () => {
       import("@/lib/smart-notifications").then(({ recordWalkingPattern }) => {
         recordWalkingPattern(selectedPrayer, walkTimeMin);
       });
+    }
+
+    // Learn stride length from this walk (sensor steps + GPS distance)
+    if (useRealSteps && sensorSteps > 50 && distanceRef.current > 0.03) {
+      recordStrideObservation(distanceRef.current, sensorSteps);
     }
 
     // In-app notification history + browser notification when enabled

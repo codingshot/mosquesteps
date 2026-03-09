@@ -2,21 +2,57 @@
  * GPS-Step cross-validation and arrival detection.
  * Validates sensor step counts against GPS distance to filter phantom steps,
  * and detects mosque arrival for auto-checkin prompts.
+ * Includes adaptive stride length learning from walk history.
  */
 
 import { haversineKm } from "@/lib/geo-utils";
+
+// ── Adaptive stride length learning ──
+
+const STRIDE_KEY = "mosquesteps_learned_stride";
+const MIN_STRIDE = 0.4;
+const MAX_STRIDE = 1.2;
+
+/** Load the user's learned stride length (metres). Falls back to default. */
+export function getLearnedStride(fallback = 0.77): number {
+  try {
+    const v = parseFloat(localStorage.getItem(STRIDE_KEY) || "");
+    return Number.isFinite(v) && v >= MIN_STRIDE && v <= MAX_STRIDE ? v : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Record a stride observation after a walk.
+ * Uses an exponential moving average so recent walks count more.
+ */
+export function recordStrideObservation(distanceKm: number, steps: number): void {
+  if (steps < 50 || distanceKm < 0.03) return; // too short to learn from
+  const observed = (distanceKm * 1000) / steps;
+  if (observed < MIN_STRIDE || observed > MAX_STRIDE) return; // outlier
+
+  const current = getLearnedStride();
+  const alpha = 0.3; // learning rate
+  const updated = current * (1 - alpha) + observed * alpha;
+  try {
+    localStorage.setItem(STRIDE_KEY, updated.toFixed(4));
+  } catch {}
+}
 
 /** Validate step count against GPS distance. Returns corrected step count. */
 export function validateStepsAgainstGPS(
   sensorSteps: number,
   gpsDistanceKm: number,
-  strideLength = 0.77 // meters
+  strideLength?: number
 ): { correctedSteps: number; confidence: "high" | "medium" | "low"; driftPercent: number } {
+  const stride = strideLength ?? getLearnedStride();
+
   if (gpsDistanceKm <= 0.005 || sensorSteps <= 0) {
     return { correctedSteps: sensorSteps, confidence: "low", driftPercent: 0 };
   }
 
-  const expectedSteps = Math.round((gpsDistanceKm * 1000) / strideLength);
+  const expectedSteps = Math.round((gpsDistanceKm * 1000) / stride);
   if (expectedSteps <= 0) {
     return { correctedSteps: sensorSteps, confidence: "low", driftPercent: 0 };
   }
@@ -98,19 +134,26 @@ export function createArrivalDetector(options?: {
   };
 }
 
-/** Adaptive ETA using exponential moving average of pace */
+/** Adaptive ETA using exponential moving average of pace with dual windows */
 export class PaceTracker {
   private samples: { time: number; distanceKm: number }[] = [];
   private emaSpeedKmH = 0;
   private readonly alpha = 0.3;
+  /** Longer-term average for better ETA on long walks */
+  private longTermSamples: { time: number; distanceKm: number }[] = [];
 
   addSample(distanceKm: number) {
     const now = Date.now();
     this.samples.push({ time: now, distanceKm });
+    this.longTermSamples.push({ time: now, distanceKm });
 
-    // Keep last 60 seconds of samples
+    // Short window: last 60 seconds (responsive to speed changes)
     const cutoff = now - 60000;
     this.samples = this.samples.filter(s => s.time >= cutoff);
+
+    // Long window: last 5 minutes (stable for ETA)
+    const longCutoff = now - 300000;
+    this.longTermSamples = this.longTermSamples.filter(s => s.time >= longCutoff);
 
     if (this.samples.length >= 2) {
       const first = this.samples[0];
@@ -131,14 +174,31 @@ export class PaceTracker {
     return this.emaSpeedKmH > 0.5 ? this.emaSpeedKmH : fallback;
   }
 
-  /** Estimate minutes to destination */
+  /** Estimate minutes to destination using blended short+long term speed */
   getETAMinutes(remainingKm: number, fallbackSpeed = 5): number {
-    const speed = this.getSpeedKmH(fallbackSpeed);
+    // Blend short-term (responsive) and long-term (stable) for better ETA
+    let speed = this.getSpeedKmH(fallbackSpeed);
+
+    if (this.longTermSamples.length >= 3) {
+      const first = this.longTermSamples[0];
+      const last = this.longTermSamples[this.longTermSamples.length - 1];
+      const dtH = (last.time - first.time) / 3600000;
+      const dD = last.distanceKm - first.distanceKm;
+      if (dtH > 0 && dD >= 0) {
+        const longSpeed = dD / dtH;
+        if (longSpeed > 0.5) {
+          // 60% long-term, 40% short-term for stable ETA
+          speed = longSpeed * 0.6 + speed * 0.4;
+        }
+      }
+    }
+
     return speed > 0 ? Math.round((remainingKm / speed) * 60) : 0;
   }
 
   reset() {
     this.samples = [];
+    this.longTermSamples = [];
     this.emaSpeedKmH = 0;
   }
 }
