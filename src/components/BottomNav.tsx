@@ -83,6 +83,7 @@ const BottomNav = () => {
                   className={`w-5 h-5 transition-colors ${
                     isActive ? "text-primary" : "text-muted-foreground"
                   }`}
+                  aria-hidden="true"
                 />
                 <span
                   className={`text-[10px] mt-0.5 font-medium transition-colors ${
