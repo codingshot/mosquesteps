@@ -53,6 +53,10 @@
     --teal-dark: 174 80% 18%;
     --cream: 42 100% 97%;
     --cream-dark: 42 40% 90%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 38 92% 20%;
+    --success: 158 64% 40%;
+    --success-foreground: 158 64% 96%;
   }
 
   .dark {
