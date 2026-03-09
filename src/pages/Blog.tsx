@@ -1,8 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
-import { blogPosts, BlogPost } from "@/lib/blog-data";
+import type { BlogPost } from "@/lib/blog-data";
 import SEOHead from "@/components/SEOHead";
 import logo from "@/assets/logo.png";
 
