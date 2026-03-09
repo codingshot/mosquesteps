@@ -942,6 +942,12 @@ const Dashboard = () => {
                 const walksToThis = prayerPrefs.includes(p.name);
                 const minsLeft = !isNextDay && walksToThis ? minutesUntilLeave(p.time, pWalkMin, settings.cityTimezone) : null;
 
+                // Smart alert for this prayer
+                const smartAlert = smartAlerts.find((a) => a.prayerName === p.name);
+                const smartLeaveBy = smartAlert
+                  ? `${smartAlert.leaveAt.getHours().toString().padStart(2, "0")}:${smartAlert.leaveAt.getMinutes().toString().padStart(2, "0")}`
+                  : null;
+
                 return (
                   <div key={p.name} className={`glass-card p-4 transition-all ${isNext ? "ring-2 ring-gold shadow-gold" : "hover:shadow-md"}`}>
                     <div className="flex items-center justify-between">
@@ -954,8 +960,24 @@ const Dashboard = () => {
                       </div>
                       <div className="text-right">
                         <p className="font-semibold text-foreground">{formatTimeStr(p.time, settings.timeFormat || "24h")}</p>
-                        {walksToThis && (
-                          <p className={`text-xs flex items-center gap-1 justify-end font-medium ${minsLeft !== null && minsLeft <= 5 ? "text-destructive" : minsLeft !== null && minsLeft <= 15 ? "text-amber-500" : "text-muted-foreground"}`}>
+                        {walksToThis && smartAlert ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <p className={`text-xs flex items-center gap-1 justify-end font-medium cursor-help ${smartAlert.urgency === "urgent" ? "text-destructive" : smartAlert.urgency === "important" ? "text-accent" : "text-muted-foreground"}`}>
+                                <Navigation className="w-3 h-3" /> Leave by {formatTimeStr(smartLeaveBy!, settings.timeFormat || "24h")}
+                                {smartAlert.weatherAdjusted && <span className="text-[10px]">🌧</span>}
+                              </p>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-[240px] p-2.5" side="left">
+                              <p className="text-xs text-popover-foreground">{smartAlert.message}</p>
+                              <p className="text-[10px] text-popover-foreground/60 mt-1">
+                                Confidence: {Math.round(smartAlert.confidence * 100)}% · Buffer: {smartAlert.bufferMinutes} min
+                                {smartAlert.weatherAdjusted && " · Weather-adjusted"}
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : walksToThis && (
+                          <p className={`text-xs flex items-center gap-1 justify-end font-medium ${minsLeft !== null && minsLeft <= 5 ? "text-destructive" : minsLeft !== null && minsLeft <= 15 ? "text-accent" : "text-muted-foreground"}`}>
                             <Navigation className="w-3 h-3" /> Leave by {formatTimeStr(leaveBy, settings.timeFormat || "24h")}
                             {minsLeft !== null && (
                               <span className="ml-1 opacity-80">

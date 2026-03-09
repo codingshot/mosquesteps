@@ -927,6 +927,13 @@ const ActiveWalk = () => {
       prayer: selectedPrayer,
     });
 
+    // Record walking pattern for smart notifications learning
+    if (selectedPrayer && walkTimeMin > 0) {
+      import("@/lib/smart-notifications").then(({ recordWalkingPattern }) => {
+        recordWalkingPattern(selectedPrayer, walkTimeMin);
+      });
+    }
+
     // In-app notification history + browser notification when enabled
     const walkTitle = `Walk complete! 🎉`;
     const walkBody = `${displaySteps.toLocaleString()} steps · ${hasanat.toLocaleString()} hasanat — ${mosqueName}`;
