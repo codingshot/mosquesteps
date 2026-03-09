@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { generateShareCard, shareOrDownload } from "@/lib/share-card";
 import { downloadFile } from "@/lib/stats-export";
 import { isNearMosque, addCheckIn, hasCheckedInToday } from "@/lib/checkin";
-import { createArrivalDetector, validateStepsAgainstGPS, PaceTracker, type ArrivalState } from "@/lib/step-validator";
+import { createArrivalDetector, validateStepsAgainstGPS, PaceTracker, type ArrivalState, recordStrideObservation, getLearnedStride } from "@/lib/step-validator";
 import { getNewlyEarnedBadges } from "@/lib/badges";
 import { getWalkingStats } from "@/lib/walking-history";
 import { addNotification, getNotificationSettings } from "@/lib/notification-store";
