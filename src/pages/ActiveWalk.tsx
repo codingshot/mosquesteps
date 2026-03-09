@@ -22,7 +22,7 @@ import { getNewlyEarnedBadges } from "@/lib/badges";
 import { getWalkingStats } from "@/lib/walking-history";
 import { addNotification, getNotificationSettings } from "@/lib/notification-store";
 import { sendNotification, getNotificationPermission } from "@/lib/notifications";
-import { getBatteryState, getGPSInterval, shouldAnimate } from "@/lib/battery-manager";
+import { getBatteryState, getGPSInterval, shouldAnimate, onBatteryChange } from "@/lib/battery-manager";
 import { announce, srDistance, srDuration, srSteps } from "@/lib/accessibility";
 import Confetti from "@/components/Confetti";
 import SEOHead from "@/components/SEOHead";
