@@ -95,6 +95,10 @@
     --teal-dark: 174 70% 50%;
     --cream: 215 30% 8%;
     --cream-dark: 215 25% 14%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 38 92% 85%;
+    --success: 158 64% 45%;
+    --success-foreground: 158 64% 90%;
   }
 }
 
