@@ -1528,27 +1528,27 @@ const ActiveWalk = () => {
             {isWalking && currentPosition && (
               <div className={`rounded-xl px-4 py-2.5 flex items-center gap-3 text-left border transition-colors duration-500 ${
                 isMoving 
-                  ? "bg-emerald-500/10 border-emerald-500/20" 
-                  : "bg-amber-500/10 border-amber-500/20"
+                  ? "bg-success/10 border-success/20" 
+                  : "bg-warning/10 border-warning/20"
               }`} role="status" aria-live="polite">
                 <div className="relative flex items-center justify-center flex-shrink-0">
                   {/* Pulsing dot */}
                   <span className={`absolute w-10 h-10 rounded-full animate-ping opacity-30 ${
-                    isMoving ? "bg-emerald-500" : "bg-amber-500"
+                    isMoving ? "bg-success" : "bg-warning"
                   }`} />
                   <span className={`relative w-3 h-3 rounded-full shadow-lg ${
-                    isMoving ? "bg-emerald-500" : "bg-amber-500"
+                    isMoving ? "bg-success" : "bg-warning"
                   }`} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className={`font-semibold text-sm ${isMoving ? "text-emerald-700 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400"}`}>
+                  <p className={`font-semibold text-sm ${isMoving ? "text-success" : "text-warning"}`}>
                     {isMoving ? "Moving" : "Stationary"}
                   </p>
                   <p className="text-muted-foreground text-[10px] mt-0.5">
                     {isMoving ? "Steps and distance tracking live." : "Progress paused — start moving to continue."}
                   </p>
                 </div>
-                <span className={`text-xs font-bold tabular-nums ${isMoving ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
+                <span className={`text-xs font-bold tabular-nums ${isMoving ? "text-success" : "text-warning"}`}>
                   {smoothedSpeed > 0 ? `${smoothedSpeed.toFixed(1)} km/h` : "—"}
                 </span>
               </div>
