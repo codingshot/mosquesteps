@@ -2380,7 +2380,7 @@ const ActiveWalk = () => {
                     <div className="space-y-1.5">
                       {returnRouteInfo.steps.map((s, i) => (
                         <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <div className="w-4 h-4 rounded-full bg-gold/20 text-amber-700 dark:text-amber-400 flex items-center justify-center text-[10px] font-bold flex-shrink-0">{i + 1}</div>
+                          <div className="w-4 h-4 rounded-full bg-gold/20 text-accent-foreground flex items-center justify-center text-[10px] font-bold flex-shrink-0">{i + 1}</div>
                           <span className="capitalize truncate flex-1">{formatDirection(s.instruction)}</span>
                           <span className="text-muted-foreground/60 flex-shrink-0">
                             {s.distance > 1000 ? `${(s.distance / 1000).toFixed(1)}km` : `${Math.round(s.distance)}m`}
