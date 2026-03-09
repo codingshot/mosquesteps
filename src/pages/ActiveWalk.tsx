@@ -973,6 +973,8 @@ const ActiveWalk = () => {
     setCompleted(true);
     setShowCelebration(true);
     announce(`Walk complete! ${srSteps(displaySteps)} walked, ${srDistance(distanceRef.current)} covered.`);
+    // Haptic: celebration pattern on completion
+    if ("vibrate" in navigator) navigator.vibrate([200, 100, 200, 100, 400]);
 
     const walkTimeMin = Math.round(elapsedSeconds / 60);
     addWalkEntry({
