@@ -5,9 +5,10 @@
  */
 
 import { getNotificationSettings, addNotification } from "@/lib/notification-store";
+import { getNotificationPollInterval, shouldPollNotifications } from "@/lib/battery-manager";
+import { announce } from "@/lib/accessibility";
 
 const REMINDERS_STORAGE_KEY = "mosquesteps_scheduled_reminders";
-const REMINDER_POLL_INTERVAL_MS = 60 * 1000; // 1 minute
 let reminderPollIntervalId: ReturnType<typeof setInterval> | null = null;
 
 export interface ScheduledReminder {
@@ -138,8 +139,10 @@ export function schedulePrayerTimeReminder(
  */
 export function startReminderPolling(): () => void {
   if (reminderPollIntervalId) return () => {};
+  
+  const pollInterval = getNotificationPollInterval();
   reminderPollIntervalId = setInterval(() => {
-    if (Notification.permission !== "granted") return;
+    if (!shouldPollNotifications() || Notification.permission !== "granted") return;
     const list = getStoredReminders();
     const now = Date.now();
     const toRemove: number[] = [];
@@ -155,6 +158,7 @@ export function startReminderPolling(): () => void {
           body = "Leave now to arrive on time. Walk with tranquility and dignity.";
         }
         sendNotification(title, body);
+        announce(title); // Also announce to screen readers
         try { addNotification("prayer_reminder", title, body); } catch { /* non-fatal */ }
         toRemove.push(i);
       }
@@ -162,7 +166,7 @@ export function startReminderPolling(): () => void {
     if (toRemove.length) {
       setStoredReminders(list.filter((_, i) => !toRemove.includes(i)));
     }
-  }, REMINDER_POLL_INTERVAL_MS);
+  }, pollInterval);
   return () => {
     if (reminderPollIntervalId) {
       clearInterval(reminderPollIntervalId);

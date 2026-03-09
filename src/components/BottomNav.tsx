@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { MapPin, Footprints, BarChart3, Trophy, LayoutDashboard, Play } from "lucide-react";
 import { motion } from "framer-motion";
+import { shouldAnimate } from "@/lib/battery-manager";
 
 const tabs = [
   { path: "/dashboard", label: "Home", icon: LayoutDashboard },
@@ -67,18 +68,23 @@ const BottomNav = () => {
                 key={tab.path}
                 to={tab.path}
                 className="flex flex-col items-center py-1.5 px-2 min-w-[56px] relative"
+                aria-label={`${tab.label} ${isActive ? "current page" : ""}`}
               >
-                {isActive && (
+                {isActive && shouldAnimate() && (
                   <motion.div
                     layoutId="bottomnav-indicator"
                     className="absolute -top-0.5 w-5 h-0.5 bg-primary rounded-full"
                     transition={{ type: "spring", stiffness: 400, damping: 30 }}
                   />
                 )}
+                {isActive && !shouldAnimate() && (
+                  <div className="absolute -top-0.5 w-5 h-0.5 bg-primary rounded-full" />
+                )}
                 <Icon
                   className={`w-5 h-5 transition-colors ${
                     isActive ? "text-primary" : "text-muted-foreground"
                   }`}
+                  aria-hidden="true"
                 />
                 <span
                   className={`text-[10px] mt-0.5 font-medium transition-colors ${

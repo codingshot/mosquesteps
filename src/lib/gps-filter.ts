@@ -4,6 +4,8 @@
  * Also provides location confidence scoring and stale position detection.
  */
 
+import { getPositionHistorySize } from "@/lib/battery-manager";
+
 export interface SmoothedPosition {
   lat: number;
   lng: number;
@@ -24,6 +26,7 @@ export class GPSFilter {
   private speed: number | null = null;
   private heading: number | null = null;
   private initialized = false;
+  private positionHistory: Array<{ lat: number; lng: number; timestamp: number }> = [];
 
   /** Process noise — how much we expect position to change between readings.
    *  Higher = more responsive but noisier. Tuned for walking (~1.4 m/s). */
@@ -72,6 +75,13 @@ export class GPSFilter {
       // Weighted accuracy update
       this.accuracy = this.accuracy + K * (accuracy - this.accuracy);
       this.lastUpdate = now;
+      
+      // Store in position history for battery-aware optimization
+      this.positionHistory.push({ lat: this.lat, lng: this.lng, timestamp: now });
+      const maxHistory = getPositionHistorySize();
+      if (this.positionHistory.length > maxHistory) {
+        this.positionHistory = this.positionHistory.slice(-maxHistory);
+      }
     }
 
     // Store speed and heading from GPS if available
@@ -120,6 +130,7 @@ export class GPSFilter {
     this.speed = null;
     this.heading = null;
     this.initialized = false;
+    this.positionHistory = [];
   }
 
   isInitialized(): boolean {
