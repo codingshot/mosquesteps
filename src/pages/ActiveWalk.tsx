@@ -835,6 +835,8 @@ const ActiveWalk = () => {
     announce(`Walk started to ${effectiveMosqueName}. ${srDistance(mosqueDist)} away.`);
     try { sessionStorage.setItem("mosquesteps_active_walk", "active"); } catch {}
     setIsPaused(false);
+    setAutoPaused(false);
+    milestonesAnnounced.current.clear();
     setElapsedSeconds(0);
     setDistanceKm(0);
     distanceRef.current = 0;
