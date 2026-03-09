@@ -151,6 +151,33 @@ const Dashboard = () => {
   const mosqueDistance = settings.selectedMosqueDistance;
   const walkingSpeed = settings.walkingSpeed;
 
+  // Smart alerts state
+  const [smartAlerts, setSmartAlerts] = useState<SmartAlert[]>([]);
+  const [weather, setWeather] = useState<WeatherCondition | null>(null);
+
+  // Fetch weather once for smart alerts
+  useEffect(() => {
+    const lat = settings.homeLat || settings.cityLat;
+    const lng = settings.homeLng || settings.cityLng;
+    if (lat && lng) {
+      fetchWeather(lat, lng).then((w) => { if (w) setWeather(w); }).catch(() => {});
+    }
+  }, []);
+
+  // Recalculate smart alerts when prayers or weather change
+  useEffect(() => {
+    if (prayers.length === 0) return;
+    const prayerInputs = prayers
+      .filter((p) => !p.isPast && prayerPrefs.includes(p.name))
+      .map((p) => ({
+        name: p.name,
+        time: p.time,
+        estimatedWalkMin: estimateWalkingTime(mosqueDistance, walkingSpeed),
+      }));
+    const alerts = calculateAllAlerts(prayerInputs, weather);
+    setSmartAlerts(alerts);
+  }, [prayers, weather]);
+
   const steps = estimateSteps(mosqueDistance * 2);
   const walkMin = estimateWalkingTime(mosqueDistance, walkingSpeed);
   const hasanat = calculateHasanat(steps);
