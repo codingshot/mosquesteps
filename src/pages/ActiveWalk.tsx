@@ -59,12 +59,55 @@ function getDirectionIcon(instruction: string, small = false) {
   return <ArrowUp className={size} />;
 }
 
+// Session persistence key for walk recovery
+const WALK_SESSION_KEY = "mosquesteps_walk_session";
+
+interface WalkSessionData {
+  isWalking: boolean;
+  elapsedSeconds: number;
+  distanceKm: number;
+  sensorSteps: number;
+  selectedPrayer: string;
+  startedAt: number;
+  positions: Position[];
+}
+
+const saveWalkSession = (data: Partial<WalkSessionData>) => {
+  try {
+    const existing = JSON.parse(localStorage.getItem(WALK_SESSION_KEY) || "{}");
+    localStorage.setItem(WALK_SESSION_KEY, JSON.stringify({ ...existing, ...data, lastUpdate: Date.now() }));
+  } catch {}
+};
+
+const loadWalkSession = (): WalkSessionData | null => {
+  try {
+    const data = JSON.parse(localStorage.getItem(WALK_SESSION_KEY) || "null");
+    if (!data || !data.isWalking) return null;
+    // Session expires after 2 hours
+    if (Date.now() - (data.lastUpdate || 0) > 2 * 60 * 60 * 1000) {
+      localStorage.removeItem(WALK_SESSION_KEY);
+      return null;
+    }
+    return data;
+  } catch {
+    return null;
+  }
+};
+
+const clearWalkSession = () => {
+  try { localStorage.removeItem(WALK_SESSION_KEY); } catch {}
+};
+
 const ActiveWalk = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [settings, setSettingsState] = useState(getSettings);
   const savedMosques = getSavedMosques();
+
+  // Check for recoverable session on mount
+  const recoveredSession = useRef(loadWalkSession());
+  const hasRecoveredRef = useRef(false);
 
   const [isWalking, setIsWalking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -114,6 +157,7 @@ const ActiveWalk = () => {
   const [showLocationDialog, setShowLocationDialog] = useState(false);
   const [showMapsSheet, setShowMapsSheet] = useState(false);
   const [deviceHeading, setDeviceHeading] = useState<number | null>(null);
+  const [showRecoveryBanner, setShowRecoveryBanner] = useState(false);
   const prevDirectionIdx = useRef(-1);
   const prepareAnnouncedForStep = useRef(-1);
   const prayerMarginAlerted = useRef(false);
@@ -122,6 +166,7 @@ const ActiveWalk = () => {
   const [smoothedSpeed, setSmoothedSpeed] = useState(0); // rolling average km/h
   const [autoPaused, setAutoPaused] = useState(false);
   const milestonesAnnounced = useRef<Set<number>>(new Set());
+  const [batteryMode, setBatteryMode] = useState<"full" | "balanced" | "saver">("full");
 
   const stepCounterRef = useRef<StepCounter | null>(null);
   const distanceRef = useRef(0);
@@ -133,6 +178,44 @@ const ActiveWalk = () => {
   const [stepConfidence, setStepConfidence] = useState<"high" | "medium" | "low">("high");
   const [gpsConfidence, setGpsConfidence] = useState<"high" | "medium" | "low">("low");
   const gpsFilterRef = useRef(new GPSFilter());
+
+  // Session recovery on mount
+  useEffect(() => {
+    if (hasRecoveredRef.current) return;
+    const session = recoveredSession.current;
+    if (session && session.isWalking) {
+      hasRecoveredRef.current = true;
+      setShowRecoveryBanner(true);
+      // Auto-hide recovery banner after 10s
+      const timer = setTimeout(() => setShowRecoveryBanner(false), 10000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  // Persist walk session periodically during active walk
+  useEffect(() => {
+    if (!isWalking) return;
+    const interval = setInterval(() => {
+      saveWalkSession({
+        isWalking: true,
+        elapsedSeconds,
+        distanceKm: distanceRef.current,
+        sensorSteps,
+        selectedPrayer,
+        positions: positions.slice(-50), // Keep last 50 positions
+      });
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [isWalking, elapsedSeconds, sensorSteps, selectedPrayer, positions]);
+
+  // Track battery mode for adaptive features
+  useEffect(() => {
+    const state = getBatteryState();
+    setBatteryMode(state.mode);
+    const { onBatteryChange } = require("@/lib/battery-manager");
+    const unsub = onBatteryChange((s: { mode: "full" | "balanced" | "saver" }) => setBatteryMode(s.mode));
+    return unsub;
+  }, []);
 
   // Mosque position from settings or prayer-specific mosque
   const prayerMosqueId = settings.prayerMosques?.[selectedPrayer];
