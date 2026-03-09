@@ -1110,6 +1110,7 @@ const ActiveWalk = () => {
         },
         { enableHighAccuracy: batteryMode === "full", maximumAge: gpsInterval, timeout: 15000 }
       );
+      watchIdRef.current = id;
       setWatchId(id);
     } else {
       setLocationSource("city");
