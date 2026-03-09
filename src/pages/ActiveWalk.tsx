@@ -2135,10 +2135,10 @@ const ActiveWalk = () => {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.65 }}
-                className="glass-card p-4 space-y-3 text-left border border-amber-500/20"
+                className="glass-card p-4 space-y-3 text-left border border-warning/20"
               >
                 <div className="flex items-start gap-2">
-                  <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-sm font-semibold text-foreground">0 steps recorded</p>
                     <p className="text-xs text-muted-foreground mt-1">
