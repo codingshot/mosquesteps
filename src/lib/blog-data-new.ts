@@ -617,7 +617,6 @@ The Prophet ﷺ said: *"Command your children to pray when they are seven"* (Abu
     image: "👨‍👩‍👧‍👦",
     readTime: "6 min read",
   },
-  },
   {
     slug: "new-muslim-first-time-mosque-guide",
     title: "First Time at the Mosque: A Gentle Guide for New Muslims",
