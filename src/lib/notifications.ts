@@ -5,6 +5,8 @@
  */
 
 import { getNotificationSettings, addNotification } from "@/lib/notification-store";
+import { getNotificationPollInterval, shouldPollNotifications } from "@/lib/battery-manager";
+import { announce } from "@/lib/accessibility";
 
 const REMINDERS_STORAGE_KEY = "mosquesteps_scheduled_reminders";
 const REMINDER_POLL_INTERVAL_MS = 60 * 1000; // 1 minute
