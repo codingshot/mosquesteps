@@ -85,10 +85,16 @@ const Dashboard = () => {
     }
   }, []);
 
-  // Start reminder polling so scheduled prayer reminders fire even after tab refresh
+  // Battery-aware reminder polling
   useEffect(() => {
+    if (!shouldPollNotifications()) return;
+    const interval = getNotificationPollInterval();
     const stop = startReminderPolling();
-    return stop;
+    // Re-check poll eligibility on interval change
+    const recheckTimer = setInterval(() => {
+      if (!shouldPollNotifications()) stop();
+    }, interval);
+    return () => { stop(); clearInterval(recheckTimer); };
   }, []);
 
   // Fetch real walking route to mosque — only from home address (not city/GPS fallback)
