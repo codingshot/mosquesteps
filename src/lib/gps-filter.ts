@@ -130,6 +130,7 @@ export class GPSFilter {
     this.speed = null;
     this.heading = null;
     this.initialized = false;
+    this.positionHistory = [];
   }
 
   isInitialized(): boolean {
