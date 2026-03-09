@@ -1278,6 +1278,42 @@ const ActiveWalk = () => {
               {isStepCountingAvailable() ? "Motion sensors available — real step counting!" : "Steps estimated from GPS."}
             </p>
 
+            {/* Session recovery banner */}
+            <AnimatePresence>
+              {showRecoveryBanner && recoveredSession.current && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="bg-gold/15 border border-gold/30 rounded-xl p-3 space-y-2"
+                >
+                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <AlertTriangle className="w-4 h-4 text-gold" />
+                    Walk in progress found
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {recoveredSession.current.sensorSteps?.toLocaleString() || 0} steps · {(recoveredSession.current.distanceKm || 0).toFixed(2)} km
+                  </p>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={recoverSession} className="flex-1 bg-gold hover:bg-gold/90 text-gold-foreground">
+                      Resume Walk
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={discardSession} className="flex-1">
+                      Start Fresh
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Battery saver indicator */}
+            {batteryMode === "saver" && (
+              <div className="flex items-center justify-center gap-2 bg-muted/50 rounded-lg px-3 py-1.5 text-xs text-muted-foreground">
+                <span className="w-2 h-2 rounded-full bg-gold animate-pulse" />
+                Battery saver mode — GPS updates reduced
+              </div>
+            )}
+
             {/* Walk streak motivator */}
             {(() => {
               const stats = getWalkingStats();
