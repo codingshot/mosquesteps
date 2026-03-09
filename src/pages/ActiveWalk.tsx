@@ -783,6 +783,7 @@ const ActiveWalk = () => {
 
   const startWalk = useCallback(async () => {
     setIsWalking(true);
+    announce(`Walk started to ${effectiveMosqueName}. ${srDistance(mosqueDist)} away.`);
     try { sessionStorage.setItem("mosquesteps_active_walk", "active"); } catch {}
     setIsPaused(false);
     setElapsedSeconds(0);
@@ -901,6 +902,7 @@ const ActiveWalk = () => {
       const next = !p;
       const counter = stepCounterRef.current;
       if (counter) next ? counter.pause() : counter.resume();
+      announce(next ? "Walk paused" : "Walk resumed");
       return next;
     });
   };
@@ -915,6 +917,7 @@ const ActiveWalk = () => {
     if (stepCounterRef.current) { stepCounterRef.current.stop(); stepCounterRef.current = null; }
     setCompleted(true);
     setShowCelebration(true);
+    announce(`Walk complete! ${srSteps(displaySteps)} walked, ${srDistance(distanceRef.current)} covered.`);
 
     const walkTimeMin = Math.round(elapsedSeconds / 60);
     addWalkEntry({
@@ -1234,7 +1237,7 @@ const ActiveWalk = () => {
                           Weather-adjusted walk: <span className={isUrgent ? "text-destructive" : "text-primary"}>{adjustedMin} min</span>
                           {isModified && <span className="text-muted-foreground font-normal"> (+{extraMin} min)</span>}
                         </p>
-                        <p className={`text-[10px] font-medium ${minsLeft <= 0 ? "text-destructive" : minsLeft <= 10 ? "text-amber-500" : "text-muted-foreground"}`}>
+                        <p className={`text-[10px] font-medium ${minsLeft <= 0 ? "text-destructive" : minsLeft <= 10 ? "text-warning" : "text-muted-foreground"}`}>
                           {minsLeft <= 0 ? "⚠️ Leave now!" : `Leave in ${minsLeft} min for ${selectedPrayer}`}
                         </p>
                       </div>
@@ -1488,7 +1491,7 @@ const ActiveWalk = () => {
                   {isReturnWalk ? "Walking Home" : `Walking to ${selectedPrayer}`}
                 </div>
                 {isPaused && (
-                  <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[10px] font-semibold uppercase tracking-wide">
+                  <span className="px-2 py-0.5 rounded-full bg-warning/20 text-warning-foreground text-[10px] font-semibold uppercase tracking-wide">
                     Paused
                   </span>
                 )}
@@ -1528,27 +1531,27 @@ const ActiveWalk = () => {
             {isWalking && currentPosition && (
               <div className={`rounded-xl px-4 py-2.5 flex items-center gap-3 text-left border transition-colors duration-500 ${
                 isMoving 
-                  ? "bg-emerald-500/10 border-emerald-500/20" 
-                  : "bg-amber-500/10 border-amber-500/20"
+                  ? "bg-success/10 border-success/20" 
+                  : "bg-warning/10 border-warning/20"
               }`} role="status" aria-live="polite">
                 <div className="relative flex items-center justify-center flex-shrink-0">
                   {/* Pulsing dot */}
                   <span className={`absolute w-10 h-10 rounded-full animate-ping opacity-30 ${
-                    isMoving ? "bg-emerald-500" : "bg-amber-500"
+                    isMoving ? "bg-success" : "bg-warning"
                   }`} />
                   <span className={`relative w-3 h-3 rounded-full shadow-lg ${
-                    isMoving ? "bg-emerald-500" : "bg-amber-500"
+                    isMoving ? "bg-success" : "bg-warning"
                   }`} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className={`font-semibold text-sm ${isMoving ? "text-emerald-700 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400"}`}>
+                  <p className={`font-semibold text-sm ${isMoving ? "text-success" : "text-warning"}`}>
                     {isMoving ? "Moving" : "Stationary"}
                   </p>
                   <p className="text-muted-foreground text-[10px] mt-0.5">
                     {isMoving ? "Steps and distance tracking live." : "Progress paused — start moving to continue."}
                   </p>
                 </div>
-                <span className={`text-xs font-bold tabular-nums ${isMoving ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
+                <span className={`text-xs font-bold tabular-nums ${isMoving ? "text-success" : "text-warning"}`}>
                   {smoothedSpeed > 0 ? `${smoothedSpeed.toFixed(1)} km/h` : "—"}
                 </span>
               </div>
@@ -1563,8 +1566,8 @@ const ActiveWalk = () => {
                   <span className={`w-1 rounded-full transition-colors ${gpsConfidence === "high" ? "bg-primary" : "bg-muted-foreground/30"}`} style={{ height: 14 }} />
                 </div>
                 <span className={`text-[10px] font-medium ${
-                  gpsConfidence === "high" ? "text-emerald-600 dark:text-emerald-400" 
-                  : gpsConfidence === "medium" ? "text-amber-600 dark:text-amber-400" 
+                  gpsConfidence === "high" ? "text-success" 
+                  : gpsConfidence === "medium" ? "text-warning" 
                   : "text-destructive"
                 }`}>
                   {gpsConfidence === "high" ? "Strong GPS" : gpsConfidence === "medium" ? "Fair GPS" : "Weak GPS"}
@@ -1771,11 +1774,11 @@ const ActiveWalk = () => {
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="glass-card px-3 py-3 flex items-center gap-3 text-left border border-green-500/40 bg-green-500/10"
+                className="glass-card px-3 py-3 flex items-center gap-3 text-left border border-success/40 bg-success/10"
                 role="alert"
                 aria-live="assertive"
               >
-                <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                <CheckCircle className="w-5 h-5 text-success flex-shrink-0" />
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-foreground">You've arrived! 🕌</p>
                   <p className="text-xs text-muted-foreground">Tap to check in at {effectiveMosqueName}</p>
@@ -1827,8 +1830,8 @@ const ActiveWalk = () => {
 
             {/* Off-route banner */}
             {offRoute && isWalking && (
-              <div className="glass-card px-3 py-2 flex items-center gap-2 text-left border border-amber-500/30 bg-amber-500/5" role="status" aria-live="polite">
-                <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+              <div className="glass-card px-3 py-2 flex items-center gap-2 text-left border border-warning/30 bg-warning/5" role="status" aria-live="polite">
+                <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0" />
                 <span className="text-xs font-medium text-foreground">
                   {offline ? "Off route — reconnect to recalculate" : "Off route — recalculating…"}
                 </span>
@@ -1968,7 +1971,7 @@ const ActiveWalk = () => {
                   return (
                     <div className="mt-2 space-y-1">
                       <div className={`flex items-center gap-1.5 text-xs font-medium ${
-                        diffMin < 0 ? "text-destructive" : diffMin <= 5 ? "text-amber-500" : "text-emerald-600 dark:text-emerald-400"
+                        diffMin < 0 ? "text-destructive" : diffMin <= 5 ? "text-warning" : "text-success"
                       }`}>
                         {diffMin < 0 ? (
                           <>⚠️ You may be {Math.abs(diffMin)} min late</>
@@ -2135,10 +2138,10 @@ const ActiveWalk = () => {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.65 }}
-                className="glass-card p-4 space-y-3 text-left border border-amber-500/20"
+                className="glass-card p-4 space-y-3 text-left border border-warning/20"
               >
                 <div className="flex items-start gap-2">
-                  <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-sm font-semibold text-foreground">0 steps recorded</p>
                     <p className="text-xs text-muted-foreground mt-1">
@@ -2380,7 +2383,7 @@ const ActiveWalk = () => {
                     <div className="space-y-1.5">
                       {returnRouteInfo.steps.map((s, i) => (
                         <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <div className="w-4 h-4 rounded-full bg-gold/20 text-amber-700 dark:text-amber-400 flex items-center justify-center text-[10px] font-bold flex-shrink-0">{i + 1}</div>
+                          <div className="w-4 h-4 rounded-full bg-gold/20 text-accent-foreground flex items-center justify-center text-[10px] font-bold flex-shrink-0">{i + 1}</div>
                           <span className="capitalize truncate flex-1">{formatDirection(s.instruction)}</span>
                           <span className="text-muted-foreground/60 flex-shrink-0">
                             {s.distance > 1000 ? `${(s.distance / 1000).toFixed(1)}km` : `${Math.round(s.distance)}m`}
