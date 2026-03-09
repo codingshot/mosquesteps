@@ -2092,6 +2092,29 @@ const ActiveWalk = () => {
               </div>
             </div>
 
+            {/* Pace comparison with history */}
+            {selectedPrayer && elapsedSeconds > 60 && distanceKm > 0.05 && (() => {
+              const history = getWalkHistory();
+              const pastWalks = history.filter(w => w.prayer === selectedPrayer && w.walkingTimeMin > 0 && w.distanceKm > 0);
+              if (pastWalks.length < 2) return null;
+              const avgPaceMinPerKm = pastWalks.reduce((s, w) => s + w.walkingTimeMin / w.distanceKm, 0) / pastWalks.length;
+              const currentPaceMinPerKm = (elapsedSeconds / 60) / distanceKm;
+              const diff = Math.round(((currentPaceMinPerKm - avgPaceMinPerKm) / avgPaceMinPerKm) * 100);
+              const isFaster = diff < -5;
+              const isSlower = diff > 5;
+              if (!isFaster && !isSlower) return null;
+              return (
+                <div className={`rounded-lg px-3 py-2 text-xs flex items-center gap-2 ${isFaster ? "bg-success/10 text-success" : "bg-warning/10 text-warning"}`}>
+                  <Flame className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span>
+                    {isFaster
+                      ? `${Math.abs(diff)}% faster than your usual ${selectedPrayer} walk pace`
+                      : `${diff}% slower than your usual ${selectedPrayer} walk pace`}
+                  </span>
+                </div>
+              );
+            })()}
+
             {/* Pace warning */}
             <AnimatePresence>
               {showPaceWarning && (
