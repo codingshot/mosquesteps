@@ -166,7 +166,7 @@ export function startReminderPolling(): () => void {
     if (toRemove.length) {
       setStoredReminders(list.filter((_, i) => !toRemove.includes(i)));
     }
-  }, REMINDER_POLL_INTERVAL_MS);
+  }, pollInterval);
   return () => {
     if (reminderPollIntervalId) {
       clearInterval(reminderPollIntervalId);
