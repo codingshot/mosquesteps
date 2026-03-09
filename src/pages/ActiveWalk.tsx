@@ -917,6 +917,7 @@ const ActiveWalk = () => {
     if (stepCounterRef.current) { stepCounterRef.current.stop(); stepCounterRef.current = null; }
     setCompleted(true);
     setShowCelebration(true);
+    announce(`Walk complete! ${srSteps(displaySteps)} walked, ${srDistance(distanceRef.current)} covered.`);
 
     const walkTimeMin = Math.round(elapsedSeconds / 60);
     addWalkEntry({
