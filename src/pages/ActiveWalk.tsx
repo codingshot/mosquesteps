@@ -740,6 +740,53 @@ const ActiveWalk = () => {
     paceTrackerRef.current.addSample(distanceRef.current);
   }, [isWalking, isPaused, distanceKm]);
 
+  // Smart auto-pause: pause step counter after 60s stationary, resume when moving
+  useEffect(() => {
+    if (!isWalking || isPaused || !stationarySince.current) return;
+    const timer = setInterval(() => {
+      if (stationarySince.current && Date.now() - stationarySince.current > 60_000 && !isPaused) {
+        setAutoPaused(true);
+        const counter = stepCounterRef.current;
+        if (counter) counter.pause();
+        announce("Walk auto-paused — you've been stationary for 1 minute. Start moving to resume.");
+      }
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [isWalking, isPaused]);
+
+  // Auto-resume when movement detected after auto-pause
+  useEffect(() => {
+    if (autoPaused && isMoving) {
+      setAutoPaused(false);
+      const counter = stepCounterRef.current;
+      if (counter) counter.resume();
+      announce("Walk resumed — movement detected.");
+    }
+  }, [autoPaused, isMoving]);
+
+  // Milestone voice announcements at 25%, 50%, 75% of route
+  useEffect(() => {
+    if (!isWalking || isPaused || mosqueDist <= 0) return;
+    const pct = Math.floor(progressPercent * 100);
+    const milestones = [25, 50, 75];
+    for (const m of milestones) {
+      if (pct >= m && !milestonesAnnounced.current.has(m)) {
+        milestonesAnnounced.current.add(m);
+        const remainingKm = Math.max(0, mosqueDist - distanceKm);
+        const etaMin = paceTrackerRef.current.getETAMinutes(remainingKm);
+        const msg = m === 75
+          ? `Almost there! ${m}% complete. About ${etaMin} minutes remaining.`
+          : `${m}% of the way there. ${srDistance(remainingKm)} remaining.`;
+        announce(msg);
+        if (voiceEnabled && "speechSynthesis" in window) {
+          const utterance = new SpeechSynthesisUtterance(msg);
+          utterance.rate = 1.0;
+          window.speechSynthesis.speak(utterance);
+        }
+      }
+    }
+  }, [isWalking, isPaused, progressPercent, mosqueDist, distanceKm, voiceEnabled]);
+
   // Stop speech when walk ends
   useEffect(() => {
     if (!isWalking && "speechSynthesis" in window) {
