@@ -1234,7 +1234,7 @@ const ActiveWalk = () => {
                           Weather-adjusted walk: <span className={isUrgent ? "text-destructive" : "text-primary"}>{adjustedMin} min</span>
                           {isModified && <span className="text-muted-foreground font-normal"> (+{extraMin} min)</span>}
                         </p>
-                        <p className={`text-[10px] font-medium ${minsLeft <= 0 ? "text-destructive" : minsLeft <= 10 ? "text-amber-500" : "text-muted-foreground"}`}>
+                        <p className={`text-[10px] font-medium ${minsLeft <= 0 ? "text-destructive" : minsLeft <= 10 ? "text-warning" : "text-muted-foreground"}`}>
                           {minsLeft <= 0 ? "⚠️ Leave now!" : `Leave in ${minsLeft} min for ${selectedPrayer}`}
                         </p>
                       </div>
