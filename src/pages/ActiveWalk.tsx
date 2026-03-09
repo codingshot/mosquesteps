@@ -1488,7 +1488,7 @@ const ActiveWalk = () => {
                   {isReturnWalk ? "Walking Home" : `Walking to ${selectedPrayer}`}
                 </div>
                 {isPaused && (
-                  <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[10px] font-semibold uppercase tracking-wide">
+                  <span className="px-2 py-0.5 rounded-full bg-warning/20 text-warning-foreground text-[10px] font-semibold uppercase tracking-wide">
                     Paused
                   </span>
                 )}
