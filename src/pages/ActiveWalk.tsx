@@ -169,6 +169,8 @@ const ActiveWalk = () => {
   const [batteryMode, setBatteryMode] = useState<"full" | "balanced" | "saver">("full");
 
   const stepCounterRef = useRef<StepCounter | null>(null);
+  const watchIdRef = useRef<number | null>(null);
+  const walkSessionSnapshotRef = useRef<Partial<WalkSessionData>>({});
   const distanceRef = useRef(0);
   const speedSamples = useRef<number[]>([]);
   const arrivalDetectorRef = useRef(createArrivalDetector());
@@ -192,21 +194,28 @@ const ActiveWalk = () => {
     }
   }, []);
 
+  // Keep latest walk snapshot in a ref so persistence interval doesn't reset every second
+  useEffect(() => {
+    walkSessionSnapshotRef.current = {
+      isWalking: true,
+      elapsedSeconds,
+      distanceKm: distanceRef.current,
+      sensorSteps,
+      selectedPrayer,
+      positions: positions.slice(-50),
+    };
+  }, [elapsedSeconds, sensorSteps, selectedPrayer, positions]);
+
   // Persist walk session periodically during active walk
   useEffect(() => {
     if (!isWalking) return;
+
     const interval = setInterval(() => {
-      saveWalkSession({
-        isWalking: true,
-        elapsedSeconds,
-        distanceKm: distanceRef.current,
-        sensorSteps,
-        selectedPrayer,
-        positions: positions.slice(-50), // Keep last 50 positions
-      });
+      saveWalkSession(walkSessionSnapshotRef.current);
     }, 5000);
+
     return () => clearInterval(interval);
-  }, [isWalking, elapsedSeconds, sensorSteps, selectedPrayer, positions]);
+  }, [isWalking]);
 
   // Track battery mode for adaptive features
   useEffect(() => {
@@ -214,6 +223,29 @@ const ActiveWalk = () => {
     setBatteryMode(state.mode);
     const unsub = onBatteryChange((s) => setBatteryMode(s.mode));
     return unsub;
+  }, []);
+
+  // Keep refs in sync for reliable cleanup
+  useEffect(() => {
+    watchIdRef.current = watchId;
+  }, [watchId]);
+
+  // Cleanup sensors/watchers on unmount (e.g., route changes during walk)
+  useEffect(() => {
+    return () => {
+      const activeWatchId = watchIdRef.current;
+      if (activeWatchId !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(activeWatchId);
+      }
+      if (stepCounterRef.current) {
+        stepCounterRef.current.stop();
+        stepCounterRef.current = null;
+      }
+      cancelPendingRoutes();
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
   }, []);
 
   // Mosque position from settings or prayer-specific mosque
@@ -954,6 +986,7 @@ const ActiveWalk = () => {
         () => setLocationSource("city"),
         { enableHighAccuracy: batteryMode === "full", maximumAge: gpsInterval, timeout: 15000 }
       );
+      watchIdRef.current = id;
       setWatchId(id);
     }
   }, [toast, batteryMode]);
@@ -1083,6 +1116,7 @@ const ActiveWalk = () => {
         },
         { enableHighAccuracy: batteryMode === "full", maximumAge: gpsInterval, timeout: 15000 }
       );
+      watchIdRef.current = id;
       setWatchId(id);
     } else {
       setLocationSource("city");
@@ -1750,6 +1784,11 @@ const ActiveWalk = () => {
                 {isPaused && (
                   <span className="px-2 py-0.5 rounded-full bg-warning/20 text-warning-foreground text-[10px] font-semibold uppercase tracking-wide">
                     Paused
+                  </span>
+                )}
+                {batteryMode === "saver" && (
+                  <span className="px-2 py-0.5 rounded-full bg-gold/15 text-gold text-[10px] font-semibold uppercase tracking-wide">
+                    Saver GPS
                   </span>
                 )}
               </div>
