@@ -538,8 +538,9 @@ const ActiveWalk = () => {
         distAlongRoute.push(distAlongRoute[i - 1] + seg);
       }
 
-      // Segment-based off-route detection (perpendicular distance to nearest segment)
-      setOffRoute(checkOffRoute(routeCoords, currentPosition.lat, currentPosition.lng, 50));
+      // Accuracy-aware off-route detection: widen threshold when GPS is poor
+      const offRouteThreshold = gpsConfidence === "high" ? 40 : gpsConfidence === "medium" ? 65 : 100;
+      setOffRoute(checkOffRoute(routeCoords, currentPosition.lat, currentPosition.lng, offRouteThreshold));
 
       // Find closest route point for distance-along-route calculation
       let closestCoordIdx = 0;
