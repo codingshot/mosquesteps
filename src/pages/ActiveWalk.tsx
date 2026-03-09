@@ -212,8 +212,7 @@ const ActiveWalk = () => {
   useEffect(() => {
     const state = getBatteryState();
     setBatteryMode(state.mode);
-    const { onBatteryChange } = require("@/lib/battery-manager");
-    const unsub = onBatteryChange((s: { mode: "full" | "balanced" | "saver" }) => setBatteryMode(s.mode));
+    const unsub = onBatteryChange((s) => setBatteryMode(s.mode));
     return unsub;
   }, []);
 
