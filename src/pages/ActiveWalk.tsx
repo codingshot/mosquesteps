@@ -169,6 +169,7 @@ const ActiveWalk = () => {
   const [batteryMode, setBatteryMode] = useState<"full" | "balanced" | "saver">("full");
 
   const stepCounterRef = useRef<StepCounter | null>(null);
+  const watchIdRef = useRef<number | null>(null);
   const distanceRef = useRef(0);
   const speedSamples = useRef<number[]>([]);
   const arrivalDetectorRef = useRef(createArrivalDetector());
