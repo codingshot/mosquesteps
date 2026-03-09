@@ -1771,11 +1771,11 @@ const ActiveWalk = () => {
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="glass-card px-3 py-3 flex items-center gap-3 text-left border border-green-500/40 bg-green-500/10"
+                className="glass-card px-3 py-3 flex items-center gap-3 text-left border border-success/40 bg-success/10"
                 role="alert"
                 aria-live="assertive"
               >
-                <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                <CheckCircle className="w-5 h-5 text-success flex-shrink-0" />
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-foreground">You've arrived! 🕌</p>
                   <p className="text-xs text-muted-foreground">Tap to check in at {effectiveMosqueName}</p>
