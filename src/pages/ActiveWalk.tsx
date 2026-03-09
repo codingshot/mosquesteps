@@ -764,7 +764,7 @@ const ActiveWalk = () => {
     }
   }, [autoPaused, isMoving]);
 
-  // Milestone voice announcements at 25%, 50%, 75% of route
+  // Milestone voice announcements at 25%, 50%, 75% of route — with haptic feedback
   useEffect(() => {
     if (!isWalking || isPaused || mosqueDist <= 0) return;
     const pct = Math.floor(progressPercent * 100);
@@ -778,6 +778,8 @@ const ActiveWalk = () => {
           ? `Almost there! ${m}% complete. About ${etaMin} minutes remaining.`
           : `${m}% of the way there. ${srDistance(remainingKm)} remaining.`;
         announce(msg);
+        // Haptic: gentle double-tap for milestones
+        if ("vibrate" in navigator) navigator.vibrate([100, 80, 100]);
         if (voiceEnabled && "speechSynthesis" in window) {
           const utterance = new SpeechSynthesisUtterance(msg);
           utterance.rate = 1.0;
@@ -954,6 +956,8 @@ const ActiveWalk = () => {
       const counter = stepCounterRef.current;
       if (counter) next ? counter.pause() : counter.resume();
       announce(next ? "Walk paused" : "Walk resumed");
+      // Haptic: short buzz on pause, double on resume
+      if ("vibrate" in navigator) navigator.vibrate(next ? [150] : [80, 60, 80]);
       return next;
     });
   };
@@ -969,6 +973,8 @@ const ActiveWalk = () => {
     setCompleted(true);
     setShowCelebration(true);
     announce(`Walk complete! ${srSteps(displaySteps)} walked, ${srDistance(distanceRef.current)} covered.`);
+    // Haptic: celebration pattern on completion
+    if ("vibrate" in navigator) navigator.vibrate([200, 100, 200, 100, 400]);
 
     const walkTimeMin = Math.round(elapsedSeconds / 60);
     addWalkEntry({
@@ -1120,6 +1126,20 @@ const ActiveWalk = () => {
             <p className="text-sm text-muted-foreground">
               {isStepCountingAvailable() ? "Motion sensors available — real step counting!" : "Steps estimated from GPS."}
             </p>
+
+            {/* Walk streak motivator */}
+            {(() => {
+              const stats = getWalkingStats();
+              if (stats.currentStreak <= 0) return null;
+              return (
+                <div className="flex items-center justify-center gap-2 bg-gold/10 border border-gold/20 rounded-xl px-4 py-2">
+                  <Flame className="w-4 h-4 text-gold" />
+                  <span className="text-xs font-semibold text-foreground">
+                    {stats.currentStreak}-day streak! Keep it going 🔥
+                  </span>
+                </div>
+              );
+            })()}
 
             {/* Prayer selection with time info */}
             <div className="glass-card p-4 text-left">
@@ -2078,6 +2098,12 @@ const ActiveWalk = () => {
               <div className="w-px h-5 bg-border" />
               <div className="text-center">
                 <p className="text-sm font-bold text-foreground tabular-nums">
+                  {estimateCalories(displaySteps)}<span className="text-[10px] text-muted-foreground font-normal ml-0.5">kcal</span>
+                </p>
+              </div>
+              <div className="w-px h-5 bg-border" />
+              <div className="text-center">
+                <p className="text-sm font-bold text-foreground tabular-nums">
                   {smoothedSpeed > 0 ? smoothedSpeed.toFixed(1) : (elapsedSeconds > 30 ? (distanceKm / (elapsedSeconds / 3600)).toFixed(1) : "—")}<span className="text-[10px] text-muted-foreground font-normal ml-0.5">km/h</span>
                 </p>
               </div>
@@ -2205,6 +2231,45 @@ const ActiveWalk = () => {
                 </div>
               </div>
             </motion.div>
+
+            {/* Personal bests & streak */}
+            {(() => {
+              const history = getWalkHistory();
+              const stats = getWalkingStats();
+              if (history.length < 2) return null;
+              const maxSteps = Math.max(...history.map(w => w.steps));
+              const maxDist = Math.max(...history.map(w => w.distanceKm));
+              const maxHasanat = Math.max(...history.map(w => w.hasanat));
+              const isStepsPB = displaySteps >= maxSteps && displaySteps > 0;
+              const isDistPB = distanceKm >= maxDist && distanceKm > 0;
+              const isHasanatPB = hasanat >= maxHasanat && hasanat > 0;
+              const hasPB = isStepsPB || isDistPB || isHasanatPB;
+              return (
+                <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65 }} className="space-y-2">
+                  {hasPB && (
+                    <div className="rounded-xl border border-gold/30 bg-gold/10 p-3 flex items-center gap-2">
+                      <Trophy className="w-5 h-5 text-gold flex-shrink-0" />
+                      <div className="text-left">
+                        <p className="text-sm font-bold text-foreground">New Personal Best! 🏅</p>
+                        <p className="text-xs text-muted-foreground">
+                          {[isStepsPB && "steps", isDistPB && "distance", isHasanatPB && "hasanat"].filter(Boolean).join(", ")} record broken
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {stats.currentStreak > 0 && (
+                    <div className="rounded-xl bg-muted/50 border border-border p-3 flex items-center gap-3">
+                      <Flame className="w-5 h-5 text-gold flex-shrink-0" />
+                      <div className="text-left flex-1">
+                        <p className="text-sm font-semibold text-foreground">{stats.currentStreak}-day streak</p>
+                        <p className="text-[10px] text-muted-foreground">Best: {stats.longestStreak} days</p>
+                      </div>
+                      <span className="text-lg">🔥</span>
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })()}
 
             {/* Zero steps explanation & override */}
             {displaySteps === 0 && elapsedSeconds > 60 && (
