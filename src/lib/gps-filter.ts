@@ -4,6 +4,8 @@
  * Also provides location confidence scoring and stale position detection.
  */
 
+import { getPositionHistorySize } from "@/lib/battery-manager";
+
 export interface SmoothedPosition {
   lat: number;
   lng: number;
