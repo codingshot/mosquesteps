@@ -39,13 +39,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
+import { haversineKm } from "@/lib/geo-utils";
+import { calculateAllAlerts, type SmartAlert } from "@/lib/smart-notifications";
+import { shouldPollNotifications, getNotificationPollInterval } from "@/lib/battery-manager";
+import { fetchWeather, type WeatherCondition } from "@/lib/weather";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -88,10 +85,16 @@ const Dashboard = () => {
     }
   }, []);
 
-  // Start reminder polling so scheduled prayer reminders fire even after tab refresh
+  // Battery-aware reminder polling
   useEffect(() => {
+    if (!shouldPollNotifications()) return;
+    const interval = getNotificationPollInterval();
     const stop = startReminderPolling();
-    return stop;
+    // Re-check poll eligibility on interval change
+    const recheckTimer = setInterval(() => {
+      if (!shouldPollNotifications()) stop();
+    }, interval);
+    return () => { stop(); clearInterval(recheckTimer); };
   }, []);
 
   // Fetch real walking route to mosque — only from home address (not city/GPS fallback)
@@ -147,6 +150,33 @@ const Dashboard = () => {
   const nextBadge = badges.find((b) => !b.badge.earned);
   const mosqueDistance = settings.selectedMosqueDistance;
   const walkingSpeed = settings.walkingSpeed;
+
+  // Smart alerts state
+  const [smartAlerts, setSmartAlerts] = useState<SmartAlert[]>([]);
+  const [weather, setWeather] = useState<WeatherCondition | null>(null);
+
+  // Fetch weather once for smart alerts
+  useEffect(() => {
+    const lat = settings.homeLat || settings.cityLat;
+    const lng = settings.homeLng || settings.cityLng;
+    if (lat && lng) {
+      fetchWeather(lat, lng).then((w) => { if (w) setWeather(w); }).catch(() => {});
+    }
+  }, []);
+
+  // Recalculate smart alerts when prayers or weather change
+  useEffect(() => {
+    if (prayers.length === 0) return;
+    const prayerInputs = prayers
+      .filter((p) => !p.isPast && prayerPrefs.includes(p.name))
+      .map((p) => ({
+        name: p.name,
+        time: p.time,
+        estimatedWalkMin: estimateWalkingTime(mosqueDistance, walkingSpeed),
+      }));
+    const alerts = calculateAllAlerts(prayerInputs, weather);
+    setSmartAlerts(alerts);
+  }, [prayers, weather]);
 
   const steps = estimateSteps(mosqueDistance * 2);
   const walkMin = estimateWalkingTime(mosqueDistance, walkingSpeed);
@@ -248,7 +278,7 @@ const Dashboard = () => {
           searchNearbyMosques(lat, lng).then((results) => {
             if (results.length > 0) {
               const closest = results[0];
-              const dist = Math.round(haversineDistance(lat, lng, closest.lat, closest.lon) * 100) / 100;
+              const dist = Math.round(haversineKm(lat, lng, closest.lat, closest.lon) * 100) / 100;
               saveSettings({
                 selectedMosqueName: closest.name,
                 selectedMosqueLat: closest.lat,
@@ -912,6 +942,12 @@ const Dashboard = () => {
                 const walksToThis = prayerPrefs.includes(p.name);
                 const minsLeft = !isNextDay && walksToThis ? minutesUntilLeave(p.time, pWalkMin, settings.cityTimezone) : null;
 
+                // Smart alert for this prayer
+                const smartAlert = smartAlerts.find((a) => a.prayerName === p.name);
+                const smartLeaveBy = smartAlert
+                  ? `${smartAlert.leaveAt.getHours().toString().padStart(2, "0")}:${smartAlert.leaveAt.getMinutes().toString().padStart(2, "0")}`
+                  : null;
+
                 return (
                   <div key={p.name} className={`glass-card p-4 transition-all ${isNext ? "ring-2 ring-gold shadow-gold" : "hover:shadow-md"}`}>
                     <div className="flex items-center justify-between">
@@ -924,8 +960,24 @@ const Dashboard = () => {
                       </div>
                       <div className="text-right">
                         <p className="font-semibold text-foreground">{formatTimeStr(p.time, settings.timeFormat || "24h")}</p>
-                        {walksToThis && (
-                          <p className={`text-xs flex items-center gap-1 justify-end font-medium ${minsLeft !== null && minsLeft <= 5 ? "text-destructive" : minsLeft !== null && minsLeft <= 15 ? "text-amber-500" : "text-muted-foreground"}`}>
+                        {walksToThis && smartAlert ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <p className={`text-xs flex items-center gap-1 justify-end font-medium cursor-help ${smartAlert.urgency === "urgent" ? "text-destructive" : smartAlert.urgency === "important" ? "text-accent" : "text-muted-foreground"}`}>
+                                <Navigation className="w-3 h-3" /> Leave by {formatTimeStr(smartLeaveBy!, settings.timeFormat || "24h")}
+                                {smartAlert.weatherAdjusted && <span className="text-[10px]">🌧</span>}
+                              </p>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-[240px] p-2.5" side="left">
+                              <p className="text-xs text-popover-foreground">{smartAlert.message}</p>
+                              <p className="text-[10px] text-popover-foreground/60 mt-1">
+                                Confidence: {Math.round(smartAlert.confidence * 100)}% · Buffer: {smartAlert.bufferMinutes} min
+                                {smartAlert.weatherAdjusted && " · Weather-adjusted"}
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : walksToThis && (
+                          <p className={`text-xs flex items-center gap-1 justify-end font-medium ${minsLeft !== null && minsLeft <= 5 ? "text-destructive" : minsLeft !== null && minsLeft <= 15 ? "text-accent" : "text-muted-foreground"}`}>
                             <Navigation className="w-3 h-3" /> Leave by {formatTimeStr(leaveBy, settings.timeFormat || "24h")}
                             {minsLeft !== null && (
                               <span className="ml-1 opacity-80">
