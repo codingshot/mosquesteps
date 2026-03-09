@@ -956,6 +956,8 @@ const ActiveWalk = () => {
       const counter = stepCounterRef.current;
       if (counter) next ? counter.pause() : counter.resume();
       announce(next ? "Walk paused" : "Walk resumed");
+      // Haptic: short buzz on pause, double on resume
+      if ("vibrate" in navigator) navigator.vibrate(next ? [150] : [80, 60, 80]);
       return next;
     });
   };
