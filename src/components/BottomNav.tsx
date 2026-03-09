@@ -68,6 +68,7 @@ const BottomNav = () => {
                 key={tab.path}
                 to={tab.path}
                 className="flex flex-col items-center py-1.5 px-2 min-w-[56px] relative"
+                aria-label={`${tab.label} ${isActive ? "current page" : ""}`}
               >
                 {isActive && shouldAnimate() && (
                   <motion.div
