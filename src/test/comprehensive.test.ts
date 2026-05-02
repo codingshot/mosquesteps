@@ -232,6 +232,33 @@ describe("Badge system", () => {
     expect(firstSteps?.percent).toBe(100);
   });
 
+  it("five_prayers (Full Day) badge earned when all five daily prayers are walked the same local day", () => {
+    const day = "2026-08-15";
+    const base = { mosqueName: "M", distanceKm: 0.4, steps: 80, walkingTimeMin: 5, hasanat: 160 } as const;
+    addWalkEntry({ ...base, date: `${day}T08:00:00.000Z`, prayer: "Fajr" });
+    addWalkEntry({ ...base, date: `${day}T12:00:00.000Z`, prayer: "Dhuhr" });
+    addWalkEntry({ ...base, date: `${day}T15:00:00.000Z`, prayer: "Asr" });
+    addWalkEntry({ ...base, date: `${day}T18:00:00.000Z`, prayer: "Maghrib" });
+    addWalkEntry({ ...base, date: `${day}T21:00:00.000Z`, prayer: "Isha" });
+    const stats = getWalkingStats();
+    expect(stats.bestObligatoryPrayersInOneDay).toBe(5);
+    const badges = getBadges(stats);
+    expect(badges.find((b) => b.badge.id === "five_prayers")?.badge.earned).toBe(true);
+  });
+
+  it("five_prayers badge not earned when five obligatory names appear only across different days", () => {
+    const base = { mosqueName: "M", distanceKm: 0.4, steps: 80, walkingTimeMin: 5, hasanat: 160 } as const;
+    addWalkEntry({ ...base, date: "2026-09-01T10:00:00.000Z", prayer: "Fajr" });
+    addWalkEntry({ ...base, date: "2026-09-02T10:00:00.000Z", prayer: "Dhuhr" });
+    addWalkEntry({ ...base, date: "2026-09-03T10:00:00.000Z", prayer: "Asr" });
+    addWalkEntry({ ...base, date: "2026-09-04T10:00:00.000Z", prayer: "Maghrib" });
+    addWalkEntry({ ...base, date: "2026-09-05T10:00:00.000Z", prayer: "Isha" });
+    const stats = getWalkingStats();
+    expect(stats.bestObligatoryPrayersInOneDay).toBe(1);
+    const badges = getBadges(stats);
+    expect(badges.find((b) => b.badge.id === "five_prayers")?.badge.earned).toBe(false);
+  });
+
   it("progress percentage capped at 100", () => {
     const badges = getBadges({ totalWalks: 100, totalSteps: 200000, totalHasanat: 400000, totalDistance: 100, currentStreak: 50, longestStreak: 50, walksByPrayer: {} });
     badges.forEach((b) => {

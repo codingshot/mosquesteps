@@ -115,6 +115,9 @@ export function srDistance(km: number, unit: "km" | "mi" = "km"): string {
 
 /** Format duration for screen readers (e.g. "12 minutes" instead of "12 min"). */
 export function srDuration(minutes: number): string {
+  if (!Number.isFinite(minutes) || minutes < 0) return "less than a minute";
+  // Treat fractional minutes < 1 before rounding (Math.round(0.5) === 1 would wrongly say "1 minute").
+  if (minutes < 1) return "less than a minute";
   const m = Math.round(minutes);
   if (m < 1) return "less than a minute";
   if (m === 1) return "1 minute";

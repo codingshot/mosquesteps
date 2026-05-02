@@ -69,7 +69,7 @@ const BADGE_DEFINITIONS = [
   { id: "distance_100km", category: "distance", name: "Century Pilgrim", description: "Walk a total of 100 km to mosques", icon: "🌍", requirement: "100 km total", target: 100, check: (s: any) => s.totalDistance },
 
   // ── Prayer-specific badges ─────────────────────────────────────────
-  { id: "five_prayers", category: "prayer", name: "Full Day", description: "Walk to all 5 daily prayers in a single day", icon: "🌙", requirement: "5 prayers in one day", target: 5, check: (s: any) => Math.min(Object.keys(s.walksByPrayer || {}).length, 5) },
+  { id: "five_prayers", category: "prayer", name: "Full Day", description: "Walk to all 5 daily prayers in a single day", icon: "🌙", requirement: "5 prayers in one day", target: 5, check: (s: any) => s.bestObligatoryPrayersInOneDay ?? 0 },
   { id: "fajr_hero", category: "prayer", name: "Fajr Hero", description: "Walk to Fajr prayer 10 times", icon: "🌅", requirement: "10 Fajr walks", target: 10, check: (s: any) => s.walksByPrayer?.Fajr || 0 },
   { id: "fajr_master", category: "prayer", name: "Dawn Master", description: "Walk to Fajr prayer 30 times — true devotion", icon: "🌄", requirement: "30 Fajr walks", target: 30, check: (s: any) => s.walksByPrayer?.Fajr || 0 },
   { id: "isha_light", category: "prayer", name: "Isha Light", description: "Walk to Isha prayer 10 times — promised perfect light", icon: "🌃", requirement: "10 Isha walks", target: 10, check: (s: any) => s.walksByPrayer?.Isha || 0 },

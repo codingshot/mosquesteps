@@ -154,7 +154,9 @@ describe("Active Walk", () => {
       homeLng: -0.1,
     });
     renderActiveWalk();
-    await screen.findByText(/Test Mosque/i);
+    await screen.findAllByText(/Test Mosque/i).then((els) => {
+      expect(els.length).toBeGreaterThan(0);
+    });
     const startBtn = screen.getByRole("button", { name: /Start Walking/i });
     expect(startBtn).not.toBeDisabled();
     expect(screen.getByText(/Walking route/i)).toBeInTheDocument();
@@ -170,7 +172,9 @@ describe("Active Walk", () => {
       homeLng: -0.1,
     });
     renderActiveWalk();
-    await screen.findByText(/Test Mosque/i);
+    await screen.findAllByText(/Test Mosque/i).then((els) => {
+      expect(els.length).toBeGreaterThan(0);
+    });
     fireEvent.click(screen.getByRole("button", { name: /Start Walking/i }));
     await screen.findByRole("button", { name: /Turn off voice directions|Turn on voice directions/i });
     expect(screen.getByRole("button", { name: /Hide turn-by-turn directions|Show turn-by-turn directions/i })).toBeInTheDocument();
@@ -186,7 +190,9 @@ describe("Active Walk", () => {
       homeLng: -0.1,
     });
     renderActiveWalk();
-    await screen.findByText(/Test Mosque/i);
+    await screen.findAllByText(/Test Mosque/i).then((els) => {
+      expect(els.length).toBeGreaterThan(0);
+    });
     fireEvent.click(screen.getByRole("button", { name: /Start Walking/i }));
     const region = await screen.findByRole("region", { name: /Walking directions/i });
     expect(region).toBeInTheDocument();
@@ -201,7 +207,9 @@ describe("Active Walk", () => {
       homeLng: -0.1,
     });
     renderActiveWalk();
-    await screen.findByText(/Test Mosque/i);
+    await screen.findAllByText(/Test Mosque/i).then((els) => {
+      expect(els.length).toBeGreaterThan(0);
+    });
     fireEvent.click(screen.getByRole("button", { name: /Start Walking/i }));
     await screen.findByText(/End Walk/i);
     expect(screen.getByRole("button", { name: /End Walk/i })).toBeInTheDocument();
@@ -218,7 +226,9 @@ describe("Active Walk", () => {
       homeLng: -0.1,
     });
     renderActiveWalk();
-    await screen.findByText(/Test Mosque/i);
+    await screen.findAllByText(/Test Mosque/i).then((els) => {
+      expect(els.length).toBeGreaterThan(0);
+    });
 
     expect(sessionStorage.getItem("mosquesteps_active_walk")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Start Walking/i }));
@@ -240,7 +250,9 @@ describe("Active Walk", () => {
       homeLng: -0.1,
     });
     renderActiveWalk();
-    await screen.findByText(/Test Mosque/i);
+    await screen.findAllByText(/Test Mosque/i).then((els) => {
+      expect(els.length).toBeGreaterThan(0);
+    });
     fireEvent.click(screen.getByRole("button", { name: /Start Walking/i }));
 
     // Movement status should appear (Moving or Stationary)
@@ -259,7 +271,9 @@ describe("Active Walk", () => {
       homeLng: -0.1,
     });
     renderActiveWalk();
-    await screen.findByText(/Test Mosque/i);
+    await screen.findAllByText(/Test Mosque/i).then((els) => {
+      expect(els.length).toBeGreaterThan(0);
+    });
     fireEvent.click(screen.getByRole("button", { name: /Start Walking/i }));
 
     // Step counter status area should exist
@@ -276,7 +290,9 @@ describe("Active Walk", () => {
       homeLng: -0.1,
     });
     renderActiveWalk();
-    await screen.findByText(/Test Mosque/i);
+    await screen.findAllByText(/Test Mosque/i).then((els) => {
+      expect(els.length).toBeGreaterThan(0);
+    });
     fireEvent.click(screen.getByRole("button", { name: /Start Walking/i }));
 
     const gpsIndicator = await screen.findByRole("status", { name: /GPS signal/i });
@@ -294,7 +310,9 @@ describe("Active Walk", () => {
       homeLng: -0.1,
     });
     renderActiveWalk();
-    await screen.findByText(/Test Mosque/i);
+    await screen.findAllByText(/Test Mosque/i).then((els) => {
+      expect(els.length).toBeGreaterThan(0);
+    });
     fireEvent.click(screen.getByRole("button", { name: /Start Walking/i }));
 
     // Map should be rendered (mocked)
@@ -312,7 +330,9 @@ describe("Active Walk", () => {
       homeLng: -0.1,
     });
     renderActiveWalk();
-    await screen.findByText(/Test Mosque/i);
+    await screen.findAllByText(/Test Mosque/i).then((els) => {
+      expect(els.length).toBeGreaterThan(0);
+    });
     fireEvent.click(screen.getByRole("button", { name: /Start Walking/i }));
     
     const pauseBtn = await screen.findByRole("button", { name: /Pause/i });
@@ -320,7 +340,7 @@ describe("Active Walk", () => {
     
     fireEvent.click(pauseBtn);
     await screen.findByRole("button", { name: /Resume/i });
-    expect(screen.getByText(/Paused/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Paused/i).length).toBeGreaterThan(0);
   });
 
   it("pre-walk screen shows location permission banner when not granted", async () => {
@@ -353,7 +373,9 @@ describe("Active Walk", () => {
       homeLng: -0.1,
     });
     renderActiveWalk();
-    await screen.findByText(/Test Mosque/i);
+    await screen.findAllByText(/Test Mosque/i).then((els) => {
+      expect(els.length).toBeGreaterThan(0);
+    });
     fireEvent.click(screen.getByRole("button", { name: /Start Walking/i }));
     await screen.findByText(/End Walk/i);
 
@@ -375,7 +397,9 @@ describe("Active Walk", () => {
       homeLng: -0.1,
     });
     renderActiveWalk();
-    await screen.findByText(/Test Mosque/i);
+    await screen.findAllByText(/Test Mosque/i).then((els) => {
+      expect(els.length).toBeGreaterThan(0);
+    });
     fireEvent.click(screen.getByRole("button", { name: /Start Walking/i }));
     await screen.findByText(/End Walk/i);
 

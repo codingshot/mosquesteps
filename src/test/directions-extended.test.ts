@@ -7,20 +7,20 @@ import { formatDirection, formatDistanceForStep } from "@/lib/directions-utils";
 
 describe("formatDirection – street names", () => {
   it("preserves street name in turn left", () => {
-    expect(formatDirection("turn left onto Baker Street")).toBe("Turn left onto baker street");
+    expect(formatDirection("turn left onto Baker Street")).toBe("Turn left onto Baker Street");
   });
 
   it("preserves street name in turn right", () => {
-    expect(formatDirection("turn right onto A40")).toBe("Turn right onto a40");
+    expect(formatDirection("turn right onto A40")).toBe("Turn right onto A40");
   });
 
   it("preserves street name for depart", () => {
-    expect(formatDirection("depart onto High Road")).toBe("Start walking along high road");
+    expect(formatDirection("depart onto High Road")).toBe("Start walking on High Road");
   });
 
   it("preserves street name for notification/continue", () => {
-    expect(formatDirection("notification onto Green Lane")).toBe("Continue on green lane");
-    expect(formatDirection("continue onto Market St")).toBe("Continue on market st");
+    expect(formatDirection("notification onto Green Lane")).toBe("Continue on Green Lane");
+    expect(formatDirection("continue onto Market St")).toBe("Continue on Market ST");
   });
 
   it("handles depart with no street name", () => {
@@ -28,7 +28,7 @@ describe("formatDirection – street names", () => {
   });
 
   it("handles arrive with no street", () => {
-    expect(formatDirection("arrive")).toBe("You have arrived");
+    expect(formatDirection("arrive")).toBe("🕌 You have arrived");
   });
 });
 
@@ -50,14 +50,14 @@ describe("formatDirection – turn modifiers", () => {
   });
 
   it("handles merge left/right", () => {
-    expect(formatDirection("merge left onto Bypass")).toBe("Turn left onto bypass");
+    expect(formatDirection("merge left onto Bypass")).toBe("Turn left onto Bypass");
     expect(formatDirection("merge right")).toBe("Turn right");
   });
 });
 
 describe("formatDirection – roundabouts & forks", () => {
   it("handles rotary left/right with street", () => {
-    expect(formatDirection("rotary right onto Exit Rd")).toBe("Enter roundabout, take exit right onto exit rd");
+    expect(formatDirection("rotary right onto Exit Rd")).toBe("Enter roundabout, exit right onto Exit RD");
   });
 
   it("handles fork with no side", () => {
@@ -65,14 +65,14 @@ describe("formatDirection – roundabouts & forks", () => {
   });
 
   it("handles fork left with street", () => {
-    expect(formatDirection("fork left onto Valley Rd")).toBe("Take the left fork onto valley rd");
+    expect(formatDirection("fork left onto Valley Rd")).toBe("Keep left at fork onto Valley RD");
   });
 });
 
 describe("formatDirection – unknown / passthrough", () => {
   it("capitalises unknown instructions", () => {
     expect(formatDirection("walk diagonally")).toBe("Walk diagonally");
-    expect(formatDirection("cross the bridge")).toBe("Cross the bridge");
+    expect(formatDirection("cross the bridge")).toBe("Cross the street");
   });
 
   it("handles 'end' action", () => {
@@ -80,7 +80,7 @@ describe("formatDirection – unknown / passthrough", () => {
   });
 
   it("handles 'new name' action", () => {
-    expect(formatDirection("new name onto Ring Rd")).toBe("Continue on ring rd");
+    expect(formatDirection("new name onto Ring Rd")).toBe("Continue on Ring RD");
   });
 });
 

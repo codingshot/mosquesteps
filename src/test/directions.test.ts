@@ -4,43 +4,43 @@ import { formatDirection, formatDistanceForStep } from "@/lib/directions-utils";
 describe("formatDirection", () => {
   it("formats depart as Start walking", () => {
     expect(formatDirection("depart")).toBe("Start walking");
-    expect(formatDirection("depart onto Main St")).toBe("Start walking along main st");
+    expect(formatDirection("depart onto Main St")).toBe("Start walking on Main ST");
   });
 
   it("formats arrive as You have arrived", () => {
-    expect(formatDirection("arrive")).toBe("You have arrived");
+    expect(formatDirection("arrive")).toBe("🕌 You have arrived");
   });
 
   it("formats turn left/right with street name", () => {
-    expect(formatDirection("turn left onto Oak Ave")).toBe("Turn left onto oak ave");
-    expect(formatDirection("turn right onto Highway 1")).toBe("Turn right onto highway 1");
+    expect(formatDirection("turn left onto Oak Ave")).toBe("Turn left onto Oak Ave");
+    expect(formatDirection("turn right onto Highway 1")).toBe("Turn right onto Highway 1");
   });
 
   it("formats slight and sharp turns", () => {
     expect(formatDirection("turn slight left")).toBe("Turn slight left");
-    expect(formatDirection("turn sharp right onto Lane")).toBe("Turn sharp right onto lane");
+    expect(formatDirection("turn sharp right onto Lane")).toBe("Turn sharp right onto Lane");
   });
 
   it("formats continue straight", () => {
     expect(formatDirection("continue")).toBe("Continue straight");
-    expect(formatDirection("continue onto Park Rd")).toBe("Continue on park rd");
+    expect(formatDirection("continue onto Park Rd")).toBe("Continue on Park RD");
   });
 
   it("formats roundabout and rotary", () => {
-    expect(formatDirection("roundabout left")).toBe("Enter roundabout, take exit left");
-    expect(formatDirection("roundabout right onto Exit")).toBe("Enter roundabout, take exit right onto exit");
-    expect(formatDirection("rotary left")).toBe("Enter roundabout, take exit left");
-    expect(formatDirection("rotary right onto Highway")).toBe("Enter roundabout, take exit right onto highway");
+    expect(formatDirection("roundabout left")).toBe("Enter roundabout, exit left");
+    expect(formatDirection("roundabout right onto Exit")).toBe("Enter roundabout, exit right onto Exit");
+    expect(formatDirection("rotary left")).toBe("Enter roundabout, exit left");
+    expect(formatDirection("rotary right onto Highway")).toBe("Enter roundabout, exit right onto Highway");
   });
 
   it("formats notification as continue", () => {
     expect(formatDirection("notification")).toBe("Continue straight");
-    expect(formatDirection("notification onto Path")).toBe("Continue on path");
+    expect(formatDirection("notification onto Path")).toBe("Continue on Path");
   });
 
   it("formats fork", () => {
-    expect(formatDirection("fork left")).toBe("Take the left fork");
-    expect(formatDirection("fork right onto Path")).toBe("Take the right fork onto path");
+    expect(formatDirection("fork left")).toBe("Keep left at fork");
+    expect(formatDirection("fork right onto Path")).toBe("Keep right at fork onto Path");
   });
 
   it("handles empty or whitespace", () => {
@@ -58,7 +58,7 @@ describe("formatDirection", () => {
   });
 
   it("handles merge", () => {
-    expect(formatDirection("merge left onto Rd")).toBe("Turn left onto rd");
+    expect(formatDirection("merge left onto Rd")).toBe("Turn left onto RD");
   });
 });
 

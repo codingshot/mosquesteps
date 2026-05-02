@@ -3,6 +3,8 @@ import { fetchWalkingRoute } from "@/lib/routing";
 
 describe("routing / directions", () => {
   beforeEach(() => {
+    localStorage.removeItem("mosquesteps_route_cache");
+    vi.stubGlobal("navigator", { ...navigator, onLine: true });
     vi.stubGlobal("fetch", vi.fn());
   });
 

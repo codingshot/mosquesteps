@@ -188,16 +188,16 @@ describe("Accessibility", () => {
   });
 
   it("focuses elements by ID", () => {
+    vi.useFakeTimers();
     const button = document.createElement("button");
     button.id = "test-button";
     document.body.appendChild(button);
-    
+
     const focusSpy = vi.spyOn(button, "focus");
     focusElement("test-button", 0);
-    
-    setTimeout(() => {
-      expect(focusSpy).toHaveBeenCalled();
-    }, 10);
+    vi.runAllTimers();
+    expect(focusSpy).toHaveBeenCalled();
+    vi.useRealTimers();
   });
 
   it("formats distances for screen readers", () => {

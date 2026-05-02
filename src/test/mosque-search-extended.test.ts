@@ -7,6 +7,7 @@ import { searchNearbyMosques, haversineKm } from "@/lib/mosque-search";
 
 describe("Mosque search — name variation coverage", () => {
   beforeEach(() => {
+    sessionStorage.clear();
     vi.stubGlobal("fetch", vi.fn());
   });
   afterEach(() => vi.restoreAllMocks());

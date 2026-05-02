@@ -25,6 +25,9 @@ export interface SavedMosque {
   openingHours?: string;
 }
 
+/** The five daily prayers counted for the "Full Day" badge. */
+export const OBLIGATORY_PRAYER_NAMES = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"] as const;
+
 export interface WalkingStats {
   totalSteps: number;
   totalDistance: number;
@@ -33,6 +36,8 @@ export interface WalkingStats {
   currentStreak: number;
   longestStreak: number;
   walksByPrayer: Record<string, number>;
+  /** Max number of distinct obligatory prayers walked on one local calendar day (for Full Day badge). */
+  bestObligatoryPrayersInOneDay: number;
   // Extended special tracking
   ramadanWalks: number;
   fridayWalks: number;
@@ -340,6 +345,27 @@ export function getWalkingStats(): WalkingStats {
     const y = d.getFullYear(), m = d.getMonth(), day = d.getDate();
     return `${y}-${String(m + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   };
+
+  const obligatorySet = new Set<string>(OBLIGATORY_PRAYER_NAMES);
+  const prayersByLocalDay = new Map<string, Set<string>>();
+  for (const e of history) {
+    const dayKey = toLocalDateKey(e.date);
+    if (!dayKey) continue;
+    let set = prayersByLocalDay.get(dayKey);
+    if (!set) {
+      set = new Set();
+      prayersByLocalDay.set(dayKey, set);
+    }
+    set.add(e.prayer);
+  }
+  let bestObligatoryPrayersInOneDay = 0;
+  for (const set of prayersByLocalDay.values()) {
+    let count = 0;
+    for (const name of obligatorySet) {
+      if (set.has(name)) count++;
+    }
+    if (count > bestObligatoryPrayersInOneDay) bestObligatoryPrayersInOneDay = count;
+  }
   const today = new Date();
 
   const uniqueDates = [...new Set(history.map((e) => toLocalDateKey(e.date)).filter((k): k is string => k != null))].sort().reverse();
@@ -422,6 +448,7 @@ export function getWalkingStats(): WalkingStats {
     currentStreak,
     longestStreak,
     walksByPrayer,
+    bestObligatoryPrayersInOneDay,
     ramadanWalks,
     fridayWalks,
     fajrThisWeek,

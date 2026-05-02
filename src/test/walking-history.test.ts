@@ -83,6 +83,7 @@ describe("walking-history", () => {
       expect(stats.currentStreak).toBe(0);
       expect(stats.longestStreak).toBe(0);
       expect(stats.walksByPrayer).toEqual({});
+      expect(stats.bestObligatoryPrayersInOneDay).toBe(0);
     });
 
     it("ignores malformed dates for streak calculation", () => {
@@ -118,6 +119,39 @@ describe("walking-history", () => {
       const stats = getWalkingStats();
       expect(stats.walksByPrayer["Fajr"]).toBe(2);
       expect(stats.walksByPrayer["Isha"]).toBe(1);
+    });
+
+    it("bestObligatoryPrayersInOneDay is 5 when all five daily prayers logged the same local day", () => {
+      const day = "2026-03-01";
+      addWalkEntry({ date: `${day}T08:00:00.000Z`, mosqueName: "M", distanceKm: 0.5, steps: 100, walkingTimeMin: 5, hasanat: 200, prayer: "Fajr" });
+      addWalkEntry({ date: `${day}T12:00:00.000Z`, mosqueName: "M", distanceKm: 0.5, steps: 100, walkingTimeMin: 5, hasanat: 200, prayer: "Dhuhr" });
+      addWalkEntry({ date: `${day}T15:00:00.000Z`, mosqueName: "M", distanceKm: 0.5, steps: 100, walkingTimeMin: 5, hasanat: 200, prayer: "Asr" });
+      addWalkEntry({ date: `${day}T18:00:00.000Z`, mosqueName: "M", distanceKm: 0.5, steps: 100, walkingTimeMin: 5, hasanat: 200, prayer: "Maghrib" });
+      addWalkEntry({ date: `${day}T21:00:00.000Z`, mosqueName: "M", distanceKm: 0.5, steps: 100, walkingTimeMin: 5, hasanat: 200, prayer: "Isha" });
+      const stats = getWalkingStats();
+      expect(stats.bestObligatoryPrayersInOneDay).toBe(5);
+    });
+
+    it("bestObligatoryPrayersInOneDay does not count five prayers spread across different days", () => {
+      addWalkEntry({ date: "2026-04-01T10:00:00.000Z", mosqueName: "M", distanceKm: 0.5, steps: 100, walkingTimeMin: 5, hasanat: 200, prayer: "Fajr" });
+      addWalkEntry({ date: "2026-04-02T10:00:00.000Z", mosqueName: "M", distanceKm: 0.5, steps: 100, walkingTimeMin: 5, hasanat: 200, prayer: "Dhuhr" });
+      addWalkEntry({ date: "2026-04-03T10:00:00.000Z", mosqueName: "M", distanceKm: 0.5, steps: 100, walkingTimeMin: 5, hasanat: 200, prayer: "Asr" });
+      addWalkEntry({ date: "2026-04-04T10:00:00.000Z", mosqueName: "M", distanceKm: 0.5, steps: 100, walkingTimeMin: 5, hasanat: 200, prayer: "Maghrib" });
+      addWalkEntry({ date: "2026-04-05T10:00:00.000Z", mosqueName: "M", distanceKm: 0.5, steps: 100, walkingTimeMin: 5, hasanat: 200, prayer: "Isha" });
+      const stats = getWalkingStats();
+      expect(Object.keys(stats.walksByPrayer)).toHaveLength(5);
+      expect(stats.bestObligatoryPrayersInOneDay).toBe(1);
+    });
+
+    it("bestObligatoryPrayersInOneDay counts only obligatory five (Jumuah same day does not substitute)", () => {
+      const day = "2026-05-10";
+      addWalkEntry({ date: `${day}T08:00:00.000Z`, mosqueName: "M", distanceKm: 0.5, steps: 100, walkingTimeMin: 5, hasanat: 200, prayer: "Fajr" });
+      addWalkEntry({ date: `${day}T12:00:00.000Z`, mosqueName: "M", distanceKm: 0.5, steps: 100, walkingTimeMin: 5, hasanat: 200, prayer: "Dhuhr" });
+      addWalkEntry({ date: `${day}T15:00:00.000Z`, mosqueName: "M", distanceKm: 0.5, steps: 100, walkingTimeMin: 5, hasanat: 200, prayer: "Asr" });
+      addWalkEntry({ date: `${day}T18:00:00.000Z`, mosqueName: "M", distanceKm: 0.5, steps: 100, walkingTimeMin: 5, hasanat: 200, prayer: "Maghrib" });
+      addWalkEntry({ date: `${day}T12:30:00.000Z`, mosqueName: "M", distanceKm: 0.5, steps: 100, walkingTimeMin: 5, hasanat: 200, prayer: "Jumuah" });
+      const stats = getWalkingStats();
+      expect(stats.bestObligatoryPrayersInOneDay).toBe(4);
     });
   });
 });
